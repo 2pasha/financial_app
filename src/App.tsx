@@ -4,7 +4,7 @@ import { AddCategoryDialog } from "./components/AddCategoryDialog";
 import { EditCategoryDialog } from "./components/EditCategoryDialog";
 import { Button } from "./components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./components/ui/alert-dialog";
-import { Plus, Wallet, Moon, Sun, Languages, Trash2 } from "lucide-react";
+import { Plus, Moon, Sun, Languages, Trash2 } from "lucide-react";
 import { type Language, getTranslation } from "./lib/translations";
 import { toast } from "sonner";
 import { IncomeDialog, type IncomeItem } from "./components/IncomeDialog";
@@ -246,7 +246,7 @@ export default function App() {
         <div className="max-w-6xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Wallet className="w-6 h-6" />
+              <img src="/favicon.png" alt="Moneta" className="w-8 h-8 coin-logo cursor-pointer" />
               <h1>{t.appTitle}</h1>
             </div>
             <div className="flex items-center gap-2">

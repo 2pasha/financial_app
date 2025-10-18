@@ -187,3 +187,21 @@
 html {
   font-size: var(--font-size);
 }
+
+/* Coin spin animation */
+@keyframes coin-spin {
+  0% {
+    transform: rotateY(0deg);
+  }
+  100% {
+    transform: rotateY(360deg);
+  }
+}
+
+.coin-logo {
+  transition: transform 0.3s ease;
+}
+
+.coin-logo:hover {
+  animation: coin-spin 0.8s ease-in-out;
+}

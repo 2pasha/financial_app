@@ -2,7 +2,7 @@ export type Language = 'en' | 'uk';
 
 export const translations = {
   en: {
-    appTitle: 'Budget Tracker',
+    appTitle: 'Moneta',
     totalBalance: 'Total Balance',
     budget: 'Budget',
     spent: 'Spent',
