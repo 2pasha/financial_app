@@ -295,7 +295,7 @@ export type Transaction = {
   id: string;
   amount: number;
   description: string;
-  date: Date;
+  date: string; // ISO 8601 date string (e.g., "2025-11-04T10:30:00.000Z")
 };
 
 export type User = {
@@ -344,9 +344,27 @@ export function isTransaction(obj: any): obj is Transaction {
     typeof obj === 'object' &&
     typeof obj.id === 'string' &&
     typeof obj.amount === 'number' &&
-    typeof obj.description === 'string'
+    typeof obj.description === 'string' &&
+    typeof obj.date === 'string'
   );
 }
+
+// Date Serialization Utilities
+export const DateUtils = {
+  toISOString(date: Date): string {
+    return date.toISOString();
+  },
+  fromISOString(isoString: string): Date {
+    return new Date(isoString);
+  },
+  now(): string {
+    return new Date().toISOString();
+  },
+  isValidISOString(value: string): boolean {
+    const date = new Date(value);
+    return !isNaN(date.getTime()) && date.toISOString() === value;
+  },
+};
 ```
 
 **Usage in API**:
@@ -379,6 +397,55 @@ export function TransactionForm() {
   
   // Form implementation
 }
+```
+
+**Date Serialization Best Practices**:
+```typescript
+// API: Converting database Date objects to JSON-safe strings
+import { Transaction, DateUtils } from '@financial-app/common-types';
+
+// When reading from database (e.g., MongoDB, PostgreSQL)
+async function getTransactionFromDB(id: string): Promise<Transaction> {
+  const dbRecord = await db.transactions.findOne({ id });
+  
+  return {
+    id: dbRecord.id,
+    amount: dbRecord.amount,
+    description: dbRecord.description,
+    date: DateUtils.toISOString(dbRecord.date), // Convert Date to ISO string
+  };
+}
+
+// When saving to database
+async function saveTransaction(transaction: Transaction) {
+  await db.transactions.insert({
+    ...transaction,
+    date: DateUtils.fromISOString(transaction.date), // Convert ISO string to Date
+  });
+}
+
+// Frontend: Working with dates in the UI
+import { Transaction, DateUtils } from '@financial-app/common-types';
+
+function TransactionDisplay({ transaction }: { transaction: Transaction }) {
+  // Convert ISO string to Date object for display/manipulation
+  const date = DateUtils.fromISOString(transaction.date);
+  
+  return (
+    <div>
+      <p>Date: {date.toLocaleDateString()}</p>
+      <p>Time: {date.toLocaleTimeString()}</p>
+    </div>
+  );
+}
+
+// Creating new transactions with current timestamp
+const newTransaction: Transaction = {
+  id: crypto.randomUUID(),
+  amount: 100,
+  description: 'Purchase',
+  date: DateUtils.now(), // Current timestamp as ISO string
+};
 ```
 
 **Key Commands**:

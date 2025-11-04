@@ -2,8 +2,7 @@
 
 A modern financial management application built with React, TypeScript, and Vite.
 
-  This is a code bundle for Financial App Design. The original project is available at 
-https://www.figma.com/design/6oovoGakiaYi3loN7GiXwG/Financial-App-Design.
+  This is a code bundle for Financial App Design. The original project is available at [Figma](https://www.figma.com/design/6oovoGakiaYi3loN7GiXwG/Financial-App-Design)
 
 [![CI/CD Pipeline](https://github.com/[YourUsername]/[YourRepoName]/actions/workflows/ci.yml/badge.svg)](https://github.com/[YourUsername]/[YourRepoName]/actions/workflows/ci.yml)
 
