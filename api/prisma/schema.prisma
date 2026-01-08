@@ -1,0 +1,68 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String          @id @default(uuid())
+  clerkId         String          @unique
+  email           String          @unique
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  monobankToken   MonobankToken?
+  accounts        Account[]
+  transactions    Transaction[]
+}
+
+model MonobankToken {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  id           String        @id @default(uuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id])
+  accountId    String        // Monobank account ID
+  balance      BigInt
+  currency     Int
+  type         String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  transactions Transaction[]
+  
+  @@unique([userId, accountId])
+}
+
+model Transaction {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  accountId      String
+  account        Account  @relation(fields: [accountId], references: [id])
+  monobankId     String   @unique // Monobank transaction ID
+  time           DateTime
+  description    String
+  amount         BigInt
+  balance        BigInt
+  currency       Int
+  mcc            Int?
+  originalMcc    Int?
+  hold           Boolean
+  commissionRate BigInt?
+  cashbackAmount BigInt?
+  createdAt      DateTime @default(now())
+  
+  @@index([userId, time])
+}
