@@ -3,4 +3,5 @@ export class SyncResponseDto {
   message: string;
   accountsCount: number;
   transactionsCount: number;
+  fallbackTo31Days?: boolean;
 }

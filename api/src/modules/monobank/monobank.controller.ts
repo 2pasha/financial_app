@@ -35,9 +35,19 @@ export class MonobankController {
     );
   }
 
+  @Get('token/status')
+  async checkTokenStatus(@CurrentUser() user: CurrentUserData) {
+    return this.monobankService.checkTokenStatus(user.clerkId);
+  }
+
   @Post('sync')
   async syncTransactions(@CurrentUser() user: CurrentUserData) {
     return this.monobankService.syncTransactions(user.clerkId);
+  }
+
+  @Post('sync/incremental')
+  async syncIncrementalTransactions(@CurrentUser() user: CurrentUserData) {
+    return this.monobankService.syncIncrementalTransactions(user.clerkId);
   }
 
   @Get('transactions')

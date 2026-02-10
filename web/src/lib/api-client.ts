@@ -42,8 +42,18 @@ export const monobankApi = {
     return response.data;
   },
 
+  async checkTokenStatus(): Promise<API.TokenStatusResponse> {
+    const response = await apiClient.get<API.TokenStatusResponse>('/monobank/token/status');
+    return response.data;
+  },
+
   async syncTransactions(): Promise<API.SyncResponse> {
     const response = await apiClient.post<API.SyncResponse>('/monobank/sync');
+    return response.data;
+  },
+
+  async syncIncremental(): Promise<API.SyncResponse> {
+    const response = await apiClient.post<API.SyncResponse>('/monobank/sync/incremental');
     return response.data;
   },
 

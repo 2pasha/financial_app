@@ -1,28 +1,35 @@
 import { useEffect, useMemo, useState } from "react";
+import { monobankApi } from "../lib/api-client";
+import { AddTokenModal } from "../components/monobank/AddTokenModal";
+import { SortableTableHead } from "../components/monobank/SortableTableHead";
+import { MultiSelectFilter } from "../components/monobank/MultiSelectFilter";
+import { AmountFilter, type AmountFilterValue } from "../components/monobank/AmountFilter";
+import { DateRangeFilter, type DateRangeValue } from "../components/monobank/DateRangeFilter";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
+import { Loader2, RefreshCw, AlertCircle, DollarSign, ChevronLeft, ChevronRight } from "lucide-react";
+import { toast } from "sonner";
 
 type MonoTxn = {
   id: string;
-  time: number;
+  time: string; // ISO string from DB
   description: string;
-  mcc: number;
-  originalMcc: number;
-  hold: boolean | null;
+  mcc: number | null;
+  originalMcc: number | null;
+  hold: boolean;
   amount: number; // negative = expense in minor units (e.g., cents)
-  operationAmount: number;
-  currencyCode: number; // 980=UAH
-  commissionRate: number | null;
+  currency: number; // currencyCode from DB
+  commissionRate: number;
   cashbackAmount: number;
   balance: number;
-  comment?: string;
-  receiptId?: string;
-  invoiceId?: string;
-  counterEdrpou?: string;
-  counterIban?: string;
-  counterName?: string;
+  account?: {
+    id: string;
+    type: string;
+  };
 };
 
 // Popular MCC codes mapped to human-readable names (source: mcc.in.ua)
@@ -87,17 +94,6 @@ function mccUrl(mcc: number) {
   return `https://mcc.in.ua/ua/mccs#${mcc}`;
 }
 
-function formatDateInput(date: Date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
-function toUnix(dateStr: string) {
-  return Math.floor(new Date(dateStr + 'T00:00:00Z').getTime() / 1000);
-}
-
 function currencySymbolFromCode(code: number) {
   switch (code) {
     case 980: return '₴'; // UAH
@@ -108,125 +104,615 @@ function currencySymbolFromCode(code: number) {
   }
 }
 
+function formatCardType(accountType: string, accountId: string): string {
+  const typeMap: Record<string, string> = {
+    'black': '💳 Black',
+    'white': '💳 White',
+    'platinum': '💎 Platinum',
+    'iron': '⚡ Iron',
+    'fop': '💼 FOP',
+    'yellow': '🟡 Yellow',
+  };
+  
+  const displayType = typeMap[accountType.toLowerCase()] || `💳 ${accountType}`;
+  const shortId = accountId ? `••${accountId.slice(-4)}` : '';
+  return `${displayType} ${shortId}`.trim();
+}
+
 export default function ExpensesPage() {
-  const [account, setAccount] = useState<string>(() => localStorage.getItem('monoAccount') || '');
-  const [from, setFrom] = useState<string>(() => localStorage.getItem('monoFrom') || formatDateInput(new Date(Date.now() - 7 * 24 * 3600 * 1000)));
-  const [to, setTo] = useState<string>(() => localStorage.getItem('monoTo') || formatDateInput(new Date()));
-  const [loading, setLoading] = useState(false);
+  const [tokenStatus, setTokenStatus] = useState<{
+    hasToken: boolean;
+    hasTransactions: boolean;
+    transactionCount: number;
+    lastTransactionDate: string | null;
+  } | null>(null);
+  
+  const [showTokenModal, setShowTokenModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setIsSyncing] = useState(false);
+  const [refetching, setRefetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [txns, setTxns] = useState<MonoTxn[]>([]);
   const [mccCatalog, setMccCatalog] = useState<Record<number, string>>({});
+  
+  // Sorting state
+  const [sortColumn, setSortColumn] = useState<string | null>('date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  
+  // Filtering state
+  const [filters, setFilters] = useState({
+    name: '',
+    categories: [] as string[],
+    amount: { mode: null, value: null } as AmountFilterValue,
+    dateRange: { from: null, to: null } as DateRangeValue,
+    cards: [] as string[],
+  });
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
 
+  // Load MCC catalog
   useEffect(() => {
     loadMccCatalog().then(setMccCatalog);
   }, []);
+
+  // Check token status on mount
   useEffect(() => {
-    localStorage.setItem('monoAccount', account);
-  }, [account]);
-  useEffect(() => {
-    localStorage.setItem('monoFrom', from);
-  }, [from]);
-  useEffect(() => {
-    localStorage.setItem('monoTo', to);
-  }, [to]);
+    checkStatus();
+  }, []);
 
-  const token = import.meta.env.VITE_MONOBANK_TOKEN as string | undefined;
-
-  const groupedByMcc = useMemo(() => {
-    const groups: Record<string, { amount: number; items: MonoTxn[] }> = {};
-    for (const t of txns) {
-      const key = String(t.mcc || 'unknown');
-      const entry = groups[key] || { amount: 0, items: [] };
-      entry.amount += t.amount; // negative for expenses
-      entry.items.push(t);
-      groups[key] = entry;
-    }
-    return groups;
-  }, [txns]);
-
-  const totalExpense = useMemo(() => {
-    return txns.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0);
-  }, [txns]);
-
-  const fetchTxns = async () => {
-    if (!token) {
-      setError('Missing VITE_MONOBANK_TOKEN');
-      return;
-    }
-    const acct = account && account.trim().length > 0 ? account.trim() : '0';
+  const checkStatus = async () => {
     setLoading(true);
-    setError(null);
     try {
-      const url = `https://api.monobank.ua/personal/statement/${encodeURIComponent(acct)}/${toUnix(from)}/${toUnix(to)}`;
-      const res = await fetch(url, {
-        headers: { 'X-Token': token },
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`HTTP ${res.status}: ${text}`);
+      const status = await monobankApi.checkTokenStatus();
+      setTokenStatus(status);
+
+      if (!status.hasToken) {
+        setShowTokenModal(true);
+      } else if (status.hasTransactions) {
+        await loadTransactions();
       }
-      const data = (await res.json()) as MonoTxn[];
-      setTxns(data || []);
-    } catch (e: any) {
-      setError(e.message || 'Failed to fetch');
+    } catch (err: any) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
+  const loadTransactions = async () => {
+    try {
+      const data = await monobankApi.getTransactions({ 
+        page: 1, 
+        limit: 10000 
+      });
+      setTxns(data.transactions || []);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const handleTokenSaved = async () => {
+    setShowTokenModal(false);
+    setIsSyncing(true);
+    
+    try {
+      toast.info('Starting initial sync...', { duration: 2000 });
+      const result = await monobankApi.syncTransactions();
+      toast.success(`Synced ${result.transactionsCount} transactions!`);
+      
+      await checkStatus();
+    } catch (err: any) {
+      toast.error('Sync failed: ' + err.message);
+      setError(err.message);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleRefetch = async () => {
+    setRefetching(true);
+    setError(null);
+
+    try {
+      toast.info('Fetching new transactions...');
+      const result = await monobankApi.syncIncremental();
+      
+      if (result.fallbackTo31Days) {
+        // Period exceeded 31 days, fetched last 31 days instead
+        toast.success(
+          `Fetched ${result.transactionsCount} transactions from the last 31 days (Monobank API limit)`,
+          { duration: 5000 }
+        );
+      } else if (result.transactionsCount > 0) {
+        toast.success(`Found ${result.transactionsCount} new transactions!`);
+      } else {
+        toast.info('No new transactions found');
+      }
+      
+      await loadTransactions();
+      await checkStatus();
+    } catch (err: any) {
+      toast.error('Refetch failed: ' + err.message);
+      setError(err.message);
+    } finally {
+      setRefetching(false);
+    }
+  };
+
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('desc');
+    }
+  };
+
+  // Sorting logic
+  const sortedTransactions = useMemo(() => {
+    if (!sortColumn) return txns;
+
+    return [...txns].sort((a, b) => {
+      let aVal: any;
+      let bVal: any;
+
+      switch (sortColumn) {
+        case 'name':
+          aVal = a.description.toLowerCase();
+          bVal = b.description.toLowerCase();
+          break;
+        case 'category':
+          aVal = mccName(a.mcc || 0, mccCatalog);
+          bVal = mccName(b.mcc || 0, mccCatalog);
+          break;
+        case 'amount':
+          aVal = a.amount;
+          bVal = b.amount;
+          break;
+        case 'date':
+          aVal = new Date(a.time).getTime();
+          bVal = new Date(b.time).getTime();
+          break;
+        case 'card':
+          aVal = a.account?.type || '';
+          bVal = b.account?.type || '';
+          break;
+        default:
+          return 0;
+      }
+
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [txns, sortColumn, sortDirection, mccCatalog]);
+
+  // Filtering logic
+  const filteredTransactions = useMemo(() => {
+    return sortedTransactions.filter((tx) => {
+      // Name filter (text)
+      const matchesName = tx.description
+        .toLowerCase()
+        .includes(filters.name.toLowerCase());
+      
+      // Category filter (multi-select)
+      const matchesCategory = filters.categories.length === 0 || 
+        filters.categories.includes(String(tx.mcc || 0));
+      
+      // Amount filter (comparison mode)
+      let matchesAmount = true;
+      if (filters.amount.mode && filters.amount.value !== null) {
+        const txAmount = Math.abs(tx.amount / 100);
+        switch (filters.amount.mode) {
+          case 'greater':
+            matchesAmount = txAmount > filters.amount.value;
+            break;
+          case 'less':
+            matchesAmount = txAmount < filters.amount.value;
+            break;
+          case 'equal':
+            matchesAmount = Math.abs(txAmount - filters.amount.value) < 0.01; // floating point tolerance
+            break;
+        }
+      }
+      
+      // Date range filter
+      let matchesDate = true;
+      if (filters.dateRange.from || filters.dateRange.to) {
+        const txDate = new Date(tx.time);
+        if (filters.dateRange.from) {
+          const fromDate = new Date(filters.dateRange.from);
+          fromDate.setHours(0, 0, 0, 0);
+          matchesDate = matchesDate && txDate >= fromDate;
+        }
+        if (filters.dateRange.to) {
+          const toDate = new Date(filters.dateRange.to);
+          toDate.setHours(23, 59, 59, 999);
+          matchesDate = matchesDate && txDate <= toDate;
+        }
+      }
+      
+      // Card filter (multi-select)
+      const matchesCard = filters.cards.length === 0 || 
+        filters.cards.includes(tx.account?.type || '');
+
+      return matchesName && matchesCategory && matchesAmount && matchesDate && matchesCard;
+    });
+  }, [sortedTransactions, filters, mccCatalog]);
+
+  // Pagination logic
+  const paginatedTransactions = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    return filteredTransactions.slice(start, end);
+  }, [filteredTransactions, currentPage, itemsPerPage]);
+
+  // Extract unique categories and cards for filter dropdowns
+  const categoryOptions = useMemo(() => {
+    const uniqueMccs = new Set(txns.map(t => t.mcc || 0));
+    return Array.from(uniqueMccs)
+      .sort((a, b) => a - b)
+      .map(mcc => ({
+        value: String(mcc),
+        label: mccName(mcc, mccCatalog),
+      }));
+  }, [txns, mccCatalog]);
+
+  const cardOptions = useMemo(() => {
+    const uniqueCards = new Set(txns.map(t => t.account?.type).filter(Boolean));
+    return Array.from(uniqueCards)
+      .sort()
+      .map(type => ({
+        value: type as string,
+        label: formatCardType(type as string, ''),
+      }));
+  }, [txns]);
+
+  // Statistics
+  const totalExpense = useMemo(() => {
+    return filteredTransactions.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0);
+  }, [filteredTransactions]);
+
+  const totalIncome = useMemo(() => {
+    return filteredTransactions.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+  }, [filteredTransactions]);
+
+  const uniqueCategories = useMemo(() => {
+    return new Set(filteredTransactions.map(t => t.mcc)).size;
+  }, [filteredTransactions]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters]);
+
+  // Check if any filters are active
+  const hasActiveFilters = useMemo(() => {
+    return (
+      filters.name !== '' ||
+      filters.categories.length > 0 ||
+      (filters.amount.mode !== null && filters.amount.value !== null) ||
+      filters.dateRange.from !== null ||
+      filters.dateRange.to !== null ||
+      filters.cards.length > 0
+    );
+  }, [filters]);
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setFilters({
+      name: '',
+      categories: [],
+      amount: { mode: null, value: null },
+      dateRange: { from: null, to: null },
+      cards: [],
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 py-6 flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (syncing) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 py-6">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-col items-center justify-center py-12">
+              <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Syncing Your Transactions</h3>
+              <p className="text-muted-foreground text-center max-w-md">
+                This may take several minutes due to Monobank API rate limits. 
+                Please don't close this page.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
-      <Card>
-        <CardHeader>
-          <CardTitle>Expenses</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-xs text-muted-foreground mb-3">
-            Source: <a className="underline" href="https://mcc.in.ua/ua/mccs" target="_blank" rel="noreferrer">mcc.in.ua</a>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-            <div>
-              <Label>Account</Label>
-              <Input value={account} onChange={e => setAccount(e.target.value)} placeholder="XXXXXXXX" />
-            </div>
-            <div>
-              <Label>From</Label>
-              <Input type="date" value={from} onChange={e => setFrom(e.target.value)} />
-            </div>
-            <div>
-              <Label>To</Label>
-              <Input type="date" value={to} onChange={e => setTo(e.target.value)} />
-            </div>
-            <div className="flex items-end">
-              <Button onClick={fetchTxns} disabled={loading}>{loading ? 'Loading...' : 'Fetch'}</Button>
-            </div>
-          </div>
+    <>
+      <AddTokenModal 
+        open={showTokenModal} 
+        onSuccess={handleTokenSaved} 
+      />
 
-          {error && <div className="text-destructive mb-4">{error}</div>}
-
-          <div className="mb-4">
-            <span className="text-muted-foreground">Total expenses:</span>{' '}
-            <span className="font-medium">
-              {currencySymbolFromCode(980)}{Math.abs(totalExpense / 100).toLocaleString()}
-            </span>
-          </div>
-
-          <div className="space-y-4">
-            {Object.entries(groupedByMcc).map(([mcc, info]) => (
-              <div key={mcc} className="border rounded-lg p-4">
-                <div className="flex justify-between">
-                  <div>
-                    <a className="underline" href={mccUrl(Number(mcc))} target="_blank" rel="noreferrer">{mccName(Number(mcc), mccCatalog)}</a>
-                  </div>
-                  <div className="font-medium">{currencySymbolFromCode(980)}{Math.abs(info.amount / 100).toLocaleString()}</div>
-                </div>
-                <div className="mt-2 text-sm text-muted-foreground">{info.items.length} transactions</div>
+      <div className="max-w-6xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Expenses</CardTitle>
+                {tokenStatus && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {tokenStatus.transactionCount} transactions
+                    {tokenStatus.lastTransactionDate && (
+                      <> • Last: {new Date(tokenStatus.lastTransactionDate).toLocaleDateString()}</>
+                    )}
+                  </p>
+                )}
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+              <Button
+                onClick={handleRefetch}
+                disabled={refetching || !tokenStatus?.hasToken}
+                size="sm"
+                variant="outline"
+                className="gap-2"
+              >
+                {refetching ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                Refetch New
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            {txns.length === 0 ? (
+              <div className="text-center py-12">
+                <DollarSign className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">
+                  No transactions yet. Sync your Monobank account to see expenses.
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Clear Filters Button */}
+                {hasActiveFilters && (
+                  <div className="mb-4 flex justify-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={clearAllFilters}
+                      className="gap-2"
+                    >
+                      <AlertCircle className="h-4 w-4" />
+                      Clear All Filters
+                    </Button>
+                  </div>
+                )}
+
+                {/* Statistics Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="text-sm text-muted-foreground">Total Expenses</div>
+                      <div className="text-2xl font-bold text-red-600">
+                        {currencySymbolFromCode(980)}
+                        {Math.abs(totalExpense / 100).toLocaleString()}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="text-sm text-muted-foreground">Total Income</div>
+                      <div className="text-2xl font-bold text-green-600">
+                        {currencySymbolFromCode(980)}
+                        {Math.abs(totalIncome / 100).toLocaleString()}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="text-sm text-muted-foreground">Transactions</div>
+                      <div className="text-2xl font-bold">
+                        {filteredTransactions.length}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="text-sm text-muted-foreground">Categories</div>
+                      <div className="text-2xl font-bold">
+                        {uniqueCategories}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Table */}
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <SortableTableHead 
+                          column="name" 
+                          label="Name" 
+                          currentSort={sortColumn}
+                          sortDirection={sortDirection}
+                          onSort={handleSort}
+                        />
+                        <SortableTableHead 
+                          column="category" 
+                          label="Category" 
+                          currentSort={sortColumn}
+                          sortDirection={sortDirection}
+                          onSort={handleSort}
+                        />
+                        <SortableTableHead 
+                          column="amount" 
+                          label="Amount" 
+                          currentSort={sortColumn}
+                          sortDirection={sortDirection}
+                          onSort={handleSort}
+                        />
+                        <SortableTableHead 
+                          column="date" 
+                          label="Date" 
+                          currentSort={sortColumn}
+                          sortDirection={sortDirection}
+                          onSort={handleSort}
+                        />
+                        <SortableTableHead 
+                          column="card" 
+                          label="Card" 
+                          currentSort={sortColumn}
+                          sortDirection={sortDirection}
+                          onSort={handleSort}
+                        />
+                      </TableRow>
+                      
+                      {/* Filter Row */}
+                      <TableRow>
+                        <TableHead>
+                          <Input
+                            placeholder="Filter name..."
+                            value={filters.name}
+                            onChange={(e) => setFilters({...filters, name: e.target.value})}
+                            className="h-8"
+                          />
+                        </TableHead>
+                        <TableHead>
+                          <MultiSelectFilter
+                            options={categoryOptions}
+                            selected={filters.categories}
+                            onChange={(categories) => setFilters({...filters, categories})}
+                            placeholder="Filter categories..."
+                          />
+                        </TableHead>
+                        <TableHead>
+                          <AmountFilter
+                            filter={filters.amount}
+                            onChange={(amount) => setFilters({...filters, amount})}
+                          />
+                        </TableHead>
+                        <TableHead>
+                          <DateRangeFilter
+                            filter={filters.dateRange}
+                            onChange={(dateRange) => setFilters({...filters, dateRange})}
+                          />
+                        </TableHead>
+                        <TableHead>
+                          <MultiSelectFilter
+                            options={cardOptions}
+                            selected={filters.cards}
+                            onChange={(cards) => setFilters({...filters, cards})}
+                            placeholder="Filter cards..."
+                          />
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    
+                    <TableBody>
+                      {paginatedTransactions.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                            No transactions match your filters
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        paginatedTransactions.map((tx) => (
+                          <TableRow key={tx.id}>
+                            <TableCell className="font-medium">{tx.description}</TableCell>
+                            <TableCell>
+                              <a 
+                                href={mccUrl(tx.mcc || 0)} 
+                                target="_blank" 
+                                rel="noreferrer"
+                                className="text-primary hover:underline"
+                              >
+                                {mccName(tx.mcc || 0, mccCatalog)}
+                              </a>
+                            </TableCell>
+                            <TableCell className={tx.amount < 0 ? 'text-red-600' : 'text-green-600'}>
+                              <span className="font-semibold">
+                                {tx.amount > 0 ? '+' : ''}
+                                {currencySymbolFromCode(tx.currency)}
+                                {Math.abs(tx.amount / 100).toLocaleString()}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {new Date(tx.time).toLocaleString()}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">
+                                {formatCardType(tx.account?.type || '', tx.account?.id || '')}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Pagination */}
+                <div className="flex items-center justify-between mt-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {filteredTransactions.length === 0 ? 0 : ((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredTransactions.length)} of {filteredTransactions.length}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
+                    </Button>
+                    <div className="flex items-center px-3 text-sm">
+                      Page {currentPage} of {Math.max(1, Math.ceil(filteredTransactions.length / itemsPerPage))}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => p + 1)}
+                      disabled={currentPage * itemsPerPage >= filteredTransactions.length}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="text-xs text-muted-foreground mt-4">
+                  MCC Source: <a className="underline" href="https://mcc.in.ua/ua/mccs" target="_blank" rel="noreferrer">mcc.in.ua</a>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </>
   );
 }
 

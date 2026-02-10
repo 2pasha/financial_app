@@ -766,6 +766,10 @@
     overflow-y: auto;
   }
 
+  .overflow-scroll {
+    overflow: scroll;
+  }
+
   .rounded-full {
     border-radius: 3.40282e38px;
   }

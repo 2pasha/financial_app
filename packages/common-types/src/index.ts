@@ -71,6 +71,7 @@ export namespace API {
     message: string;
     accountsCount: number;
     transactionsCount: number;
+    fallbackTo31Days?: boolean;
   }
 
   export interface GetTransactionsResponse {
@@ -84,6 +85,13 @@ export namespace API {
     accountId?: string;
     from?: string; // ISO date
     to?: string; // ISO date
+  }
+
+  export interface TokenStatusResponse {
+    hasToken: boolean;
+    hasTransactions: boolean;
+    transactionCount: number;
+    lastTransactionDate: string | null;
   }
 }
 

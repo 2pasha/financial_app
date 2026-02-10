@@ -66,6 +66,52 @@ export class MonobankService {
   }
 
   /**
+   * Check if user has token and transactions
+   */
+  async checkTokenStatus(clerkId: string): Promise<{
+    hasToken: boolean;
+    hasTransactions: boolean;
+    transactionCount: number;
+    lastTransactionDate: string | null;
+  }> {
+    const user = await this.prisma.user.findUnique({
+      where: { clerkId },
+      include: {
+        monobankToken: true,
+        _count: {
+          select: { transactions: true },
+        },
+      },
+    });
+
+    if (!user) {
+      return {
+        hasToken: false,
+        hasTransactions: false,
+        transactionCount: 0,
+        lastTransactionDate: null,
+      };
+    }
+
+    let lastTransactionDate: string | null = null;
+    if (user._count.transactions > 0) {
+      const lastTx = await this.prisma.transaction.findFirst({
+        where: { userId: user.id },
+        orderBy: { time: 'desc' },
+        select: { time: true },
+      });
+      lastTransactionDate = lastTx ? lastTx.time.toISOString() : null;
+    }
+
+    return {
+      hasToken: !!user.monobankToken,
+      hasTransactions: user._count.transactions > 0,
+      transactionCount: user._count.transactions,
+      lastTransactionDate,
+    };
+  }
+
+  /**
    * Sync transactions for the last 3 months
    */
   async syncTransactions(clerkId: string): Promise<SyncResponseDto> {
@@ -220,6 +266,163 @@ export class MonobankService {
       };
     } catch (error) {
       this.logger.error('Failed to sync transactions', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Sync transactions incrementally from last transaction date
+   */
+  async syncIncrementalTransactions(clerkId: string): Promise<SyncResponseDto> {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { clerkId },
+        include: { monobankToken: true },
+      });
+
+      if (!user || !user.monobankToken) {
+        throw new NotFoundException('Monobank token not found');
+      }
+
+      // Get last transaction date
+      const lastTx = await this.prisma.transaction.findFirst({
+        where: { userId: user.id },
+        orderBy: { time: 'desc' },
+        select: { time: true },
+      });
+
+      if (!lastTx) {
+        // No transactions, do full sync
+        return this.syncTransactions(clerkId);
+      }
+
+      const token = user.monobankToken.token;
+      const clientInfo = await this.monobankApi.getClientInfo(token);
+
+      // Sync from last transaction date to now
+      let fromTimestamp = Math.floor(lastTx.time.getTime() / 1000);
+      const toTimestamp = Math.floor(Date.now() / 1000);
+      
+      // Check if period exceeds 31 days
+      const daysDiff = (toTimestamp - fromTimestamp) / (60 * 60 * 24);
+      let fallbackTo31Days = false;
+      
+      if (daysDiff > 31) {
+        // Fall back to last 31 days
+        fromTimestamp = toTimestamp - (31 * 24 * 60 * 60);
+        fallbackTo31Days = true;
+        this.logger.log('Period exceeds 31 days, falling back to last 31 days');
+      }
+
+      let totalTransactions = 0;
+      let accountsCount = 0;
+
+      for (const monobankAccount of clientInfo.accounts) {
+        // Update account info
+        await this.prisma.account.upsert({
+          where: {
+            userId_accountId: {
+              userId: user.id,
+              accountId: monobankAccount.id,
+            },
+          },
+          update: {
+            balance: BigInt(monobankAccount.balance),
+            currency: monobankAccount.currencyCode,
+            type: monobankAccount.type,
+          },
+          create: {
+            userId: user.id,
+            accountId: monobankAccount.id,
+            balance: BigInt(monobankAccount.balance),
+            currency: monobankAccount.currencyCode,
+            type: monobankAccount.type,
+          },
+        });
+        accountsCount++;
+
+        const account = await this.prisma.account.findUnique({
+          where: {
+            userId_accountId: {
+              userId: user.id,
+              accountId: monobankAccount.id,
+            },
+          },
+        });
+
+        if (!account) continue;
+
+        try {
+          // Fetch new transactions
+          const transactions = await this.monobankApi.getStatement(
+            token,
+            monobankAccount.id,
+            fromTimestamp,
+            toTimestamp,
+          );
+
+          // Save transactions
+          for (const tx of transactions) {
+            try {
+              await this.prisma.transaction.upsert({
+                where: { monobankId: tx.id },
+                update: {
+                  time: new Date(tx.time * 1000),
+                  description: tx.description,
+                  amount: BigInt(tx.amount),
+                  balance: BigInt(tx.balance),
+                  currency: tx.currencyCode,
+                  mcc: tx.mcc,
+                  originalMcc: tx.originalMcc,
+                  hold: tx.hold,
+                  commissionRate: BigInt(tx.commissionRate),
+                  cashbackAmount: BigInt(tx.cashbackAmount),
+                },
+                create: {
+                  userId: user.id,
+                  accountId: account.id,
+                  monobankId: tx.id,
+                  time: new Date(tx.time * 1000),
+                  description: tx.description,
+                  amount: BigInt(tx.amount),
+                  balance: BigInt(tx.balance),
+                  currency: tx.currencyCode,
+                  mcc: tx.mcc,
+                  originalMcc: tx.originalMcc,
+                  hold: tx.hold,
+                  commissionRate: BigInt(tx.commissionRate),
+                  cashbackAmount: BigInt(tx.cashbackAmount),
+                },
+              });
+              totalTransactions++;
+            } catch (error) {
+              this.logger.error(`Failed to save transaction ${tx.id}`, error);
+            }
+          }
+
+          this.logger.log(`Fetched ${transactions.length} new transactions`);
+
+          // Wait 60 seconds before next account
+          if (
+            clientInfo.accounts.indexOf(monobankAccount) <
+            clientInfo.accounts.length - 1
+          ) {
+            await this.monobankApi.wait(60000);
+          }
+        } catch (error) {
+          this.logger.error(`Failed to fetch incremental transactions`, error);
+        }
+      }
+
+      return {
+        success: true,
+        message: 'Incremental sync completed',
+        accountsCount,
+        transactionsCount: totalTransactions,
+        fallbackTo31Days,
+      };
+    } catch (error) {
+      this.logger.error('Failed incremental sync', error);
       throw error;
     }
   }
