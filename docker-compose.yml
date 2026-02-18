@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: vatra
+      POSTGRES_PASSWORD: vatra
+      POSTGRES_DB: financial_app
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: build
+    command: sh -c "cd api && npx prisma migrate deploy && npx nest start --watch"
+    working_dir: /app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./api/.env
+    environment:
+      DATABASE_URL: "postgresql://vatra:vatra@db:5432/financial_app?schema=public"
+      ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:3000"
+    depends_on:
+      - db
+    volumes:
+      - ./api/src:/app/api/src
+
+volumes:
+  pgdata:

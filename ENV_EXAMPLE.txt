@@ -1,6 +1,0 @@
-VITE_MONOBANK_TOKEN=u69hRJQsUy63vKqa4iE3KSfBR4S0EOHFgve0qW8r8cuI
-
-# API CORS Configuration (comma-separated origins)
-# Default: http://localhost:5173
-ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
-
