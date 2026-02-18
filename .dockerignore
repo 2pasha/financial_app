@@ -1,0 +1,16 @@
+node_modules
+dist
+build
+.git
+.gitignore
+.env
+.env.local
+.env.*.local
+*.md
+.vscode
+.idea
+.DS_Store
+web/node_modules
+api/node_modules
+api/dist
+packages/*/node_modules
