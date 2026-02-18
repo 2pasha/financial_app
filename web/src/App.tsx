@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { CategoryCard } from "./components/CategoryCard";
 import { AddCategoryDialog } from "./components/AddCategoryDialog";
 import { EditCategoryDialog } from "./components/EditCategoryDialog";
 import { Button } from "./components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./components/ui/alert-dialog";
-import { Plus, Moon, Sun, Languages, Trash2 } from "lucide-react";
+import { Plus, Moon, Sun, Languages, Trash2, CreditCard } from "lucide-react";
 import { type Language, getTranslation } from "./lib/translations";
 import { toast } from "sonner";
 import { IncomeDialog, type IncomeItem } from "./components/IncomeDialog";
@@ -71,6 +72,7 @@ const DEMO_CATEGORIES: Category[] = [
 ];
 
 export default function App() {
+  const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -252,6 +254,10 @@ export default function App() {
             <div className="flex items-center gap-2">
               <Button variant={view === 'dashboard' ? 'default' : 'outline'} onClick={() => setView('dashboard')}>Dashboard</Button>
               <Button variant={view === 'expenses' ? 'default' : 'outline'} onClick={() => setView('expenses')}>Expenses</Button>
+              <Button variant="outline" onClick={() => navigate('/monobank/setup')} className="gap-2">
+                <CreditCard className="w-4 h-4" />
+                Monobank
+              </Button>
               <Select value={currency} onValueChange={setCurrency}>
                 <SelectTrigger className="w-[120px]">
                   <SelectValue placeholder={t.currency} />

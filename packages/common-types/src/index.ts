@@ -6,6 +6,96 @@ export type Transaction = {
 };
 
 /**
+ * Monobank Account information
+ */
+export interface MonobankAccount {
+  id: string;
+  sendId: string;
+  balance: number;
+  creditLimit: number;
+  currencyCode: number;
+  cashbackType: string;
+  type: string;
+  iban?: string;
+}
+
+/**
+ * Monobank Transaction from API
+ */
+export interface MonobankTransaction {
+  id: string;
+  time: number; // Unix timestamp in seconds
+  description: string;
+  mcc: number;
+  originalMcc?: number;
+  amount: number; // in minor units (cents)
+  operationAmount: number;
+  currencyCode: number;
+  commissionRate: number;
+  cashbackAmount: number;
+  balance: number;
+  hold: boolean;
+  receiptId?: string;
+  invoiceId?: string;
+  counterEdrpou?: string;
+  counterIban?: string;
+  counterName?: string;
+}
+
+/**
+ * Client info from Monobank API
+ */
+export interface MonobankClientInfo {
+  clientId: string;
+  name: string;
+  webHookUrl?: string;
+  permissions?: string;
+  accounts: MonobankAccount[];
+}
+
+/**
+ * API Request/Response DTOs
+ */
+export namespace API {
+  export interface SaveTokenRequest {
+    token: string;
+  }
+
+  export interface SaveTokenResponse {
+    success: boolean;
+    message: string;
+  }
+
+  export interface SyncResponse {
+    success: boolean;
+    message: string;
+    accountsCount: number;
+    transactionsCount: number;
+    fallbackTo31Days?: boolean;
+  }
+
+  export interface GetTransactionsResponse {
+    transactions: MonobankTransaction[];
+    total: number;
+  }
+
+  export interface GetTransactionsQuery {
+    page?: number;
+    limit?: number;
+    accountId?: string;
+    from?: string; // ISO date
+    to?: string; // ISO date
+  }
+
+  export interface TokenStatusResponse {
+    hasToken: boolean;
+    hasTransactions: boolean;
+    transactionCount: number;
+    lastTransactionDate: string | null;
+  }
+}
+
+/**
  * Date serialization utilities for JSON-safe date handling
  */
 export const DateUtils = {
