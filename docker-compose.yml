@@ -10,6 +10,11 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vatra -d financial_app"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   api:
     build:
@@ -27,7 +32,8 @@ services:
       DATABASE_URL: "postgresql://vatra:vatra@db:5432/financial_app?schema=public"
       ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:3000"
     depends_on:
-      - db
+      - db:
+        condition: service_healthy
     volumes:
       - ./api/src:/app/api/src
 
