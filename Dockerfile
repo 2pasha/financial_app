@@ -1,7 +1,7 @@
-FROM node:20-slim AS base
+FROM node:22-alpine AS base
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
-RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache openssl
 
 WORKDIR /app
 
@@ -27,14 +27,14 @@ RUN pnpm --filter @financial-app/api run build
 # ------- prune for production -------
 FROM build AS prune
 
-RUN pnpm --filter @financial-app/api deploy --prod /app/pruned
+RUN pnpm --filter @financial-app/api deploy --prod --legacy /app/pruned
 RUN cp -r /app/api/dist /app/pruned/dist
 RUN cp -r /app/api/prisma /app/pruned/prisma
 
 # ------- production -------
-FROM node:20-slim AS production
+FROM node:22-alpine AS production
 
-RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache openssl
 
 WORKDIR /app
 
