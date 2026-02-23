@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { MonobankApiService } from './monobank-api.service';
+import { CryptoService } from '../../common/services/crypto.service';
 import { SaveTokenDto } from './dto/save-token.dto';
 import { SyncResponseDto } from './dto/sync-response.dto';
 
@@ -11,6 +12,7 @@ export class MonobankService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly monobankApi: MonobankApiService,
+    private readonly crypto: CryptoService,
   ) {}
 
   /**
@@ -41,15 +43,16 @@ export class MonobankService {
         this.logger.log(`Created new user ${user.id}`);
       }
 
-      // Save or update token
+      const encryptedToken = this.crypto.encrypt(saveTokenDto.token);
+
       await this.prisma.monobankToken.upsert({
         where: { userId: user.id },
         update: {
-          token: saveTokenDto.token,
+          token: encryptedToken,
         },
         create: {
           userId: user.id,
-          token: saveTokenDto.token,
+          token: encryptedToken,
         },
       });
 
@@ -126,7 +129,10 @@ export class MonobankService {
         throw new NotFoundException('Monobank token not found. Please save your token first.');
       }
 
-      const token = user.monobankToken.token;
+      const rawToken = user.monobankToken.token;
+      const token = this.crypto.isEncrypted(rawToken)
+        ? this.crypto.decrypt(rawToken)
+        : rawToken;
 
       // Get client info and accounts
       this.logger.log(`Fetching accounts for user ${user.id}`);
@@ -296,7 +302,10 @@ export class MonobankService {
         return this.syncTransactions(clerkId);
       }
 
-      const token = user.monobankToken.token;
+      const rawToken = user.monobankToken.token;
+      const token = this.crypto.isEncrypted(rawToken)
+        ? this.crypto.decrypt(rawToken)
+        : rawToken;
       const clientInfo = await this.monobankApi.getClientInfo(token);
 
       // Sync from last transaction date to now

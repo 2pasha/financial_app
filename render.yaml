@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: moneta-api
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: PORT
+        value: "3000"
+      - key: NODE_ENV
+        value: production
