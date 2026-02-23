@@ -32,7 +32,7 @@ services:
       DATABASE_URL: "postgresql://vatra:vatra@db:5432/financial_app?schema=public"
       ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:3000"
     depends_on:
-      - db:
+      db:
         condition: service_healthy
     volumes:
       - ./api/src:/app/api/src

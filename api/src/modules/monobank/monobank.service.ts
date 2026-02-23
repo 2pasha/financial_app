@@ -129,7 +129,10 @@ export class MonobankService {
         throw new NotFoundException('Monobank token not found. Please save your token first.');
       }
 
-      const token = this.crypto.decrypt(user.monobankToken.token);
+      const rawToken = user.monobankToken.token;
+      const token = this.crypto.isEncrypted(rawToken)
+        ? this.crypto.decrypt(rawToken)
+        : rawToken;
 
       // Get client info and accounts
       this.logger.log(`Fetching accounts for user ${user.id}`);
@@ -299,7 +302,10 @@ export class MonobankService {
         return this.syncTransactions(clerkId);
       }
 
-      const token = this.crypto.decrypt(user.monobankToken.token);
+      const rawToken = user.monobankToken.token;
+      const token = this.crypto.isEncrypted(rawToken)
+        ? this.crypto.decrypt(rawToken)
+        : rawToken;
       const clientInfo = await this.monobankApi.getClientInfo(token);
 
       // Sync from last transaction date to now
