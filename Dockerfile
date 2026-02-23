@@ -24,6 +24,13 @@ COPY packages/common-types/ packages/common-types/
 RUN pnpm --filter @financial-app/api exec prisma generate
 RUN pnpm --filter @financial-app/api run build
 
+# ------- prune for production -------
+FROM build AS prune
+
+RUN pnpm --filter @financial-app/api deploy --prod /app/pruned
+RUN cp -r /app/api/dist /app/pruned/dist
+RUN cp -r /app/api/prisma /app/pruned/prisma
+
 # ------- production -------
 FROM node:20-slim AS production
 
@@ -31,11 +38,7 @@ RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists
 
 WORKDIR /app
 
-COPY --from=build /app/api/dist ./dist
-COPY --from=build /app/api/prisma ./prisma
-COPY --from=build /app/api/node_modules ./node_modules
-COPY --from=build /app/node_modules/.pnpm ./node_modules/.pnpm
-COPY --from=build /app/api/package.json ./package.json
+COPY --from=prune /app/pruned ./
 
 ENV NODE_ENV=production
 ENV PORT=3000
