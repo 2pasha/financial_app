@@ -28,8 +28,8 @@ RUN pnpm --filter @financial-app/api run build
 FROM build AS prune
 
 RUN pnpm --filter @financial-app/api deploy --prod --legacy /app/pruned
-RUN cp -r /app/api/dist /app/pruned/dist
-RUN cp -r /app/api/prisma /app/pruned/prisma
+RUN rm -rf /app/pruned/dist && cp -r /app/api/dist /app/pruned/dist
+RUN rm -rf /app/pruned/prisma && cp -r /app/api/prisma /app/pruned/prisma
 
 # ------- production -------
 FROM node:22-alpine AS production
@@ -45,4 +45,4 @@ ENV PORT=3000
 
 EXPOSE ${PORT}
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
+CMD ["sh", "-c", "npx prisma generate && npx prisma migrate deploy && node dist/src/main.js"]
