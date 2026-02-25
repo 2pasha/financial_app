@@ -1,9 +1,11 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service';
 import { MonobankApiService } from './monobank-api.service';
 import { CryptoService } from '../../common/services/crypto.service';
 import { SaveTokenDto } from './dto/save-token.dto';
 import { SyncResponseDto } from './dto/sync-response.dto';
+import type { MonobankWebhookPayload } from './interfaces/monobank-webhook.interface';
 
 @Injectable()
 export class MonobankService {
@@ -13,6 +15,7 @@ export class MonobankService {
     private readonly prisma: PrismaService,
     private readonly monobankApi: MonobankApiService,
     private readonly crypto: CryptoService,
+    private readonly config: ConfigService,
   ) {}
 
   /**
@@ -432,6 +435,99 @@ export class MonobankService {
       };
     } catch (error) {
       this.logger.error('Failed incremental sync', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Register the webhook URL with Monobank for the given user
+   */
+  async setupWebhook(clerkId: string): Promise<{ success: boolean; webhookUrl: string }> {
+    const user = await this.prisma.user.findUnique({
+      where: { clerkId },
+      include: { monobankToken: true },
+    });
+
+    if (!user || !user.monobankToken) {
+      throw new NotFoundException('Monobank token not found. Please save your token first.');
+    }
+
+    const rawToken = user.monobankToken.token;
+    const token = this.crypto.isEncrypted(rawToken)
+      ? this.crypto.decrypt(rawToken)
+      : rawToken;
+
+    const appUrl = this.config.getOrThrow<string>('APP_URL');
+    const webhookUrl = `${appUrl}/monobank/webhook`;
+
+    await this.monobankApi.setWebhook(token, webhookUrl);
+
+    this.logger.log(`Webhook registered for user ${user.id}: ${webhookUrl}`);
+
+    return { success: true, webhookUrl };
+  }
+
+  /**
+   * Handle incoming webhook from Monobank
+   */
+  async handleWebhook(payload: MonobankWebhookPayload): Promise<void> {
+    if (payload.type !== 'StatementItem') {
+      this.logger.warn(`Unknown webhook type: ${payload.type}`);
+
+      return;
+    }
+
+    const { account: monobankAccountId, statementItem } = payload.data;
+
+    this.logger.log(
+      `Webhook received: tx ${statementItem.id} for account ${monobankAccountId}`,
+    );
+
+    const account = await this.prisma.account.findFirst({
+      where: { accountId: monobankAccountId },
+    });
+
+    if (!account) {
+      this.logger.warn(`No account found for Monobank account ${monobankAccountId}`);
+
+      return;
+    }
+
+    try {
+      await this.prisma.transaction.upsert({
+        where: { monobankId: statementItem.id },
+        update: {
+          time: new Date(statementItem.time * 1000),
+          description: statementItem.description,
+          amount: BigInt(statementItem.amount),
+          balance: BigInt(statementItem.balance),
+          currency: statementItem.currencyCode,
+          mcc: statementItem.mcc,
+          originalMcc: statementItem.originalMcc,
+          hold: statementItem.hold,
+          commissionRate: BigInt(statementItem.commissionRate),
+          cashbackAmount: BigInt(statementItem.cashbackAmount),
+        },
+        create: {
+          userId: account.userId,
+          accountId: account.id,
+          monobankId: statementItem.id,
+          time: new Date(statementItem.time * 1000),
+          description: statementItem.description,
+          amount: BigInt(statementItem.amount),
+          balance: BigInt(statementItem.balance),
+          currency: statementItem.currencyCode,
+          mcc: statementItem.mcc,
+          originalMcc: statementItem.originalMcc,
+          hold: statementItem.hold,
+          commissionRate: BigInt(statementItem.commissionRate),
+          cashbackAmount: BigInt(statementItem.cashbackAmount),
+        },
+      });
+
+      this.logger.log(`Transaction ${statementItem.id} saved via webhook`);
+    } catch (error) {
+      this.logger.error(`Failed to save webhook transaction ${statementItem.id}`, error);
       throw error;
     }
   }

@@ -81,6 +81,29 @@ export class MonobankApiService {
   }
 
   /**
+   * Register a webhook URL with Monobank
+   * Rate limit: 1 request per 60 seconds
+   */
+  async setWebhook(token: string, webhookUrl: string): Promise<void> {
+    try {
+      this.logger.log(`Setting Monobank webhook to ${webhookUrl}`);
+      await this.axiosInstance.post(
+        '/personal/webhook',
+        { webHookUrl: webhookUrl },
+        {
+          headers: {
+            'X-Token': token,
+          },
+        },
+      );
+
+      this.logger.log('Webhook set successfully');
+    } catch (error) {
+      this.handleMonobankError(error, 'Failed to set webhook');
+    }
+  }
+
+  /**
    * Wait for specified milliseconds to respect rate limiting
    */
   async wait(ms: number): Promise<void> {
