@@ -1,7 +1,6 @@
 {
-  "buildCommand": "cd .. && pnpm install && pnpm --filter @financial-app/web run build",
-  "outputDirectory": "build",
   "framework": "vite",
+  "outputDirectory": "build",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
