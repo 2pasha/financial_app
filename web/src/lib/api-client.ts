@@ -57,6 +57,11 @@ export const monobankApi = {
     return response.data;
   },
 
+  async setupWebhook(): Promise<{ success: boolean; webhookUrl: string }> {
+    const response = await apiClient.post('/monobank/webhook/setup');
+    return response.data;
+  },
+
   async getTransactions(params?: {
     page?: number;
     limit?: number;

@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
-import { Loader2, RefreshCw, AlertCircle, DollarSign, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, RefreshCw, AlertCircle, DollarSign, ChevronLeft, ChevronRight, Webhook } from "lucide-react";
 import { toast } from "sonner";
 
 type MonoTxn = {
@@ -207,6 +207,21 @@ export default function ExpensesPage() {
       setError(err.message);
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const [webhookConnecting, setWebhookConnecting] = useState(false);
+
+  const handleConnectWebhook = async () => {
+    setWebhookConnecting(true);
+
+    try {
+      const result = await monobankApi.setupWebhook();
+      toast.success(`Webhook connected: ${result.webhookUrl}`);
+    } catch (err: any) {
+      toast.error('Failed to connect webhook: ' + err.message);
+    } finally {
+      setWebhookConnecting(false);
     }
   };
 
@@ -459,20 +474,36 @@ export default function ExpensesPage() {
                   </p>
                 )}
               </div>
-              <Button
-                onClick={handleRefetch}
-                disabled={refetching || !tokenStatus?.hasToken}
-                size="sm"
-                variant="outline"
-                className="gap-2"
-              >
-                {refetching ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4" />
-                )}
-                Refetch New
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={handleConnectWebhook}
+                  disabled={webhookConnecting || !tokenStatus?.hasToken}
+                  size="sm"
+                  variant="outline"
+                  className="gap-2"
+                >
+                  {webhookConnecting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Webhook className="h-4 w-4" />
+                  )}
+                  Connect Webhook
+                </Button>
+                <Button
+                  onClick={handleRefetch}
+                  disabled={refetching || !tokenStatus?.hasToken}
+                  size="sm"
+                  variant="outline"
+                  className="gap-2"
+                >
+                  {refetching ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  Refetch New
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
