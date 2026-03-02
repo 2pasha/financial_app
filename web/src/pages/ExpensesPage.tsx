@@ -1,36 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
-import { monobankApi } from "../lib/api-client";
+import { monobankApi, categoriesApi } from "../lib/api-client";
+import type { Category, Transaction } from "../lib/api-client";
 import { AddTokenModal } from "../components/monobank/AddTokenModal";
 import { SortableTableHead } from "../components/monobank/SortableTableHead";
 import { MultiSelectFilter } from "../components/monobank/MultiSelectFilter";
 import { AmountFilter, type AmountFilterValue } from "../components/monobank/AmountFilter";
 import { DateRangeFilter, type DateRangeValue } from "../components/monobank/DateRangeFilter";
+import { TransactionDrawer } from "../components/TransactionDrawer";
+import { CreateTransactionDialog } from "../components/CreateTransactionDialog";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
-import { Loader2, RefreshCw, AlertCircle, DollarSign, ChevronLeft, ChevronRight, Webhook } from "lucide-react";
+import { Loader2, RefreshCw, AlertCircle, DollarSign, ChevronLeft, ChevronRight, Webhook, Plus } from "lucide-react";
 import { toast } from "sonner";
 
-type MonoTxn = {
-  id: string;
-  time: string; // ISO string from DB
-  description: string;
-  mcc: number | null;
-  originalMcc: number | null;
-  hold: boolean;
-  amount: number; // negative = expense in minor units (e.g., cents)
-  currency: number; // currencyCode from DB
-  commissionRate: number;
-  cashbackAmount: number;
-  balance: number;
-  account?: {
-    id: string;
-    type: string;
-  };
-};
+type MonoTxn = Transaction;
 
 // Popular MCC codes mapped to human-readable names (source: mcc.in.ua)
 const MCC_MAP: Record<number, string> = {
@@ -157,6 +144,11 @@ export default function ExpensesPage() {
     loadMccCatalog().then(setMccCatalog);
   }, []);
 
+  // Load categories for transaction labeling
+  useEffect(() => {
+    categoriesApi.getAll().then(setCategories).catch(() => {});
+  }, []);
+
   // Check token status on mount
   useEffect(() => {
     checkStatus();
@@ -209,6 +201,11 @@ export default function ExpensesPage() {
       setIsSyncing(false);
     }
   };
+
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedTx, setSelectedTx] = useState<MonoTxn | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const [webhookConnecting, setWebhookConnecting] = useState(false);
 
@@ -425,6 +422,25 @@ export default function ExpensesPage() {
     });
   };
 
+  const handleRowClick = (tx: MonoTxn) => {
+    setSelectedTx(tx);
+    setDrawerOpen(true);
+  };
+
+  const handleTransactionUpdate = (updated: MonoTxn) => {
+    setTxns((prev) => prev.map((tx) => (tx.id === updated.id ? updated : tx)));
+    setSelectedTx(updated);
+  };
+
+  const handleTransactionDelete = (id: string) => {
+    setTxns((prev) => prev.filter((tx) => tx.id !== id));
+    setSelectedTx(null);
+  };
+
+  const handleTransactionCreate = (created: MonoTxn) => {
+    setTxns((prev) => [created, ...prev]);
+  };
+
   if (loading) {
     return (
       <div className="max-w-6xl mx-auto px-4 py-6 flex items-center justify-center min-h-[400px]">
@@ -454,9 +470,25 @@ export default function ExpensesPage() {
 
   return (
     <>
-      <AddTokenModal 
-        open={showTokenModal} 
-        onSuccess={handleTokenSaved} 
+      <AddTokenModal
+        open={showTokenModal}
+        onSuccess={handleTokenSaved}
+      />
+
+      <TransactionDrawer
+        transaction={selectedTx}
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        categories={categories}
+        onUpdate={handleTransactionUpdate}
+        onDelete={handleTransactionDelete}
+      />
+
+      <CreateTransactionDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        categories={categories}
+        onCreate={handleTransactionCreate}
       />
 
       <div className="max-w-6xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
@@ -475,6 +507,14 @@ export default function ExpensesPage() {
                 )}
               </div>
               <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => setCreateDialogOpen(true)}
+                  size="sm"
+                  className="gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  New Transaction
+                </Button>
                 <Button
                   onClick={handleConnectWebhook}
                   disabled={webhookConnecting || !tokenStatus?.hasToken}
@@ -671,17 +711,38 @@ export default function ExpensesPage() {
                         </TableRow>
                       ) : (
                         paginatedTransactions.map((tx) => (
-                          <TableRow key={tx.id}>
-                            <TableCell className="font-medium">{tx.description}</TableCell>
+                          <TableRow
+                            key={tx.id}
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => handleRowClick(tx)}
+                          >
+                            <TableCell className="font-medium">
+                              {tx.description}
+                            </TableCell>
                             <TableCell>
-                              <a 
-                                href={mccUrl(tx.mcc || 0)} 
-                                target="_blank" 
-                                rel="noreferrer"
-                                className="text-primary hover:underline"
-                              >
-                                {mccName(tx.mcc || 0, mccCatalog)}
-                              </a>
+                              {tx.category ? (
+                                <span className="flex items-center gap-1">
+                                  <span>{tx.category.icon}</span>
+                                  <span
+                                    className="text-xs font-medium px-2 py-0.5 rounded-full"
+                                    style={{ backgroundColor: tx.category.color + '33', color: tx.category.color }}
+                                  >
+                                    {tx.category.name}
+                                  </span>
+                                </span>
+                              ) : tx.mcc ? (
+                                <a
+                                  href={mccUrl(tx.mcc)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-primary hover:underline"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {mccName(tx.mcc, mccCatalog)}
+                                </a>
+                              ) : (
+                                <span className="text-muted-foreground text-xs">—</span>
+                              )}
                             </TableCell>
                             <TableCell className={tx.amount < 0 ? 'text-red-600' : 'text-green-600'}>
                               <span className="font-semibold">

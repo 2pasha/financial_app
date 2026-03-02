@@ -5,71 +5,15 @@ import { AddCategoryDialog } from "./components/AddCategoryDialog";
 import { EditCategoryDialog } from "./components/EditCategoryDialog";
 import { Button } from "./components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./components/ui/alert-dialog";
-import { Plus, Moon, Sun, Languages, Trash2, CreditCard } from "lucide-react";
+import { Plus, Moon, Sun, Languages, Trash2, CreditCard, Loader2 } from "lucide-react";
 import { type Language, getTranslation } from "./lib/translations";
 import { toast } from "sonner";
 import { IncomeDialog, type IncomeItem } from "./components/IncomeDialog";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
 import { Switch } from "./components/ui/switch";
 import ExpensesPage from "./pages/ExpensesPage";
-
-interface Category {
-  id: string;
-  name: string;
-  spent: number;
-  budget: number;
-  icon: string;
-  color: string;
-  isDemo?: boolean;
-}
-
-const DEMO_CATEGORIES: Category[] = [
-  {
-    id: "1",
-    name: "groceries",
-    spent: 234,
-    budget: 2000,
-    icon: "🛒",
-    color: "#6366f1",
-    isDemo: true
-  },
-  {
-    id: "2",
-    name: "rent",
-    spent: 1200,
-    budget: 1200,
-    icon: "🏠",
-    color: "#8b5cf6",
-    isDemo: true
-  },
-  {
-    id: "3",
-    name: "transportation",
-    spent: 150,
-    budget: 300,
-    icon: "🚗",
-    color: "#ec4899",
-    isDemo: true
-  },
-  {
-    id: "4",
-    name: "entertainment",
-    spent: 89,
-    budget: 200,
-    icon: "🎬",
-    color: "#f97316",
-    isDemo: true
-  },
-  {
-    id: "5",
-    name: "healthcare",
-    spent: 45,
-    budget: 150,
-    icon: "💊",
-    color: "#22c55e",
-    isDemo: true
-  }
-];
+import { categoriesApi } from "./lib/api-client";
+import type { Category } from "./lib/api-client";
 
 export default function App() {
   const navigate = useNavigate();
@@ -122,22 +66,14 @@ export default function App() {
     return [];
   });
   
-  const [categories, setCategories] = useState<Category[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('categories');
-      if (saved) {
-        return JSON.parse(saved);
-      }
-    }
-    return DEMO_CATEGORIES;
-  });
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
 
   const totalBudget = categories.reduce((sum, cat) => sum + cat.budget, 0);
   const totalIncome = incomeItems.reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
   const totalSpent = categories.reduce((sum, cat) => sum + cat.spent, 0);
   const effectiveBudget = useManualBudget ? manualBudget : (totalIncome > 0 ? totalIncome : totalBudget);
   const remaining = effectiveBudget - totalSpent;
-  const hasDemoData = categories.some(cat => cat.isDemo);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -150,8 +86,11 @@ export default function App() {
   }, [isDarkMode]);
 
   useEffect(() => {
-    localStorage.setItem('categories', JSON.stringify(categories));
-  }, [categories]);
+    categoriesApi.getAll()
+      .then(setCategories)
+      .catch(() => toast.error('Failed to load categories'))
+      .finally(() => setCategoriesLoading(false));
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('currency', currency);
@@ -190,14 +129,14 @@ export default function App() {
     }
   };
 
-  const handleAddCategory = (newCategory: Omit<Category, "id" | "spent">) => {
-    const category: Category = {
-      ...newCategory,
-      id: Date.now().toString(),
-      spent: 0,
-      isDemo: false
-    };
-    setCategories([...categories, category]);
+  const handleAddCategory = async (newCategory: Omit<Category, "id" | "spent">) => {
+    try {
+      const created = await categoriesApi.create(newCategory);
+      setCategories((prev) => [...prev, created]);
+      toast.success('Category added');
+    } catch {
+      toast.error('Failed to add category');
+    }
   };
 
   const handleEditCategory = (id: string) => {
@@ -208,10 +147,19 @@ export default function App() {
     }
   };
 
-  const handleSaveCategory = (updatedCategory: Category) => {
-    setCategories(categories.map(cat => 
-      cat.id === updatedCategory.id ? { ...updatedCategory, isDemo: false } : cat
-    ));
+  const handleSaveCategory = async (updatedCategory: Omit<Category, "spent">) => {
+    try {
+      const saved = await categoriesApi.update(updatedCategory.id, {
+        name: updatedCategory.name,
+        icon: updatedCategory.icon,
+        color: updatedCategory.color,
+        budget: updatedCategory.budget,
+      });
+      setCategories((prev) => prev.map(cat => cat.id === saved.id ? { ...cat, ...saved } : cat));
+      toast.success('Category updated');
+    } catch {
+      toast.error('Failed to update category');
+    }
   };
 
   const handleDeleteCategory = (id: string) => {
@@ -219,16 +167,21 @@ export default function App() {
     setDeleteDialogOpen(true);
   };
 
-  const confirmDelete = () => {
-    if (categoryToDelete) {
-      setCategories(categories.filter(cat => cat.id !== categoryToDelete));
+  const confirmDelete = async () => {
+    if (!categoryToDelete) {
+      return;
+    }
+
+    try {
+      await categoriesApi.delete(categoryToDelete);
+      setCategories((prev) => prev.filter(cat => cat.id !== categoryToDelete));
+      toast.success('Category deleted');
+    } catch {
+      toast.error('Failed to delete category');
+    } finally {
       setDeleteDialogOpen(false);
       setCategoryToDelete(null);
     }
-  };
-
-  const clearDemoData = () => {
-    setCategories(categories.filter(cat => !cat.isDemo));
   };
 
   const [view, setView] = useState<'dashboard' | 'expenses'>(() => {
@@ -343,9 +296,9 @@ export default function App() {
             {/* Categories Section */}
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-foreground">{t.categories}</h2>
-              {hasDemoData && (
-                <Button 
-                  variant="outline" 
+              {false && (
+                <Button
+                  variant="outline"
                   size="sm" 
                   onClick={clearDemoData}
                   className="gap-2"
@@ -357,31 +310,39 @@ export default function App() {
             </div>
 
             {/* Categories Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {categories.map((category) => (
-                <CategoryCard
-                  key={category.id}
-                  id={category.id}
-                  name={t[category.name as keyof typeof t] as string || category.name}
-                  spent={category.spent}
-                  budget={category.budget}
-                  icon={category.icon}
-                  color={category.color}
-                  onEdit={handleEditCategory}
-                  onDelete={handleDeleteCategory}
-                  translations={t}
-                />
-              ))}
-            </div>
-
-            {categories.length === 0 && (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground mb-4">{t.noCategoriesYet}</p>
-                <Button onClick={() => setDialogOpen(true)}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  {t.addFirstCategory}
-                </Button>
+            {categoriesLoading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
               </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {categories.map((category) => (
+                    <CategoryCard
+                      key={category.id}
+                      id={category.id}
+                      name={t[category.name as keyof typeof t] as string || category.name}
+                      spent={category.spent}
+                      budget={category.budget}
+                      icon={category.icon}
+                      color={category.color}
+                      onEdit={handleEditCategory}
+                      onDelete={handleDeleteCategory}
+                      translations={t}
+                    />
+                  ))}
+                </div>
+
+                {categories.length === 0 && (
+                  <div className="text-center py-12">
+                    <p className="text-muted-foreground mb-4">{t.noCategoriesYet}</p>
+                    <Button onClick={() => setDialogOpen(true)}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      {t.addFirstCategory}
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}

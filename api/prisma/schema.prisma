@@ -19,6 +19,20 @@ model User {
   monobankToken   MonobankToken?
   accounts        Account[]
   transactions    Transaction[]
+  categories      Category[]
+}
+
+model Category {
+  id           String        @id @default(uuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id])
+  name         String
+  icon         String
+  color        String
+  budget       Float
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  transactions Transaction[]
 }
 
 model MonobankToken {
@@ -46,12 +60,12 @@ model Account {
 }
 
 model Transaction {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   userId         String
-  user           User     @relation(fields: [userId], references: [id])
+  user           User      @relation(fields: [userId], references: [id])
   accountId      String
-  account        Account  @relation(fields: [accountId], references: [id])
-  monobankId     String   @unique // Monobank transaction ID
+  account        Account   @relation(fields: [accountId], references: [id])
+  monobankId     String    @unique
   time           DateTime
   description    String
   amount         BigInt
@@ -62,7 +76,9 @@ model Transaction {
   hold           Boolean
   commissionRate BigInt?
   cashbackAmount BigInt?
-  createdAt      DateTime @default(now())
-  
+  categoryId     String?
+  category       Category? @relation(fields: [categoryId], references: [id])
+  createdAt      DateTime  @default(now())
+
   @@index([userId, time])
 }

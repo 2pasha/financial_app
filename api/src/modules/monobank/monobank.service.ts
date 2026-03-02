@@ -558,6 +558,7 @@ export class MonobankService {
         take: limit,
         include: {
           account: true,
+          category: true,
         },
       }),
       this.prisma.transaction.count({
@@ -579,6 +580,15 @@ export class MonobankService {
         hold: tx.hold,
         commissionRate: Number(tx.commissionRate),
         cashbackAmount: Number(tx.cashbackAmount),
+        categoryId: tx.categoryId,
+        category: tx.category
+          ? {
+              id: tx.category.id,
+              name: tx.category.name,
+              icon: tx.category.icon,
+              color: tx.category.color,
+            }
+          : null,
         account: {
           id: tx.account.accountId,
           type: tx.account.type,

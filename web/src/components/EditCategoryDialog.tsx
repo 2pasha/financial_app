@@ -10,7 +10,6 @@ interface EditCategoryDialogProps {
   onSave: (category: {
     id: string;
     name: string;
-    spent: number;
     budget: number;
     icon: string;
     color: string;
@@ -27,13 +26,13 @@ interface EditCategoryDialogProps {
     editCategory: string;
     categoryName: string;
     budgetAmount: string;
-    spentAmount: string;
     icon: string;
     color: string;
     cancel: string;
     saveChanges: string;
     placeholderCategoryName: string;
     placeholderBudget: string;
+    spentAmount: string;
     placeholderSpent: string;
   };
 }
@@ -55,7 +54,6 @@ const COLOR_OPTIONS = [
 export function EditCategoryDialog({ open, onOpenChange, onSave, category, translations }: EditCategoryDialogProps) {
   const [name, setName] = useState("");
   const [budget, setBudget] = useState("");
-  const [spent, setSpent] = useState("");
   const [selectedIcon, setSelectedIcon] = useState(ICON_OPTIONS[0]);
   const [selectedColor, setSelectedColor] = useState(COLOR_OPTIONS[0]);
 
@@ -63,27 +61,29 @@ export function EditCategoryDialog({ open, onOpenChange, onSave, category, trans
     if (category) {
       setName(category.name);
       setBudget(category.budget.toString());
-      setSpent(category.spent.toString());
       setSelectedIcon(category.icon);
       setSelectedColor(category.color);
     }
   }, [category]);
 
   const handleSubmit = () => {
-    if (name && budget && spent && category) {
-      onSave({
-        id: category.id,
-        name,
-        budget: parseFloat(budget),
-        spent: parseFloat(spent),
-        icon: selectedIcon,
-        color: selectedColor
-      });
-      onOpenChange(false);
+    if (!name || !budget || !category) {
+      return;
     }
+
+    onSave({
+      id: category.id,
+      name,
+      budget: parseFloat(budget),
+      icon: selectedIcon,
+      color: selectedColor,
+    });
+    onOpenChange(false);
   };
 
-  if (!category) return null;
+  if (!category) {
+    return null;
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -109,16 +109,6 @@ export function EditCategoryDialog({ open, onOpenChange, onSave, category, trans
               placeholder={translations.placeholderBudget}
               value={budget}
               onChange={(e) => setBudget(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="edit-spent">{translations.spentAmount}</Label>
-            <Input
-              id="edit-spent"
-              type="number"
-              placeholder={translations.placeholderSpent}
-              value={spent}
-              onChange={(e) => setSpent(e.target.value)}
             />
           </div>
           <div className="space-y-2">
@@ -161,7 +151,7 @@ export function EditCategoryDialog({ open, onOpenChange, onSave, category, trans
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {translations.cancel}
           </Button>
-          <Button onClick={handleSubmit} disabled={!name || !budget || !spent}>
+          <Button onClick={handleSubmit} disabled={!name || !budget}>
             {translations.saveChanges}
           </Button>
         </DialogFooter>
