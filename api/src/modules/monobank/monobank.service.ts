@@ -3,9 +3,13 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service';
 import { MonobankApiService } from './monobank-api.service';
 import { CryptoService } from '../../common/services/crypto.service';
+import { CategoriesService } from '../categories/categories.service';
 import { SaveTokenDto } from './dto/save-token.dto';
 import { SyncResponseDto } from './dto/sync-response.dto';
+import { SyncJobStore } from './sync-job.store';
 import type { MonobankWebhookPayload } from './interfaces/monobank-webhook.interface';
+
+type CategoryMccEntry = { id: string; name: string; mccCodes: number[] };
 
 @Injectable()
 export class MonobankService {
@@ -16,7 +20,47 @@ export class MonobankService {
     private readonly monobankApi: MonobankApiService,
     private readonly crypto: CryptoService,
     private readonly config: ConfigService,
+    private readonly syncJobStore: SyncJobStore,
+    private readonly categoriesService: CategoriesService,
   ) {}
+
+  private resolveCategoryId(
+    mcc: number | null,
+    categories: CategoryMccEntry[],
+    otherCategoryId: string,
+  ): string {
+    if (!mcc) {
+      return otherCategoryId;
+    }
+
+    const matched = categories.find(
+      (cat) => cat.mccCodes.length > 0 && cat.mccCodes.includes(mcc),
+    );
+
+    return matched?.id ?? otherCategoryId;
+  }
+
+  private async backfillCategories(
+    userId: string,
+    categories: CategoryMccEntry[],
+    otherCategoryId: string,
+  ): Promise<void> {
+    for (const category of categories) {
+      if (category.mccCodes.length === 0) {
+        continue;
+      }
+
+      await this.prisma.transaction.updateMany({
+        where: { userId, categoryId: null, mcc: { in: category.mccCodes } },
+        data: { categoryId: category.id },
+      });
+    }
+
+    await this.prisma.transaction.updateMany({
+      where: { userId, categoryId: null },
+      data: { categoryId: otherCategoryId },
+    });
+  }
 
   /**
    * Save or update user's Monobank token
@@ -280,6 +324,180 @@ export class MonobankService {
   }
 
   /**
+   * Fire-and-forget sync that reports progress to SyncJobStore
+   */
+  async syncTransactionsBackground(clerkId: string, jobId: string): Promise<void> {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { clerkId },
+        include: { monobankToken: true },
+      });
+
+      if (!user || !user.monobankToken) {
+        this.syncJobStore.update(jobId, {
+          status: 'failed',
+          error: 'Monobank token not found. Please save your token first.',
+          message: 'Failed: token not found.',
+        });
+
+        return;
+      }
+
+      const rawToken = user.monobankToken.token;
+      const token = this.crypto.isEncrypted(rawToken)
+        ? this.crypto.decrypt(rawToken)
+        : rawToken;
+
+      this.syncJobStore.update(jobId, { status: 'running', message: 'Fetching account info...' });
+
+      const clientInfo = await this.monobankApi.getClientInfo(token);
+      const totalAccounts = clientInfo.accounts.length;
+
+      this.syncJobStore.update(jobId, { totalAccounts, message: 'Saving accounts...' });
+
+      let accountsCount = 0;
+      for (const monobankAccount of clientInfo.accounts) {
+        await this.prisma.account.upsert({
+          where: { userId_accountId: { userId: user.id, accountId: monobankAccount.id } },
+          update: {
+            balance: BigInt(monobankAccount.balance),
+            currency: monobankAccount.currencyCode,
+            type: monobankAccount.type,
+          },
+          create: {
+            userId: user.id,
+            accountId: monobankAccount.id,
+            balance: BigInt(monobankAccount.balance),
+            currency: monobankAccount.currencyCode,
+            type: monobankAccount.type,
+          },
+        });
+        accountsCount++;
+      }
+
+      await this.categoriesService.ensureDefaultCategories(user.id);
+      const categories = (await this.categoriesService.getCategoriesWithMccCodes(user.id)) as CategoryMccEntry[];
+      const otherCategory = categories.find((c) => c.name === 'Інше');
+      const otherCategoryId = otherCategory?.id ?? categories[0]?.id ?? '';
+
+      const now = Math.floor(Date.now() / 1000);
+      const threeMonthsAgo = now - 90 * 24 * 60 * 60;
+      const dateRanges = this.splitIntoChunks(threeMonthsAgo, now, 31);
+
+      let totalTransactions = 0;
+
+      for (let accountIndex = 0; accountIndex < clientInfo.accounts.length; accountIndex++) {
+        const monobankAccount = clientInfo.accounts[accountIndex];
+        const currentAccount = accountIndex + 1;
+
+        this.syncJobStore.update(jobId, {
+          currentAccount,
+          message: `Syncing account ${currentAccount} of ${totalAccounts}...`,
+        });
+
+        const account = await this.prisma.account.findUnique({
+          where: { userId_accountId: { userId: user.id, accountId: monobankAccount.id } },
+        });
+
+        if (!account) {
+          continue;
+        }
+
+        for (let i = 0; i < dateRanges.length; i++) {
+          const { from, to } = dateRanges[i];
+
+          try {
+            const transactions = await this.monobankApi.getStatement(
+              token,
+              monobankAccount.id,
+              from,
+              to,
+            );
+
+            for (const tx of transactions) {
+              try {
+                const categoryId = this.resolveCategoryId(tx.mcc ?? null, categories, otherCategoryId);
+
+                await this.prisma.transaction.upsert({
+                  where: { monobankId: tx.id },
+                  update: {
+                    time: new Date(tx.time * 1000),
+                    description: tx.description,
+                    amount: BigInt(tx.amount),
+                    balance: BigInt(tx.balance),
+                    currency: tx.currencyCode,
+                    mcc: tx.mcc,
+                    originalMcc: tx.originalMcc,
+                    hold: tx.hold,
+                    commissionRate: BigInt(tx.commissionRate),
+                    cashbackAmount: BigInt(tx.cashbackAmount),
+                  },
+                  create: {
+                    userId: user.id,
+                    accountId: account.id,
+                    monobankId: tx.id,
+                    time: new Date(tx.time * 1000),
+                    description: tx.description,
+                    amount: BigInt(tx.amount),
+                    balance: BigInt(tx.balance),
+                    currency: tx.currencyCode,
+                    mcc: tx.mcc,
+                    originalMcc: tx.originalMcc,
+                    hold: tx.hold,
+                    commissionRate: BigInt(tx.commissionRate),
+                    cashbackAmount: BigInt(tx.cashbackAmount),
+                    categoryId,
+                  },
+                });
+                totalTransactions++;
+              } catch (error) {
+                this.logger.error(`Failed to save transaction ${tx.id}`, error);
+              }
+            }
+
+            this.syncJobStore.update(jobId, {
+              transactionsCount: totalTransactions,
+              message: `Account ${currentAccount} of ${totalAccounts}: ${totalTransactions} transactions so far...`,
+            });
+
+            if (i < dateRanges.length - 1) {
+              this.syncJobStore.update(jobId, {
+                message: `Account ${currentAccount} of ${totalAccounts}: waiting 60s (rate limit)...`,
+              });
+              await this.monobankApi.wait(60000);
+            }
+          } catch (error) {
+            this.logger.error(`Failed to fetch transactions for chunk ${i + 1}`, error);
+          }
+        }
+
+        if (accountIndex < clientInfo.accounts.length - 1) {
+          this.syncJobStore.update(jobId, {
+            message: `Account ${currentAccount} done. Waiting 60s before next account...`,
+          });
+          await this.monobankApi.wait(60000);
+        }
+      }
+
+      this.syncJobStore.update(jobId, { message: 'Categorizing existing transactions...' });
+      await this.backfillCategories(user.id, categories, otherCategoryId);
+
+      this.syncJobStore.update(jobId, {
+        status: 'completed',
+        transactionsCount: totalTransactions,
+        message: `Sync complete! ${totalTransactions} transactions synced across ${accountsCount} account(s).`,
+      });
+    } catch (error) {
+      this.logger.error('Background sync failed', error);
+      this.syncJobStore.update(jobId, {
+        status: 'failed',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        message: 'Sync failed. Please try again.',
+      });
+    }
+  }
+
+  /**
    * Sync transactions incrementally from last transaction date
    */
   async syncIncrementalTransactions(clerkId: string): Promise<SyncResponseDto> {
@@ -326,11 +544,15 @@ export class MonobankService {
         this.logger.log('Period exceeds 31 days, falling back to last 31 days');
       }
 
+      await this.categoriesService.ensureDefaultCategories(user.id);
+      const categories = (await this.categoriesService.getCategoriesWithMccCodes(user.id)) as CategoryMccEntry[];
+      const otherCategory = categories.find((c) => c.name === 'Інше');
+      const otherCategoryId = otherCategory?.id ?? categories[0]?.id ?? '';
+
       let totalTransactions = 0;
       let accountsCount = 0;
 
       for (const monobankAccount of clientInfo.accounts) {
-        // Update account info
         await this.prisma.account.upsert({
           where: {
             userId_accountId: {
@@ -362,10 +584,11 @@ export class MonobankService {
           },
         });
 
-        if (!account) continue;
+        if (!account) {
+          continue;
+        }
 
         try {
-          // Fetch new transactions
           const transactions = await this.monobankApi.getStatement(
             token,
             monobankAccount.id,
@@ -373,9 +596,10 @@ export class MonobankService {
             toTimestamp,
           );
 
-          // Save transactions
           for (const tx of transactions) {
             try {
+              const categoryId = this.resolveCategoryId(tx.mcc ?? null, categories, otherCategoryId);
+
               await this.prisma.transaction.upsert({
                 where: { monobankId: tx.id },
                 update: {
@@ -404,6 +628,7 @@ export class MonobankService {
                   hold: tx.hold,
                   commissionRate: BigInt(tx.commissionRate),
                   cashbackAmount: BigInt(tx.cashbackAmount),
+                  categoryId,
                 },
               });
               totalTransactions++;
@@ -414,7 +639,6 @@ export class MonobankService {
 
           this.logger.log(`Fetched ${transactions.length} new transactions`);
 
-          // Wait 60 seconds before next account
           if (
             clientInfo.accounts.indexOf(monobankAccount) <
             clientInfo.accounts.length - 1
@@ -425,6 +649,8 @@ export class MonobankService {
           this.logger.error(`Failed to fetch incremental transactions`, error);
         }
       }
+
+      await this.backfillCategories(user.id, categories, otherCategoryId);
 
       return {
         success: true,

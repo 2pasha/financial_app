@@ -1,31 +1,37 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { monobankApi } from '../../lib/api-client';
+import type { SyncJob } from '../../lib/api-client';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Badge } from '../../components/ui/badge';
+import { Progress } from '../../components/ui/progress';
 import { Loader2, RefreshCw, CheckCircle2, AlertCircle, Clock, DollarSign, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function MonobankSyncPage() {
   const [isSyncing, setIsSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState<{
-    success: boolean;
-    message: string;
-    accountsCount: number;
-    transactionsCount: number;
-  } | null>(null);
+  const [syncJob, setSyncJob] = useState<SyncJob | null>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalTransactions, setTotalTransactions] = useState(0);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const itemsPerPage = 50;
 
   useEffect(() => {
     loadTransactions();
   }, [currentPage]);
+
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    };
+  }, []);
 
   const loadTransactions = async () => {
     setIsLoadingTransactions(true);
@@ -41,24 +47,54 @@ export default function MonobankSyncPage() {
     }
   };
 
+  const stopPolling = () => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+  };
+
+  const startPolling = (jobId: string) => {
+    pollIntervalRef.current = setInterval(async () => {
+      try {
+        const job = await monobankApi.getSyncStatus(jobId);
+
+        setSyncJob(job);
+
+        if (job.status === 'completed') {
+          stopPolling();
+          setIsSyncing(false);
+          toast.success('Transactions synced successfully!');
+          loadTransactions();
+        }
+
+        if (job.status === 'failed') {
+          stopPolling();
+          setIsSyncing(false);
+          setError(job.error || 'Sync failed. Please try again.');
+          toast.error('Sync failed');
+        }
+      } catch (err: any) {
+        stopPolling();
+        setIsSyncing(false);
+        setError(err.message || 'Failed to get sync status');
+      }
+    }, 3000);
+  };
+
   const handleSync = async () => {
     setError(null);
-    setSyncResult(null);
+    setSyncJob(null);
+    stopPolling();
     setIsSyncing(true);
 
     try {
-      const response = await monobankApi.syncTransactions();
-      setSyncResult(response);
-      toast.success('Transactions synced successfully!');
-      
-      // Reload transactions after sync
-      setTimeout(() => {
-        loadTransactions();
-      }, 1000);
+      const { jobId } = await monobankApi.syncTransactions();
+
+      startPolling(jobId);
     } catch (err: any) {
-      setError(err.message || 'Failed to sync transactions');
-      toast.error('Failed to sync transactions');
-    } finally {
+      setError(err.message || 'Failed to start sync');
+      toast.error('Failed to start sync');
       setIsSyncing(false);
     }
   };
@@ -134,19 +170,38 @@ export default function MonobankSyncPage() {
           </Alert>
         )}
 
-        {/* Sync Result */}
-        {syncResult && (
-          <Card className="border-green-200 bg-green-50">
-            <CardContent className="pt-6">
+        {/* Sync Progress / Result */}
+        {syncJob && syncJob.status !== 'failed' && (
+          <Card className={syncJob.status === 'completed' ? 'border-green-200 bg-green-50' : ''}>
+            <CardContent className="pt-6 space-y-3">
               <div className="flex items-center gap-3">
-                <CheckCircle2 className="h-6 w-6 text-green-600" />
-                <div>
-                  <p className="font-semibold text-green-900">{syncResult.message}</p>
-                  <p className="text-sm text-green-700">
-                    Synced {syncResult.accountsCount} account(s) and {syncResult.transactionsCount} transaction(s)
+                {syncJob.status === 'completed' ? (
+                  <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
+                ) : (
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground shrink-0" />
+                )}
+                <p className={`font-medium ${syncJob.status === 'completed' ? 'text-green-900' : ''}`}>
+                  {syncJob.message}
+                </p>
+              </div>
+
+              {syncJob.totalAccounts > 0 && (
+                <div className="space-y-1">
+                  <Progress
+                    value={
+                      syncJob.status === 'completed'
+                        ? 100
+                        : (syncJob.currentAccount / syncJob.totalAccounts) * 100
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {syncJob.status === 'completed'
+                      ? `${syncJob.totalAccounts} of ${syncJob.totalAccounts} accounts`
+                      : `${syncJob.currentAccount} of ${syncJob.totalAccounts} accounts`}
+                    {syncJob.transactionsCount > 0 && ` · ${syncJob.transactionsCount} transactions`}
                   </p>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         )}

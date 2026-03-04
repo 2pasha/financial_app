@@ -67,6 +67,16 @@ export interface Transaction {
   account: { id: string; type: string };
 }
 
+export interface SyncJob {
+  jobId: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  currentAccount: number;
+  totalAccounts: number;
+  transactionsCount: number;
+  message: string;
+  error?: string;
+}
+
 export const monobankApi = {
   async saveToken(token: string): Promise<API.SaveTokenResponse> {
     const response = await apiClient.post<API.SaveTokenResponse>('/monobank/token', {
@@ -82,8 +92,14 @@ export const monobankApi = {
     return response.data;
   },
 
-  async syncTransactions(): Promise<API.SyncResponse> {
-    const response = await apiClient.post<API.SyncResponse>('/monobank/sync');
+  async syncTransactions(): Promise<{ jobId: string }> {
+    const response = await apiClient.post<{ jobId: string }>('/monobank/sync');
+
+    return response.data;
+  },
+
+  async getSyncStatus(jobId: string): Promise<SyncJob> {
+    const response = await apiClient.get<SyncJob>(`/monobank/sync/status/${jobId}`);
 
     return response.data;
   },

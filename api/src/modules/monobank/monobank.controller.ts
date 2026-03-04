@@ -5,12 +5,15 @@ import {
   Body,
   UseGuards,
   Query,
+  Param,
   ValidationPipe,
   HttpCode,
   HttpStatus,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { MonobankService } from './monobank.service';
+import { SyncJobStore } from './sync-job.store';
 import { SaveTokenDto } from './dto/save-token.dto';
 import { ClerkAuthGuard } from '../../common/guards/clerk-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -22,7 +25,10 @@ import type { MonobankWebhookPayload } from './interfaces/monobank-webhook.inter
 export class MonobankController {
   private readonly logger = new Logger(MonobankController.name);
 
-  constructor(private readonly monobankService: MonobankService) {}
+  constructor(
+    private readonly monobankService: MonobankService,
+    private readonly syncJobStore: SyncJobStore,
+  ) {}
 
   @Post('webhook')
   @HttpCode(HttpStatus.OK)
@@ -64,8 +70,26 @@ export class MonobankController {
 
   @Post('sync')
   @UseGuards(ClerkAuthGuard)
+  @HttpCode(HttpStatus.ACCEPTED)
   async syncTransactions(@CurrentUser() user: CurrentUserData) {
-    return this.monobankService.syncTransactions(user.clerkId);
+    const jobId = crypto.randomUUID();
+
+    this.syncJobStore.create(jobId);
+    void this.monobankService.syncTransactionsBackground(user.clerkId, jobId);
+
+    return { jobId };
+  }
+
+  @Get('sync/status/:jobId')
+  @UseGuards(ClerkAuthGuard)
+  getSyncStatus(@Param('jobId') jobId: string) {
+    const job = this.syncJobStore.get(jobId);
+
+    if (!job) {
+      throw new NotFoundException(`Sync job ${jobId} not found`);
+    }
+
+    return job;
   }
 
   @Post('sync/incremental')

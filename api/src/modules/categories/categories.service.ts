@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
+import { DEFAULT_CATEGORIES } from './default-categories';
 
 @Injectable()
 export class CategoriesService {
@@ -11,6 +12,8 @@ export class CategoriesService {
 
   async findAllForUser(clerkId: string) {
     const user = await this.findUser(clerkId);
+
+    await this.ensureDefaultCategories(user.id);
 
     const categories = await this.prisma.category.findMany({
       where: { userId: user.id },
@@ -36,8 +39,14 @@ export class CategoriesService {
         icon: dto.icon,
         color: dto.color,
         budget: dto.budget,
+        mccCodes: dto.mccCodes ?? [],
+      } as any,
+      include: {
+        transactions: {
+          select: { amount: true },
+          where: { amount: { lt: 0 } },
+        },
       },
-      include: { transactions: true },
     });
 
     this.logger.log(`Category created: ${category.id} for user ${user.id}`);
@@ -51,7 +60,13 @@ export class CategoriesService {
 
     const category = await this.prisma.category.update({
       where: { id },
-      data: dto,
+      data: {
+        name: dto.name,
+        icon: dto.icon,
+        color: dto.color,
+        budget: dto.budget,
+        ...(dto.mccCodes !== undefined && { mccCodes: dto.mccCodes }),
+      } as any,
       include: {
         transactions: {
           select: { amount: true },
@@ -61,6 +76,47 @@ export class CategoriesService {
     });
 
     return this.formatCategory(category);
+  }
+
+  async ensureDefaultCategories(userId: string): Promise<void> {
+    const existing = await this.prisma.category.findMany({
+      where: { userId },
+      select: { name: true },
+    });
+
+    const existingNames = new Set(existing.map((c) => c.name));
+    const missing = DEFAULT_CATEGORIES.filter((cat) => !existingNames.has(cat.name));
+
+    if (missing.length === 0) {
+      return;
+    }
+
+    await this.prisma.category.createMany({
+      data: missing.map((cat) => ({
+        userId,
+        name: cat.name,
+        icon: cat.icon,
+        color: cat.color,
+        budget: cat.budget,
+        mccCodes: cat.mccCodes,
+      })) as any,
+    });
+
+    this.logger.log(`Seeded ${missing.length} missing default categories for user ${userId}`);
+  }
+
+  async getCategoriesWithMccCodes(
+    userId: string,
+  ): Promise<Array<{ id: string; name: string; mccCodes: number[] }>> {
+    const results = await this.prisma.category.findMany({
+      where: { userId },
+    });
+
+    return results.map((cat) => ({
+      id: cat.id,
+      name: cat.name,
+      mccCodes: (cat as unknown as { mccCodes: number[] }).mccCodes ?? [],
+    }));
   }
 
   async delete(clerkId: string, id: string) {

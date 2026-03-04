@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsNumber, Min } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, Min, IsOptional, IsArray, IsInt } from 'class-validator';
 
 export class CreateCategoryDto {
   @IsString()
@@ -16,4 +16,9 @@ export class CreateCategoryDto {
   @IsNumber()
   @Min(0)
   budget: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsInt({ each: true })
+  mccCodes?: number[];
 }

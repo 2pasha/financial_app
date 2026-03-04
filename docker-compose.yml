@@ -21,7 +21,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: build
-    command: sh -c "cd api && npx prisma migrate deploy && npx nest start --watch"
+    command: sh -c "cd api && npx prisma migrate deploy && npx prisma generate && npx nest start --watch"
     working_dir: /app
     restart: unless-stopped
     ports:
@@ -36,6 +36,7 @@ services:
         condition: service_healthy
     volumes:
       - ./api/src:/app/api/src
+      - ./api/prisma:/app/api/prisma
 
 volumes:
   pgdata:
