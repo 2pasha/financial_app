@@ -719,6 +719,14 @@ export class MonobankService {
       return;
     }
 
+    const categories = await this.categoriesService.getCategoriesWithMccCodes(account.userId);
+    const otherCategory = categories.find((c) => c.mccCodes.length === 0);
+    const categoryId = this.resolveCategoryId(
+      statementItem.mcc ?? null,
+      categories,
+      otherCategory?.id ?? '',
+    );
+
     try {
       await this.prisma.transaction.upsert({
         where: { monobankId: statementItem.id },
@@ -748,6 +756,7 @@ export class MonobankService {
           hold: statementItem.hold,
           commissionRate: BigInt(statementItem.commissionRate),
           cashbackAmount: BigInt(statementItem.cashbackAmount),
+          categoryId,
         },
       });
 
