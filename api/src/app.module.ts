@@ -6,6 +6,7 @@ import { DatabaseModule } from './database/database.module';
 import { MonobankModule } from './modules/monobank/monobank.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { TransactionsModule } from './modules/transactions/transactions.module';
+import { IncomeModule } from './modules/income/income.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { TransactionsModule } from './modules/transactions/transactions.module';
     MonobankModule,
     CategoriesModule,
     TransactionsModule,
+    IncomeModule,
   ],
   controllers: [AppController],
   providers: [AppService],

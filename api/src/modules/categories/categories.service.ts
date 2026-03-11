@@ -10,10 +10,12 @@ export class CategoriesService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAllForUser(clerkId: string) {
+  async findAllForUser(clerkId: string, from?: string, to?: string) {
     const user = await this.findUser(clerkId);
 
     await this.ensureDefaultCategories(user.id);
+
+    const { fromDate, toDate } = this.resolveDateRange(from, to);
 
     const categories = await this.prisma.category.findMany({
       where: { userId: user.id },
@@ -21,12 +23,30 @@ export class CategoriesService {
       include: {
         transactions: {
           select: { amount: true },
-          where: { amount: { lt: 0 } },
+          where: {
+            amount: { lt: 0 },
+            time: { gte: fromDate, lte: toDate },
+          },
         },
       },
     });
 
     return categories.map((cat) => this.formatCategory(cat));
+  }
+
+  private resolveDateRange(
+    from?: string,
+    to?: string,
+  ): { fromDate: Date; toDate: Date } {
+    if (from && to) {
+      return { fromDate: new Date(from), toDate: new Date(to) };
+    }
+
+    const now = new Date();
+    const fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    const toDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    return { fromDate, toDate };
   }
 
   async create(clerkId: string, dto: CreateCategoryDto) {

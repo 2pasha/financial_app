@@ -42,6 +42,12 @@ export interface Category {
   spent: number;
 }
 
+export interface IncomeItem {
+  id: string;
+  source: string;
+  amount: number;
+}
+
 export interface TransactionCategory {
   id: string;
   name: string;
@@ -123,9 +129,35 @@ export const monobankApi = {
   },
 };
 
+export const incomeApi = {
+  async getAll(): Promise<IncomeItem[]> {
+    const response = await apiClient.get<IncomeItem[]>('/income');
+
+    return response.data;
+  },
+
+  async create(data: Omit<IncomeItem, 'id'>): Promise<IncomeItem> {
+    const response = await apiClient.post<IncomeItem>('/income', data);
+
+    return response.data;
+  },
+
+  async update(id: string, data: Partial<Omit<IncomeItem, 'id'>>): Promise<IncomeItem> {
+    const response = await apiClient.patch<IncomeItem>(`/income/${id}`, data);
+
+    return response.data;
+  },
+
+  async delete(id: string): Promise<{ success: boolean }> {
+    const response = await apiClient.delete<{ success: boolean }>(`/income/${id}`);
+
+    return response.data;
+  },
+};
+
 export const categoriesApi = {
-  async getAll(): Promise<Category[]> {
-    const response = await apiClient.get<Category[]>('/categories');
+  async getAll(params?: { from?: string; to?: string }): Promise<Category[]> {
+    const response = await apiClient.get<Category[]>('/categories', { params });
 
     return response.data;
   },

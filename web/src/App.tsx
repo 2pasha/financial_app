@@ -1,19 +1,56 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { CategoryCard } from "./components/CategoryCard";
 import { AddCategoryDialog } from "./components/AddCategoryDialog";
 import { EditCategoryDialog } from "./components/EditCategoryDialog";
 import { Button } from "./components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./components/ui/alert-dialog";
-import { Plus, Moon, Sun, Languages, Trash2, CreditCard, Loader2 } from "lucide-react";
+import { Plus, Moon, Sun, Languages, CreditCard, Loader2 } from "lucide-react";
 import { type Language, getTranslation } from "./lib/translations";
 import { toast } from "sonner";
-import { IncomeDialog, type IncomeItem } from "./components/IncomeDialog";
+import { IncomeDialog } from "./components/IncomeDialog";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
-import { Switch } from "./components/ui/switch";
 import ExpensesPage from "./pages/ExpensesPage";
-import { categoriesApi } from "./lib/api-client";
-import type { Category } from "./lib/api-client";
+import { categoriesApi, incomeApi } from "./lib/api-client";
+import type { Category, IncomeItem } from "./lib/api-client";
+
+type Period = 'thisMonth' | 'lastMonth' | '3months' | 'custom';
+
+function getStartOfMonth(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function getEndOfMonth(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
+}
+
+function getPeriodRange(period: Period, customFrom: string, customTo: string): { from: string; to: string } {
+  const now = new Date();
+
+  switch (period) {
+    case 'thisMonth':
+      return {
+        from: getStartOfMonth(now).toISOString(),
+        to: getEndOfMonth(now).toISOString(),
+      };
+    case 'lastMonth': {
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      return {
+        from: getStartOfMonth(lastMonth).toISOString(),
+        to: getEndOfMonth(lastMonth).toISOString(),
+      };
+    }
+    case '3months': {
+      const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+      return {
+        from: getStartOfMonth(threeMonthsAgo).toISOString(),
+        to: getEndOfMonth(now).toISOString(),
+      };
+    }
+    case 'custom':
+      return { from: customFrom, to: customTo };
+  }
+}
 
 export default function App() {
   const navigate = useNavigate();
@@ -22,7 +59,7 @@ export default function App() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [categoryToEdit, setCategoryToEdit] = useState<Category | null>(null);
   const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
-  
+
   const [language, setLanguage] = useState<Language>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('language');
@@ -40,40 +77,66 @@ export default function App() {
   const t = getTranslation(language);
   const [currency, setCurrency] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('currency') || 'USD';
+      return localStorage.getItem('currency') || 'UAH';
     }
     return 'USD';
   });
-  const [useManualBudget, setUseManualBudget] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('useManualBudget') === 'true';
-    }
-    return false;
-  });
-  const [manualBudget, setManualBudget] = useState<number>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('manualBudget');
-      return saved ? Number(saved) : 0;
-    }
-    return 0;
-  });
+
+  const [period, setPeriod] = useState<Period>('thisMonth');
+  const now = new Date();
+  const [customFrom, setCustomFrom] = useState<string>(
+    getStartOfMonth(now).toISOString().slice(0, 10),
+  );
+  const [customTo, setCustomTo] = useState<string>(
+    now.toISOString().slice(0, 10),
+  );
+
   const [incomeDialogOpen, setIncomeDialogOpen] = useState(false);
-  const [incomeItems, setIncomeItems] = useState<IncomeItem[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('incomeItems');
-      return saved ? JSON.parse(saved) : [];
-    }
-    return [];
-  });
-  
+  const [incomeItems, setIncomeItems] = useState<IncomeItem[]>([]);
+  const [incomeLoading, setIncomeLoading] = useState(true);
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
+
+  const [view, setView] = useState<'dashboard' | 'expenses'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('view') as 'dashboard' | 'expenses') || 'dashboard';
+    }
+    return 'dashboard';
+  });
 
   const totalBudget = categories.reduce((sum, cat) => sum + cat.budget, 0);
   const totalIncome = incomeItems.reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
   const totalSpent = categories.reduce((sum, cat) => sum + cat.spent, 0);
-  const effectiveBudget = useManualBudget ? manualBudget : (totalIncome > 0 ? totalIncome : totalBudget);
+  const effectiveBudget = totalIncome > 0 ? totalIncome : totalBudget;
   const remaining = effectiveBudget - totalSpent;
+  const savingsRate = totalIncome > 0 ? ((totalIncome - totalSpent) / totalIncome) * 100 : null;
+
+  const dateRange = getPeriodRange(period, customFrom, customTo);
+
+  const fetchCategories = useCallback(async () => {
+    setCategoriesLoading(true);
+
+    try {
+      const data = await categoriesApi.getAll(dateRange);
+      setCategories(data);
+    } catch {
+      toast.error('Failed to load categories');
+    } finally {
+      setCategoriesLoading(false);
+    }
+  }, [dateRange.from, dateRange.to]);
+
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
+
+  useEffect(() => {
+    incomeApi.getAll()
+      .then(setIncomeItems)
+      .catch(() => toast.error('Failed to load income'))
+      .finally(() => setIncomeLoading(false));
+  }, []);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -86,28 +149,14 @@ export default function App() {
   }, [isDarkMode]);
 
   useEffect(() => {
-    categoriesApi.getAll()
-      .then(setCategories)
-      .catch(() => toast.error('Failed to load categories'))
-      .finally(() => setCategoriesLoading(false));
-  }, []);
-
-  useEffect(() => {
     localStorage.setItem('currency', currency);
   }, [currency]);
-  useEffect(() => {
-    localStorage.setItem('useManualBudget', String(useManualBudget));
-  }, [useManualBudget]);
-  useEffect(() => {
-    localStorage.setItem('manualBudget', String(manualBudget));
-  }, [manualBudget]);
-  useEffect(() => {
-    localStorage.setItem('incomeItems', JSON.stringify(incomeItems));
-  }, [incomeItems]);
 
-  const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode);
-  };
+  useEffect(() => {
+    localStorage.setItem('view', view);
+  }, [view]);
+
+  const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
   const toggleLanguage = () => {
     const newLang = language === 'en' ? 'uk' : 'en';
@@ -115,17 +164,41 @@ export default function App() {
     localStorage.setItem('language', newLang);
   };
 
-  const handleIncomeConfirm = (items: IncomeItem[]) => {
-    setIncomeItems(items);
-    const sum = items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
-    toast.success(t.incomesTotal + ': ' + formatAmount(sum));
-  };
-
   const formatAmount = (value: number) => {
     try {
       return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(value);
     } catch {
       return `${value.toLocaleString()} ${currency}`;
+    }
+  };
+
+  const handleAddIncome = async (data: { source: string; amount: number }) => {
+    try {
+      const created = await incomeApi.create(data);
+      setIncomeItems((prev) => [...prev, created]);
+    } catch {
+      toast.error('Failed to add income');
+      throw new Error('Failed to add income');
+    }
+  };
+
+  const handleUpdateIncome = async (id: string, data: { source?: string; amount?: number }) => {
+    try {
+      const updated = await incomeApi.update(id, data);
+      setIncomeItems((prev) => prev.map((it) => (it.id === id ? updated : it)));
+    } catch {
+      toast.error('Failed to update income');
+      throw new Error('Failed to update income');
+    }
+  };
+
+  const handleRemoveIncome = async (id: string) => {
+    try {
+      await incomeApi.delete(id);
+      setIncomeItems((prev) => prev.filter((it) => it.id !== id));
+    } catch {
+      toast.error('Failed to delete income');
+      throw new Error('Failed to delete income');
     }
   };
 
@@ -184,19 +257,19 @@ export default function App() {
     }
   };
 
-  const [view, setView] = useState<'dashboard' | 'expenses'>(() => {
-    if (typeof window !== 'undefined') {
-      return (localStorage.getItem('view') as 'dashboard' | 'expenses') || 'dashboard';
-    }
-    return 'dashboard';
-  });
-  useEffect(() => {
-    localStorage.setItem('view', view);
-  }, [view]);
+  const handlePeriodChange = (newPeriod: Period) => {
+    setPeriod(newPeriod);
+  };
+
+  const periodLabel: Record<Period, string> = {
+    thisMonth: 'This Month',
+    lastMonth: 'Last Month',
+    '3months': 'Last 3 Months',
+    custom: 'Custom',
+  };
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border bg-card">
         <div className="max-w-6xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
@@ -224,7 +297,9 @@ export default function App() {
                   </SelectGroup>
                 </SelectContent>
               </Select>
-              <Button variant="outline" onClick={() => setIncomeDialogOpen(true)}>{t.manageIncomes}</Button>
+              <Button variant="outline" onClick={() => setIncomeDialogOpen(true)}>
+                {incomeLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : t.manageIncomes}
+              </Button>
               <Button
                 variant="outline"
                 size="icon"
@@ -251,7 +326,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 py-6 sm:px-6 lg:px-8 pb-24">
         {view === 'expenses' ? (
           <ExpensesPage />
@@ -261,7 +335,7 @@ export default function App() {
             <div className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-xl p-6 sm:p-8 mb-6 shadow-lg">
               <p className="opacity-90 mb-2">{t.totalBalance}</p>
               <h2 className="text-4xl sm:text-5xl mb-4">{formatAmount(remaining)}</h2>
-              <div className="flex gap-6 text-sm">
+              <div className="flex flex-wrap gap-6 text-sm">
                 <div>
                   <p className="opacity-75">{t.budget}</p>
                   <p className="text-lg">{formatAmount(effectiveBudget)}</p>
@@ -270,43 +344,57 @@ export default function App() {
                   <p className="opacity-75">{t.spent}</p>
                   <p className="text-lg">{formatAmount(totalSpent)}</p>
                 </div>
+                {totalIncome > 0 && (
+                  <div>
+                    <p className="opacity-75">{t.incomesTotal}</p>
+                    <p className="text-lg">{formatAmount(totalIncome)}</p>
+                  </div>
+                )}
+                {savingsRate !== null && (
+                  <div>
+                    <p className="opacity-75">Savings Rate</p>
+                    <p className={`text-lg font-semibold ${savingsRate < 0 ? 'text-red-300' : 'text-green-300'}`}>
+                      {savingsRate.toFixed(1)}%
+                    </p>
+                  </div>
+                )}
               </div>
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="flex items-center gap-3">
-                  <Switch checked={useManualBudget} onCheckedChange={setUseManualBudget} />
-                  <span>{t.useManualBudget}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="opacity-75 w-40">{t.manualBudgetAmount}</span>
+            </div>
+
+            {/* Period Selector */}
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              {(['thisMonth', 'lastMonth', '3months', 'custom'] as Period[]).map((p) => (
+                <Button
+                  key={p}
+                  variant={period === p ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handlePeriodChange(p)}
+                >
+                  {periodLabel[p]}
+                </Button>
+              ))}
+              {period === 'custom' && (
+                <div className="flex items-center gap-2 ml-2">
                   <input
-                    className="bg-card/20 rounded px-3 py-2 w-full outline-none"
-                    type="number"
-                    value={manualBudget || ''}
-                    onChange={e => setManualBudget(Number(e.target.value) || 0)}
-                    disabled={!useManualBudget}
+                    type="date"
+                    value={customFrom}
+                    onChange={(e) => setCustomFrom(e.target.value)}
+                    className="border border-border rounded px-2 py-1 text-sm bg-background text-foreground"
+                  />
+                  <span className="text-muted-foreground text-sm">—</span>
+                  <input
+                    type="date"
+                    value={customTo}
+                    onChange={(e) => setCustomTo(e.target.value)}
+                    className="border border-border rounded px-2 py-1 text-sm bg-background text-foreground"
                   />
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="opacity-75 w-40">{t.incomesTotal}</span>
-                  <span className="text-lg">{formatAmount(totalIncome)}</span>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Categories Section */}
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-foreground">{t.categories}</h2>
-              {false && (
-                <Button
-                  variant="outline"
-                  size="sm" 
-                  onClick={clearDemoData}
-                  className="gap-2"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  {t.clearDemoData}
-                </Button>
-              )}
             </div>
 
             {/* Categories Grid */}
@@ -357,7 +445,6 @@ export default function App() {
         <Plus className="w-6 h-6" />
       </Button>
 
-      {/* Add Category Dialog */}
       <AddCategoryDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
@@ -365,7 +452,6 @@ export default function App() {
         translations={t}
       />
 
-      {/* Edit Category Dialog */}
       <EditCategoryDialog
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
@@ -374,7 +460,6 @@ export default function App() {
         translations={t}
       />
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -395,7 +480,10 @@ export default function App() {
       <IncomeDialog
         open={incomeDialogOpen}
         onOpenChange={setIncomeDialogOpen}
-        onConfirm={handleIncomeConfirm}
+        items={incomeItems}
+        onAdd={handleAddIncome}
+        onUpdate={handleUpdateIncome}
+        onRemove={handleRemoveIncome}
         translations={t}
       />
     </div>

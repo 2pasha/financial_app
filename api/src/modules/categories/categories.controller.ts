@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   ValidationPipe,
   HttpCode,
@@ -24,8 +25,12 @@ export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
   @Get()
-  async findAll(@CurrentUser() user: CurrentUserData) {
-    return this.categoriesService.findAllForUser(user.clerkId);
+  async findAll(
+    @CurrentUser() user: CurrentUserData,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.categoriesService.findAllForUser(user.clerkId, from, to);
   }
 
   @Post()

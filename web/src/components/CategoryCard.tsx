@@ -45,7 +45,7 @@ export function CategoryCard({ id, name, spent, budget, icon, color, onEdit, onD
           <div>
             <h3 className="text-card-foreground mb-1">{name}</h3>
             <p className="text-muted-foreground">
-              <span className="text-card-foreground">${spent.toLocaleString()}</span> / ${budget.toLocaleString()}
+              <span className="text-card-foreground">₴{spent.toLocaleString()}</span> / ₴{budget.toLocaleString()}
             </p>
           </div>
         </div>
@@ -88,7 +88,7 @@ export function CategoryCard({ id, name, spent, budget, icon, color, onEdit, onD
       />
       <div className="flex justify-between items-center">
         <span className="text-sm text-muted-foreground">
-          ${(budget - spent).toLocaleString()} {translations.remaining}
+          ₴{(budget - spent).toLocaleString()} {translations.remaining}
         </span>
         <span className={`${isOverBudget ? 'text-destructive' : 'text-card-foreground'}`}>
           {percentage.toFixed(0)}%
