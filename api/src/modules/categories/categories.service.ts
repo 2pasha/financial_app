@@ -24,7 +24,6 @@ export class CategoriesService {
         transactions: {
           select: { amount: true },
           where: {
-            amount: { lt: 0 },
             time: { gte: fromDate, lte: toDate },
           },
         },
@@ -64,7 +63,6 @@ export class CategoriesService {
       include: {
         transactions: {
           select: { amount: true },
-          where: { amount: { lt: 0 } },
         },
       },
     });
@@ -90,7 +88,6 @@ export class CategoriesService {
       include: {
         transactions: {
           select: { amount: true },
-          where: { amount: { lt: 0 } },
         },
       },
     });
@@ -163,7 +160,7 @@ export class CategoriesService {
     budget: number;
     transactions: { amount: bigint }[];
   }) {
-    const spentMinorUnits = cat.transactions.reduce(
+    const netMinorUnits = cat.transactions.reduce(
       (sum, tx) => sum + Number(tx.amount),
       0,
     );
@@ -174,7 +171,7 @@ export class CategoriesService {
       icon: cat.icon,
       color: cat.color,
       budget: cat.budget,
-      spent: Math.abs(spentMinorUnits) / 100,
+      spent: Math.max(0, -netMinorUnits) / 100,
     };
   }
 
