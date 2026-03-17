@@ -309,8 +309,8 @@ export default function ExpensesPage() {
         .includes(filters.name.toLowerCase());
       
       // Category filter (multi-select)
-      const matchesCategory = filters.categories.length === 0 || 
-        filters.categories.includes(String(tx.mcc || 0));
+      const matchesCategory = filters.categories.length === 0 ||
+        filters.categories.includes(tx.categoryId ?? '__uncategorized__');
       
       // Amount filter (comparison mode)
       let matchesAmount = true;
@@ -362,14 +362,17 @@ export default function ExpensesPage() {
 
   // Extract unique categories and cards for filter dropdowns
   const categoryOptions = useMemo(() => {
-    const uniqueMccs = new Set(txns.map(t => t.mcc || 0));
-    return Array.from(uniqueMccs)
-      .sort((a, b) => a - b)
-      .map(mcc => ({
-        value: String(mcc),
-        label: mccName(mcc, mccCatalog),
-      }));
-  }, [txns, mccCatalog]);
+    const options = categories.map(cat => ({
+      value: cat.id,
+      label: `${cat.icon} ${cat.name}`,
+    }));
+    const hasUncategorized = txns.some(t => !t.categoryId);
+    if (hasUncategorized) {
+      options.push({ value: '__uncategorized__', label: '— Uncategorized' });
+    }
+
+    return options;
+  }, [categories, txns]);
 
   const cardOptions = useMemo(() => {
     const uniqueCards = new Set(txns.map(t => t.account?.type).filter(Boolean));
