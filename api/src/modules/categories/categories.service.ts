@@ -136,6 +136,42 @@ export class CategoriesService {
     }));
   }
 
+  async getTransactionsForCategory(
+    clerkId: string,
+    categoryId: string,
+    from?: string,
+    to?: string,
+  ) {
+    const user = await this.findUser(clerkId);
+    await this.findOwnedCategory(categoryId, user.id);
+
+    const { fromDate, toDate } = this.resolveDateRange(from, to);
+
+    const transactions = await this.prisma.transaction.findMany({
+      where: {
+        categoryId,
+        userId: user.id,
+        time: { gte: fromDate, lte: toDate },
+      },
+      orderBy: { time: 'desc' },
+      select: {
+        id: true,
+        time: true,
+        description: true,
+        amount: true,
+        mcc: true,
+      },
+    });
+
+    return transactions.map((tx) => ({
+      id: tx.id,
+      time: tx.time,
+      description: tx.description,
+      amount: Number(tx.amount) / 100,
+      mcc: tx.mcc,
+    }));
+  }
+
   async delete(clerkId: string, id: string) {
     const user = await this.findUser(clerkId);
     await this.findOwnedCategory(id, user.id);

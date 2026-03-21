@@ -41,6 +41,16 @@ export class CategoriesController {
     return this.categoriesService.create(user.clerkId, dto);
   }
 
+  @Get(':id/transactions')
+  async getTransactions(
+    @CurrentUser() user: CurrentUserData,
+    @Param('id') id: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.categoriesService.getTransactionsForCategory(user.clerkId, id, from, to);
+  }
+
   @Patch(':id')
   async update(
     @CurrentUser() user: CurrentUserData,

@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { IncomeDialog } from "./components/IncomeDialog";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
 import ExpensesPage from "./pages/ExpensesPage";
+import { CategoryTransactionsModal } from "./components/CategoryTransactionsModal";
 import { categoriesApi, incomeApi } from "./lib/api-client";
 import type { Category, IncomeItem } from "./lib/api-client";
 
@@ -97,6 +98,7 @@ export default function App() {
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
 
   const [view, setView] = useState<'dashboard' | 'expenses'>(() => {
     if (typeof window !== 'undefined') {
@@ -209,6 +211,13 @@ export default function App() {
       toast.success('Category added');
     } catch {
       toast.error('Failed to add category');
+    }
+  };
+
+  const handleCategoryClick = (id: string) => {
+    const category = categories.find((cat) => cat.id === id);
+    if (category) {
+      setSelectedCategory(category);
     }
   };
 
@@ -416,6 +425,7 @@ export default function App() {
                       color={category.color}
                       onEdit={handleEditCategory}
                       onDelete={handleDeleteCategory}
+                      onClick={handleCategoryClick}
                       translations={t}
                     />
                   ))}
@@ -486,6 +496,18 @@ export default function App() {
         onRemove={handleRemoveIncome}
         translations={t}
       />
+
+      {selectedCategory && (
+        <CategoryTransactionsModal
+          open={!!selectedCategory}
+          onOpenChange={(open) => { if (!open) setSelectedCategory(null); }}
+          categoryId={selectedCategory.id}
+          categoryName={t[selectedCategory.name as keyof typeof t] as string || selectedCategory.name}
+          categoryIcon={selectedCategory.icon}
+          categoryColor={selectedCategory.color}
+          dateRange={dateRange}
+        />
+      )}
     </div>
   );
 }

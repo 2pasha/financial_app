@@ -17,6 +17,7 @@ interface CategoryCardProps {
   color: string;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
+  onClick?: (id: string) => void;
   translations: {
     remaining: string;
     used: string;
@@ -25,12 +26,15 @@ interface CategoryCardProps {
   };
 }
 
-export function CategoryCard({ id, name, spent, budget, icon, color, onEdit, onDelete, translations }: CategoryCardProps) {
+export function CategoryCard({ id, name, spent, budget, icon, color, onEdit, onDelete, onClick, translations }: CategoryCardProps) {
   const percentage = (spent / budget) * 100;
   const isOverBudget = spent > budget;
 
   return (
-    <div className="bg-card border border-border rounded-lg p-5 hover:shadow-lg transition-all hover:border-primary/30 group">
+    <div
+      className="bg-card border border-border rounded-lg p-5 hover:shadow-lg transition-all hover:border-primary/30 group cursor-pointer"
+      onClick={() => onClick?.(id)}
+    >
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
           <div 
@@ -55,6 +59,7 @@ export function CategoryCard({ id, name, spent, budget, icon, color, onEdit, onD
               variant="ghost" 
               size="icon" 
               className="h-8 w-8 opacity-70 hover:opacity-100 transition-opacity"
+              onClick={(e) => e.stopPropagation()}
             >
               <MoreVertical className="h-4 w-4" />
             </Button>

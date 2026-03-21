@@ -42,6 +42,15 @@ export interface Category {
   spent: number;
 }
 
+export interface CategoryTransaction {
+  id: string;
+  time: string;
+  description: string;
+  /** Signed amount in currency units: negative = expense, positive = refund */
+  amount: number;
+  mcc: number | null;
+}
+
 export interface IncomeItem {
   id: string;
   source: string;
@@ -176,6 +185,18 @@ export const categoriesApi = {
 
   async delete(id: string): Promise<{ success: boolean }> {
     const response = await apiClient.delete<{ success: boolean }>(`/categories/${id}`);
+
+    return response.data;
+  },
+
+  async getTransactions(
+    id: string,
+    params?: { from?: string; to?: string },
+  ): Promise<CategoryTransaction[]> {
+    const response = await apiClient.get<CategoryTransaction[]>(
+      `/categories/${id}/transactions`,
+      { params },
+    );
 
     return response.data;
   },
