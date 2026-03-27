@@ -24,7 +24,6 @@ export class CategoriesService {
         transactions: {
           select: { amount: true },
           where: {
-            hold: false,
             time: { gte: fromDate, lte: toDate },
           },
         },
@@ -152,7 +151,6 @@ export class CategoriesService {
       where: {
         categoryId,
         userId: user.id,
-        hold: false,
         time: { gte: fromDate, lte: toDate },
       },
       orderBy: { time: 'desc' },
