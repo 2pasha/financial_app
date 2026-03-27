@@ -27,8 +27,9 @@ interface CategoryCardProps {
 }
 
 export function CategoryCard({ id, name, spent, budget, icon, color, onEdit, onDelete, onClick, translations }: CategoryCardProps) {
-  const percentage = (spent / budget) * 100;
-  const isOverBudget = spent > budget;
+  const hasBudget = budget > 0;
+  const percentage = hasBudget ? (spent / budget) * 100 : 0;
+  const isOverBudget = hasBudget && spent > budget;
 
   return (
     <div
@@ -49,7 +50,13 @@ export function CategoryCard({ id, name, spent, budget, icon, color, onEdit, onD
           <div>
             <h3 className="text-card-foreground mb-1">{name}</h3>
             <p className="text-muted-foreground">
-              <span className="text-card-foreground">₴{spent.toLocaleString()}</span> / ₴{budget.toLocaleString()}
+              {hasBudget ? (
+                <>
+                  <span className="text-card-foreground">₴{spent.toLocaleString()}</span> / ₴{budget.toLocaleString()}
+                </>
+              ) : (
+                <span className="text-card-foreground">₴{spent.toLocaleString()}</span>
+              )}
             </p>
           </div>
         </div>
@@ -91,14 +98,16 @@ export function CategoryCard({ id, name, spent, budget, icon, color, onEdit, onD
           } as React.CSSProperties
         }
       />
-      <div className="flex justify-between items-center">
-        <span className="text-sm text-muted-foreground">
-          ₴{(budget - spent).toLocaleString()} {translations.remaining}
-        </span>
-        <span className={`${isOverBudget ? 'text-destructive' : 'text-card-foreground'}`}>
-          {percentage.toFixed(0)}%
-        </span>
-      </div>
+      {hasBudget && (
+        <div className="flex justify-between items-center">
+          <span className="text-sm text-muted-foreground">
+            ₴{(budget - spent).toLocaleString()} {translations.remaining}
+          </span>
+          <span className={`${isOverBudget ? 'text-destructive' : 'text-card-foreground'}`}>
+            {percentage.toFixed(0)}%
+          </span>
+        </div>
+      )}
     </div>
   );
 }

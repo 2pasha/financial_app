@@ -7,7 +7,7 @@ import { CategoriesService } from '../categories/categories.service';
 import { SaveTokenDto } from './dto/save-token.dto';
 import { SyncResponseDto } from './dto/sync-response.dto';
 import { SyncJobStore } from './sync-job.store';
-import type { MonobankWebhookPayload } from './interfaces/monobank-webhook.interface';
+import type { MonobankWebhookPayload, MonobankWebhookStatementItem } from './interfaces/monobank-webhook.interface';
 
 type CategoryMccEntry = { id: string; name: string; mccCodes: number[] };
 
@@ -727,6 +727,8 @@ export class MonobankService {
       otherCategory?.id ?? '',
     );
 
+    await this.deleteMatchingHoldTransaction(account.id, statementItem);
+
     try {
       await this.prisma.transaction.upsert({
         where: { monobankId: statementItem.id },
@@ -764,6 +766,38 @@ export class MonobankService {
     } catch (error) {
       this.logger.error(`Failed to save webhook transaction ${statementItem.id}`, error);
       throw error;
+    }
+  }
+
+  private async deleteMatchingHoldTransaction(
+    accountId: string,
+    statementItem: MonobankWebhookStatementItem,
+  ): Promise<void> {
+    if (statementItem.hold) {
+      return;
+    }
+
+    const txTime = new Date(statementItem.time * 1000);
+    const windowMs = 5 * 60 * 1000;
+
+    const deleted = await this.prisma.transaction.deleteMany({
+      where: {
+        accountId,
+        hold: true,
+        amount: BigInt(statementItem.amount),
+        mcc: statementItem.mcc ?? null,
+        monobankId: { not: statementItem.id },
+        time: {
+          gte: new Date(txTime.getTime() - windowMs),
+          lte: new Date(txTime.getTime() + windowMs),
+        },
+      },
+    });
+
+    if (deleted.count > 0) {
+      this.logger.log(
+        `Deleted ${deleted.count} hold transaction(s) superseded by settled tx ${statementItem.id}`,
+      );
     }
   }
 

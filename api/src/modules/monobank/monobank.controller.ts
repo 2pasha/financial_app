@@ -35,7 +35,7 @@ export class MonobankController {
   async handleWebhook(@Body() payload: MonobankWebhookPayload) {
     this.logger.log(`Webhook received: ${JSON.stringify(payload).slice(0, 200)}`);
 
-    await this.monobankService.handleWebhook(payload);
+    void this.monobankService.handleWebhook(payload);
 
     return { status: 'ok' };
   }
