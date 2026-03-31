@@ -82,6 +82,28 @@ export interface Transaction {
   account: { id: string; type: string };
 }
 
+export interface BudgetPlanCategory {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  budget: number;
+}
+
+export interface BudgetPlanItem {
+  id: string;
+  categoryId: string;
+  budget: number;
+  category: BudgetPlanCategory;
+}
+
+export interface BudgetPlan {
+  id: string;
+  year: number;
+  month: number;
+  items: BudgetPlanItem[];
+}
+
 export interface SyncJob {
   jobId: string;
   status: 'pending' | 'running' | 'completed' | 'failed';
@@ -231,6 +253,32 @@ export const transactionsApi = {
 
   async delete(id: string): Promise<{ success: boolean }> {
     const response = await apiClient.delete<{ success: boolean }>(`/transactions/${id}`);
+
+    return response.data;
+  },
+};
+
+export const budgetPlansApi = {
+  async getForMonth(year: number, month: number): Promise<BudgetPlan | null> {
+    const response = await apiClient.get<BudgetPlan | null>('/budget-plans', {
+      params: { year, month },
+    });
+
+    return response.data;
+  },
+
+  async upsert(data: {
+    year: number;
+    month: number;
+    items: { categoryId: string; budget: number }[];
+  }): Promise<BudgetPlan> {
+    const response = await apiClient.post<BudgetPlan>('/budget-plans', data);
+
+    return response.data;
+  },
+
+  async delete(id: string): Promise<{ success: boolean }> {
+    const response = await apiClient.delete<{ success: boolean }>(`/budget-plans/${id}`);
 
     return response.data;
   },

@@ -21,6 +21,7 @@ model User {
   transactions    Transaction[]
   categories      Category[]
   incomes         Income[]
+  budgetPlans     BudgetPlan[]
 }
 
 model Income {
@@ -34,17 +35,44 @@ model Income {
 }
 
 model Category {
-  id           String        @id @default(uuid())
-  userId       String
-  user         User          @relation(fields: [userId], references: [id])
-  name         String
-  icon         String
-  color        String
-  budget       Float
-  mccCodes     Int[]         @default([])
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  transactions Transaction[]
+  id              String           @id @default(uuid())
+  userId          String
+  user            User             @relation(fields: [userId], references: [id])
+  name            String
+  icon            String
+  color           String
+  budget          Float
+  mccCodes        Int[]            @default([])
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  transactions    Transaction[]
+  budgetPlanItems BudgetPlanItem[]
+}
+
+model BudgetPlan {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id])
+  year      Int
+  month     Int
+  items     BudgetPlanItem[]
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@unique([userId, year, month])
+}
+
+model BudgetPlanItem {
+  id         String     @id @default(uuid())
+  planId     String
+  plan       BudgetPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  categoryId String
+  category   Category   @relation(fields: [categoryId], references: [id])
+  budget     Float
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@unique([planId, categoryId])
 }
 
 model MonobankToken {

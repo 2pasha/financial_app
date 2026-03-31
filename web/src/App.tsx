@@ -3,19 +3,22 @@ import { useNavigate } from "react-router-dom";
 import { CategoryCard } from "./components/CategoryCard";
 import { AddCategoryDialog } from "./components/AddCategoryDialog";
 import { EditCategoryDialog } from "./components/EditCategoryDialog";
+import { BudgetPlanPanel } from "./components/BudgetPlanPanel";
 import { Button } from "./components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./components/ui/alert-dialog";
-import { Plus, Moon, Sun, Languages, CreditCard, Loader2 } from "lucide-react";
+import { Plus, Moon, Sun, Languages, CreditCard, Loader2, CalendarRange } from "lucide-react";
 import { type Language, getTranslation } from "./lib/translations";
 import { toast } from "sonner";
 import { IncomeDialog } from "./components/IncomeDialog";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
 import ExpensesPage from "./pages/ExpensesPage";
 import { CategoryTransactionsModal } from "./components/CategoryTransactionsModal";
-import { categoriesApi, incomeApi } from "./lib/api-client";
-import type { Category, IncomeItem } from "./lib/api-client";
+import { categoriesApi, incomeApi, budgetPlansApi } from "./lib/api-client";
+import type { Category, IncomeItem, BudgetPlan } from "./lib/api-client";
 
-type Period = 'thisMonth' | 'lastMonth' | '3months' | 'custom';
+type MonthPeriod = { kind: 'month'; year: number; month: number };
+type CustomPeriod = { kind: 'custom' };
+type Period = MonthPeriod | CustomPeriod;
 
 function getStartOfMonth(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), 1);
@@ -26,31 +29,69 @@ function getEndOfMonth(date: Date): Date {
 }
 
 function getPeriodRange(period: Period, customFrom: string, customTo: string): { from: string; to: string } {
-  const now = new Date();
-
-  switch (period) {
-    case 'thisMonth':
-      return {
-        from: getStartOfMonth(now).toISOString(),
-        to: getEndOfMonth(now).toISOString(),
-      };
-    case 'lastMonth': {
-      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      return {
-        from: getStartOfMonth(lastMonth).toISOString(),
-        to: getEndOfMonth(lastMonth).toISOString(),
-      };
-    }
-    case '3months': {
-      const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-      return {
-        from: getStartOfMonth(threeMonthsAgo).toISOString(),
-        to: getEndOfMonth(now).toISOString(),
-      };
-    }
-    case 'custom':
-      return { from: customFrom, to: customTo };
+  if (period.kind === 'custom') {
+    return { from: customFrom, to: customTo };
   }
+
+  const date = new Date(period.year, period.month - 1, 1);
+
+  return {
+    from: getStartOfMonth(date).toISOString(),
+    to: getEndOfMonth(date).toISOString(),
+  };
+}
+
+function getLastNMonths(n: number): MonthPeriod[] {
+  const now = new Date();
+  const months: MonthPeriod[] = [];
+
+  for (let i = 0; i < n; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({ kind: 'month', year: d.getFullYear(), month: d.getMonth() + 1 });
+  }
+
+  return months;
+}
+
+function getPlanningMonths(): MonthPeriod[] {
+  const now = new Date();
+  const months: MonthPeriod[] = [];
+
+  for (let i = -3; i <= 3; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    months.push({ kind: 'month', year: d.getFullYear(), month: d.getMonth() + 1 });
+  }
+
+  return months;
+}
+
+function formatMonthLabel(period: MonthPeriod, language: Language): string {
+  const date = new Date(period.year, period.month - 1, 1);
+  const locale = language === 'uk' ? 'uk-UA' : 'en-US';
+
+  return new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(date);
+}
+
+function monthKey(mp: MonthPeriod): string {
+  return `${mp.year}-${mp.month}`;
+}
+
+function monthFromKey(key: string): MonthPeriod {
+  const [year, month] = key.split('-').map(Number);
+
+  return { kind: 'month', year, month };
+}
+
+function periodEquals(a: Period, b: Period): boolean {
+  if (a.kind !== b.kind) {
+    return false;
+  }
+
+  if (a.kind === 'month' && b.kind === 'month') {
+    return a.year === b.year && a.month === b.month;
+  }
+
+  return true;
 }
 
 export default function App() {
@@ -64,15 +105,19 @@ export default function App() {
   const [language, setLanguage] = useState<Language>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('language');
+
       return (saved as Language) || 'en';
     }
+
     return 'en';
   });
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('theme');
+
       return saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
     }
+
     return false;
   });
   const t = getTranslation(language);
@@ -80,17 +125,24 @@ export default function App() {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('currency') || 'UAH';
     }
+
     return 'USD';
   });
 
-  const [period, setPeriod] = useState<Period>('thisMonth');
   const now = new Date();
+  const currentMonthPeriod: MonthPeriod = { kind: 'month', year: now.getFullYear(), month: now.getMonth() + 1 };
+
+  const [period, setPeriod] = useState<Period>(currentMonthPeriod);
   const [customFrom, setCustomFrom] = useState<string>(
     getStartOfMonth(now).toISOString().slice(0, 10),
   );
   const [customTo, setCustomTo] = useState<string>(
     now.toISOString().slice(0, 10),
   );
+
+  // Planning is decoupled from the viewed period
+  const [planningMonth, setPlanningMonth] = useState<MonthPeriod | null>(null);
+  const [planningPlan, setPlanningPlan] = useState<BudgetPlan | null>(null);
 
   const [incomeDialogOpen, setIncomeDialogOpen] = useState(false);
   const [incomeItems, setIncomeItems] = useState<IncomeItem[]>([]);
@@ -100,16 +152,46 @@ export default function App() {
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
 
+  // Budget plan for the currently viewed month (drives dashboard display)
+  const [budgetPlan, setBudgetPlan] = useState<BudgetPlan | null>(null);
+
   const [view, setView] = useState<'dashboard' | 'expenses'>(() => {
     if (typeof window !== 'undefined') {
       return (localStorage.getItem('view') as 'dashboard' | 'expenses') || 'dashboard';
     }
+
     return 'dashboard';
   });
 
-  const totalBudget = categories.reduce((sum, cat) => sum + cat.budget, 0);
+  const mergedCategories = categories.map((cat) => {
+    if (period.kind !== 'month' || !budgetPlan) {
+      return cat;
+    }
+
+    const planItem = budgetPlan.items.find((item) => item.categoryId === cat.id);
+
+    return planItem ? { ...cat, budget: planItem.budget } : cat;
+  });
+
+  // Split categories when a plan exists for the viewed month
+  const isMonthPeriod = period.kind === 'month';
+  const showSplit = isMonthPeriod && budgetPlan !== null;
+
+  const plannedCategoryIds = budgetPlan
+    ? new Set(budgetPlan.items.map((i) => i.categoryId))
+    : null;
+
+  const plannedCategories = plannedCategoryIds
+    ? mergedCategories.filter((c) => plannedCategoryIds.has(c.id))
+    : mergedCategories;
+
+  const unplannedWithSpend = plannedCategoryIds
+    ? mergedCategories.filter((c) => !plannedCategoryIds.has(c.id) && c.spent > 0)
+    : [];
+
+  const totalBudget = mergedCategories.reduce((sum, cat) => sum + cat.budget, 0);
   const totalIncome = incomeItems.reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
-  const totalSpent = categories.reduce((sum, cat) => sum + cat.spent, 0);
+  const totalSpent = mergedCategories.reduce((sum, cat) => sum + cat.spent, 0);
   const effectiveBudget = totalIncome > 0 ? totalIncome : totalBudget;
   const remaining = effectiveBudget - totalSpent;
   const savingsRate = totalIncome > 0 ? ((totalIncome - totalSpent) / totalIncome) * 100 : null;
@@ -129,9 +211,28 @@ export default function App() {
     }
   }, [dateRange.from, dateRange.to]);
 
+  const fetchBudgetPlan = useCallback(async () => {
+    if (period.kind !== 'month') {
+      setBudgetPlan(null);
+
+      return;
+    }
+
+    try {
+      const plan = await budgetPlansApi.getForMonth(period.year, period.month);
+      setBudgetPlan(plan);
+    } catch {
+      setBudgetPlan(null);
+    }
+  }, [period.kind === 'month' ? period.year : 0, period.kind === 'month' ? period.month : 0, period.kind]);
+
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories]);
+
+  useEffect(() => {
+    fetchBudgetPlan();
+  }, [fetchBudgetPlan]);
 
   useEffect(() => {
     incomeApi.getAll()
@@ -270,12 +371,69 @@ export default function App() {
     setPeriod(newPeriod);
   };
 
-  const periodLabel: Record<Period, string> = {
-    thisMonth: 'This Month',
-    lastMonth: 'Last Month',
-    '3months': 'Last 3 Months',
-    custom: 'Custom',
+  const handlePlanningMonthChange = async (mp: MonthPeriod) => {
+    setPlanningMonth(mp);
+
+    try {
+      const plan = await budgetPlansApi.getForMonth(mp.year, mp.month);
+      setPlanningPlan(plan);
+    } catch {
+      setPlanningPlan(null);
+    }
   };
+
+  const isPlanningViewedMonth = (mp: MonthPeriod): boolean => {
+    return period.kind === 'month' &&
+      period.year === mp.year &&
+      period.month === mp.month;
+  };
+
+  const handlePlanSaved = (plan: BudgetPlan) => {
+    setPlanningPlan(plan);
+
+    if (planningMonth && isPlanningViewedMonth(planningMonth)) {
+      setBudgetPlan(plan);
+    }
+
+    toast.success(t.planSaved);
+  };
+
+  const handlePlanDeleted = async (): Promise<void> => {
+    if (!planningPlan) {
+      return;
+    }
+
+    try {
+      await budgetPlansApi.delete(planningPlan.id);
+      setPlanningPlan(null);
+
+      if (planningMonth && isPlanningViewedMonth(planningMonth)) {
+        setBudgetPlan(null);
+      }
+
+      toast.success(t.planDeleted);
+    } catch {
+      toast.error('Failed to delete budget plan');
+    }
+  };
+
+  const planningMonths = getPlanningMonths();
+
+  const renderCategoryCard = (category: Category) => (
+    <CategoryCard
+      key={category.id}
+      id={category.id}
+      name={t[category.name as keyof typeof t] as string || category.name}
+      spent={category.spent}
+      budget={category.budget}
+      icon={category.icon}
+      color={category.color}
+      onEdit={handleEditCategory}
+      onDelete={handleDeleteCategory}
+      onClick={handleCategoryClick}
+      translations={t}
+    />
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -372,17 +530,25 @@ export default function App() {
 
             {/* Period Selector */}
             <div className="mb-4 flex flex-wrap items-center gap-2">
-              {(['thisMonth', 'lastMonth', '3months', 'custom'] as Period[]).map((p) => (
+              {getLastNMonths(6).map((mp) => (
                 <Button
-                  key={p}
-                  variant={period === p ? 'default' : 'outline'}
+                  key={`${mp.year}-${mp.month}`}
+                  variant={periodEquals(period, mp) ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => handlePeriodChange(p)}
+                  onClick={() => handlePeriodChange(mp)}
                 >
-                  {periodLabel[p]}
+                  {formatMonthLabel(mp, language)}
                 </Button>
               ))}
-              {period === 'custom' && (
+              <Button
+                variant={period.kind === 'custom' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handlePeriodChange({ kind: 'custom' })}
+              >
+                <CalendarRange className="w-3.5 h-3.5 mr-1.5" />
+                {t.custom}
+              </Button>
+              {period.kind === 'custom' && (
                 <div className="flex items-center gap-2 ml-2">
                   <input
                     type="date"
@@ -401,10 +567,51 @@ export default function App() {
               )}
             </div>
 
-            {/* Categories Section */}
+            {/* Categories Section Header */}
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-foreground">{t.categories}</h2>
+              <Select
+                value={planningMonth ? monthKey(planningMonth) : ''}
+                onValueChange={(val) => handlePlanningMonthChange(monthFromKey(val))}
+              >
+                <SelectTrigger className="w-auto gap-2 border-dashed">
+                  <SelectValue placeholder={t.planBudget} />
+                </SelectTrigger>
+                <SelectContent align="end">
+                  <SelectGroup>
+                    {planningMonths.map((mp) => {
+                      const isCurrent = mp.year === currentMonthPeriod.year && mp.month === currentMonthPeriod.month;
+
+                      return (
+                        <SelectItem key={monthKey(mp)} value={monthKey(mp)}>
+                          <span className={isCurrent ? 'font-semibold text-primary' : ''}>
+                            {formatMonthLabel(mp, language)}
+                          </span>
+                          {isCurrent && (
+                            <span className="ml-2 text-xs text-primary/70 font-normal">●</span>
+                          )}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
             </div>
+
+            {/* Budget Plan Panel */}
+            {planningMonth && (
+              <BudgetPlanPanel
+                year={planningMonth.year}
+                month={planningMonth.month}
+                monthLabel={formatMonthLabel(planningMonth, language)}
+                categories={categories}
+                existingPlan={planningPlan}
+                onSaved={handlePlanSaved}
+                onDeleted={handlePlanDeleted}
+                onClose={() => setPlanningMonth(null)}
+                translations={t}
+              />
+            )}
 
             {/* Categories Grid */}
             {categoriesLoading ? (
@@ -413,31 +620,51 @@ export default function App() {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {categories.map((category) => (
-                    <CategoryCard
-                      key={category.id}
-                      id={category.id}
-                      name={t[category.name as keyof typeof t] as string || category.name}
-                      spent={category.spent}
-                      budget={category.budget}
-                      icon={category.icon}
-                      color={category.color}
-                      onEdit={handleEditCategory}
-                      onDelete={handleDeleteCategory}
-                      onClick={handleCategoryClick}
-                      translations={t}
-                    />
-                  ))}
-                </div>
-
-                {categories.length === 0 && (
+                {categories.length === 0 ? (
                   <div className="text-center py-12">
                     <p className="text-muted-foreground mb-4">{t.noCategoriesYet}</p>
                     <Button onClick={() => setDialogOpen(true)}>
                       <Plus className="w-4 h-4 mr-2" />
                       {t.addFirstCategory}
                     </Button>
+                  </div>
+                ) : showSplit ? (
+                  <>
+                    {/* Planned section */}
+                    <div className="mb-3 flex items-center gap-2">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        {t.plannedCategories}
+                      </span>
+                      <span className="text-xs bg-muted text-muted-foreground rounded-full px-2 py-0.5">
+                        {plannedCategories.length}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {plannedCategories.map(renderCategoryCard)}
+                    </div>
+
+                    {/* Unplanned spending section */}
+                    {unplannedWithSpend.length > 0 && (
+                      <>
+                        <div className="relative my-6">
+                          <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-border" />
+                          </div>
+                          <div className="relative flex justify-center">
+                            <span className="bg-background px-3 text-sm text-muted-foreground">
+                              {t.unplannedSpending}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {unplannedWithSpend.map(renderCategoryCard)}
+                        </div>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {mergedCategories.map(renderCategoryCard)}
                   </div>
                 )}
               </>
