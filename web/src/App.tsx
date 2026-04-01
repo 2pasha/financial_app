@@ -53,33 +53,11 @@ function getLastNMonths(n: number): MonthPeriod[] {
   return months;
 }
 
-function getPlanningMonths(): MonthPeriod[] {
-  const now = new Date();
-  const months: MonthPeriod[] = [];
-
-  for (let i = -3; i <= 3; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-    months.push({ kind: 'month', year: d.getFullYear(), month: d.getMonth() + 1 });
-  }
-
-  return months;
-}
-
 function formatMonthLabel(period: MonthPeriod, language: Language): string {
   const date = new Date(period.year, period.month - 1, 1);
   const locale = language === 'uk' ? 'uk-UA' : 'en-US';
 
   return new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(date);
-}
-
-function monthKey(mp: MonthPeriod): string {
-  return `${mp.year}-${mp.month}`;
-}
-
-function monthFromKey(key: string): MonthPeriod {
-  const [year, month] = key.split('-').map(Number);
-
-  return { kind: 'month', year, month };
 }
 
 function periodEquals(a: Period, b: Period): boolean {
@@ -132,7 +110,18 @@ export default function App() {
   const now = new Date();
   const currentMonthPeriod: MonthPeriod = { kind: 'month', year: now.getFullYear(), month: now.getMonth() + 1 };
 
-  const [period, setPeriod] = useState<Period>(currentMonthPeriod);
+  const [period, setPeriod] = useState<Period>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('period');
+      if (saved) {
+        try {
+          return JSON.parse(saved) as Period;
+        } catch {}
+      }
+    }
+
+    return currentMonthPeriod;
+  });
   const [customFrom, setCustomFrom] = useState<string>(
     getStartOfMonth(now).toISOString().slice(0, 10),
   );
@@ -140,9 +129,7 @@ export default function App() {
     now.toISOString().slice(0, 10),
   );
 
-  // Planning is decoupled from the viewed period
-  const [planningMonth, setPlanningMonth] = useState<MonthPeriod | null>(null);
-  const [planningPlan, setPlanningPlan] = useState<BudgetPlan | null>(null);
+  const [planOpen, setPlanOpen] = useState(false);
 
   const [incomeDialogOpen, setIncomeDialogOpen] = useState(false);
   const [incomeItems, setIncomeItems] = useState<IncomeItem[]>([]);
@@ -186,7 +173,7 @@ export default function App() {
     : mergedCategories;
 
   const unplannedWithSpend = plannedCategoryIds
-    ? mergedCategories.filter((c) => !plannedCategoryIds.has(c.id) && c.spent > 0)
+    ? mergedCategories.filter((c) => !plannedCategoryIds.has(c.id))
     : [];
 
   const totalBudget = mergedCategories.reduce((sum, cat) => sum + cat.budget, 0);
@@ -258,6 +245,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('view', view);
   }, [view]);
+
+  useEffect(() => {
+    localStorage.setItem('period', JSON.stringify(period));
+  }, [period]);
 
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
@@ -369,65 +360,39 @@ export default function App() {
 
   const handlePeriodChange = (newPeriod: Period) => {
     setPeriod(newPeriod);
-  };
-
-  const handlePlanningMonthChange = async (mp: MonthPeriod) => {
-    setPlanningMonth(mp);
-
-    try {
-      const plan = await budgetPlansApi.getForMonth(mp.year, mp.month);
-      setPlanningPlan(plan);
-    } catch {
-      setPlanningPlan(null);
-    }
-  };
-
-  const isPlanningViewedMonth = (mp: MonthPeriod): boolean => {
-    return period.kind === 'month' &&
-      period.year === mp.year &&
-      period.month === mp.month;
+    setPlanOpen(false);
   };
 
   const handlePlanSaved = (plan: BudgetPlan) => {
-    setPlanningPlan(plan);
-
-    if (planningMonth && isPlanningViewedMonth(planningMonth)) {
-      setBudgetPlan(plan);
-    }
-
+    setBudgetPlan(plan);
     toast.success(t.planSaved);
   };
 
   const handlePlanDeleted = async (): Promise<void> => {
-    if (!planningPlan) {
+    if (!budgetPlan) {
       return;
     }
 
     try {
-      await budgetPlansApi.delete(planningPlan.id);
-      setPlanningPlan(null);
-
-      if (planningMonth && isPlanningViewedMonth(planningMonth)) {
-        setBudgetPlan(null);
-      }
-
+      await budgetPlansApi.delete(budgetPlan.id);
+      setBudgetPlan(null);
       toast.success(t.planDeleted);
     } catch {
       toast.error('Failed to delete budget plan');
     }
   };
 
-  const planningMonths = getPlanningMonths();
-
-  const renderCategoryCard = (category: Category) => (
+  const renderCategoryCard = (category: Category, showNet = false) => (
     <CategoryCard
       key={category.id}
       id={category.id}
       name={t[category.name as keyof typeof t] as string || category.name}
       spent={category.spent}
+      net={category.net}
       budget={category.budget}
       icon={category.icon}
       color={category.color}
+      showNet={showNet}
       onEdit={handleEditCategory}
       onDelete={handleDeleteCategory}
       onClick={handleCategoryClick}
@@ -570,45 +535,30 @@ export default function App() {
             {/* Categories Section Header */}
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-foreground">{t.categories}</h2>
-              <Select
-                value={planningMonth ? monthKey(planningMonth) : ''}
-                onValueChange={(val) => handlePlanningMonthChange(monthFromKey(val))}
-              >
-                <SelectTrigger className="w-auto gap-2 border-dashed">
-                  <SelectValue placeholder={t.planBudget} />
-                </SelectTrigger>
-                <SelectContent align="end">
-                  <SelectGroup>
-                    {planningMonths.map((mp) => {
-                      const isCurrent = mp.year === currentMonthPeriod.year && mp.month === currentMonthPeriod.month;
-
-                      return (
-                        <SelectItem key={monthKey(mp)} value={monthKey(mp)}>
-                          <span className={isCurrent ? 'font-semibold text-primary' : ''}>
-                            {formatMonthLabel(mp, language)}
-                          </span>
-                          {isCurrent && (
-                            <span className="ml-2 text-xs text-primary/70 font-normal">●</span>
-                          )}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+              {isMonthPeriod && (
+                <Button
+                  variant={planOpen ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setPlanOpen((prev) => !prev)}
+                >
+                  {t.planBudget}
+                </Button>
+              )}
             </div>
 
             {/* Budget Plan Panel */}
-            {planningMonth && (
+            {planOpen && isMonthPeriod && period.kind === 'month' && (
               <BudgetPlanPanel
-                year={planningMonth.year}
-                month={planningMonth.month}
-                monthLabel={formatMonthLabel(planningMonth, language)}
+                year={period.year}
+                month={period.month}
+                monthLabel={formatMonthLabel(period, language)}
                 categories={categories}
-                existingPlan={planningPlan}
+                existingPlan={budgetPlan}
                 onSaved={handlePlanSaved}
                 onDeleted={handlePlanDeleted}
-                onClose={() => setPlanningMonth(null)}
+                onClose={() => setPlanOpen(false)}
+                onCategoryCreated={(cat) => setCategories((prev) => [...prev, cat])}
+                onCategoryDeleted={(id) => setCategories((prev) => prev.filter((c) => c.id !== id))}
                 translations={t}
               />
             )}
@@ -657,7 +607,7 @@ export default function App() {
                           </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {unplannedWithSpend.map(renderCategoryCard)}
+                          {unplannedWithSpend.map((c) => renderCategoryCard(c, true))}
                         </div>
                       </>
                     )}

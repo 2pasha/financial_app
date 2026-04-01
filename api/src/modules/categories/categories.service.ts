@@ -17,8 +17,16 @@ export class CategoriesService {
 
     const { fromDate, toDate } = this.resolveDateRange(from, to);
 
+    const periodYear = from ? new Date(from).getFullYear() : null;
+    const periodMonth = from ? new Date(from).getMonth() + 1 : null;
+
     const categories = await this.prisma.category.findMany({
-      where: { userId: user.id },
+      where: {
+        userId: user.id,
+        OR: (periodYear
+          ? [{ year: null }, { year: periodYear, month: periodMonth }]
+          : [{ year: null }]) as any,
+      },
       orderBy: { createdAt: 'asc' },
       include: {
         transactions: {
@@ -59,6 +67,7 @@ export class CategoriesService {
         color: dto.color,
         budget: dto.budget,
         mccCodes: dto.mccCodes ?? [],
+        ...(dto.year !== undefined && { year: dto.year, month: dto.month }),
       } as any,
       include: {
         transactions: {
@@ -194,6 +203,8 @@ export class CategoriesService {
     icon: string;
     color: string;
     budget: number;
+    year?: number | null;
+    month?: number | null;
     transactions: { amount: bigint }[];
   }) {
     const netMinorUnits = cat.transactions.reduce(
@@ -207,7 +218,10 @@ export class CategoriesService {
       icon: cat.icon,
       color: cat.color,
       budget: cat.budget,
+      year: cat.year ?? null,
+      month: cat.month ?? null,
       spent: Math.max(0, -netMinorUnits) / 100,
+      net: netMinorUnits / 100,
     };
   }
 

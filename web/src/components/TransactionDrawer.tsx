@@ -8,14 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Badge } from "./ui/badge";
 import { Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { transactionsApi } from "../lib/api-client";
+import { transactionsApi, categoriesApi } from "../lib/api-client";
 import type { Transaction, Category } from "../lib/api-client";
 
 interface TransactionDrawerProps {
   transaction: Transaction | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  categories: Category[];
   onUpdate: (tx: Transaction) => void;
   onDelete: (id: string) => void;
 }
@@ -35,7 +34,6 @@ export function TransactionDrawer({
   transaction,
   open,
   onOpenChange,
-  categories,
   onUpdate,
   onDelete,
 }: TransactionDrawerProps) {
@@ -47,6 +45,8 @@ export function TransactionDrawer({
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
 
   useEffect(() => {
     if (!transaction) {
@@ -58,7 +58,14 @@ export function TransactionDrawer({
     setDate(formatDateForInput(transaction.time));
     setCategoryId(transaction.categoryId ?? "none");
     setIsDirty(false);
-  }, [transaction]);
+
+    // Fetch categories scoped to the transaction's month
+    setCategoriesLoading(true);
+    categoriesApi.getAll({ from: transaction.time })
+      .then(setCategories)
+      .catch(() => {})
+      .finally(() => setCategoriesLoading(false));
+  }, [transaction?.id]);
 
   const handleFieldChange = (setter: (v: string) => void, value: string) => {
     setter(value);
@@ -190,25 +197,32 @@ export function TransactionDrawer({
 
                   <div className="space-y-2">
                     <Label htmlFor="tx-category">Category</Label>
-                    <Select
-                      value={categoryId}
-                      onValueChange={(v) => handleFieldChange(setCategoryId, v)}
-                    >
-                      <SelectTrigger id="tx-category">
-                        <SelectValue placeholder="No category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">No category</SelectItem>
-                        {categories.map((cat) => (
-                          <SelectItem key={cat.id} value={cat.id}>
-                            <span className="flex items-center gap-2">
-                              <span>{cat.icon}</span>
-                              <span>{cat.name}</span>
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {categoriesLoading ? (
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm py-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Loading categories…
+                      </div>
+                    ) : (
+                      <Select
+                        value={categoryId}
+                        onValueChange={(v) => handleFieldChange(setCategoryId, v)}
+                      >
+                        <SelectTrigger id="tx-category">
+                          <SelectValue placeholder="No category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No category</SelectItem>
+                          {categories.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id}>
+                              <span className="flex items-center gap-2">
+                                <span>{cat.icon}</span>
+                                <span>{cat.name}</span>
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                 </div>
               </div>

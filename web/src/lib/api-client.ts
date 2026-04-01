@@ -40,6 +40,11 @@ export interface Category {
   color: string;
   budget: number;
   spent: number;
+  /** Signed net amount: negative = net expense, positive = net credit/refund */
+  net: number;
+  /** null = basic (always visible); set = one-month category for that year/month */
+  year: number | null;
+  month: number | null;
 }
 
 export interface CategoryTransaction {
@@ -193,7 +198,7 @@ export const categoriesApi = {
     return response.data;
   },
 
-  async create(data: Omit<Category, 'id' | 'spent'>): Promise<Category> {
+  async create(data: Omit<Category, 'id' | 'spent' | 'net'>): Promise<Category> {
     const response = await apiClient.post<Category>('/categories', data);
 
     return response.data;

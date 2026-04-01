@@ -21,7 +21,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: build
-    command: sh -c "cd api && npx prisma migrate deploy && npx prisma generate && npx nest start --watch"
+    command: sh -c "pnpm --filter @financial-app/api exec prisma migrate deploy && pnpm --filter @financial-app/api exec prisma generate && pnpm --filter @financial-app/api run start:dev"
     working_dir: /app
     restart: unless-stopped
     ports:

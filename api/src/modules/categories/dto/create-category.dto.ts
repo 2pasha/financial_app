@@ -21,4 +21,14 @@ export class CreateCategoryDto {
   @IsArray()
   @IsInt({ each: true })
   mccCodes?: number[];
+
+  @IsOptional()
+  @IsInt()
+  @Min(2000)
+  year?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  month?: number;
 }
