@@ -56,7 +56,12 @@ export function CreateTransactionDialog({
 
     lastFetchedMonthKey.current = key;
     setCategoriesLoading(true);
-    categoriesApi.getAll({ from: new Date(date).toISOString() })
+    const d = new Date(date);
+    categoriesApi.getAll({
+      from: d.toISOString(),
+      calendarYear: d.getFullYear(),
+      calendarMonth: d.getMonth() + 1,
+    })
       .then(setCategories)
       .catch(() => {})
       .finally(() => setCategoriesLoading(false));

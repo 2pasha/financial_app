@@ -9,11 +9,14 @@ export class IncomeService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAllForUser(clerkId: string) {
+  async findAllForUser(clerkId: string, year?: number, month?: number) {
     const user = await this.findUser(clerkId);
 
     return this.prisma.income.findMany({
-      where: { userId: user.id },
+      where: {
+        userId: user.id,
+        ...(year !== undefined && month !== undefined ? { year, month } : {}),
+      },
       orderBy: { createdAt: 'asc' },
     });
   }
@@ -26,6 +29,8 @@ export class IncomeService {
         userId: user.id,
         source: dto.source,
         amount: dto.amount,
+        year: dto.year,
+        month: dto.month,
       },
     });
 

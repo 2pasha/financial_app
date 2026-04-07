@@ -42,6 +42,11 @@ interface BudgetPlanPanelProps {
     cancel: string;
     planSaveFailed: string;
     budgetAmount: string;
+    addOneMonthCategory: string;
+    oneMonthBadge: string;
+    add: string;
+    deleteCategoryFailed: string;
+    createCategoryFailed: string;
   };
 }
 
@@ -145,7 +150,7 @@ export function BudgetPlanPanel({
       setRows((prev) => prev.filter((r) => r.categoryId !== categoryId));
       onCategoryDeleted(categoryId);
     } catch {
-      toast.error('Failed to delete category');
+      toast.error(t.deleteCategoryFailed);
     }
   };
 
@@ -188,7 +193,7 @@ export function BudgetPlanPanel({
       setNewBudget('');
       setShowAddForm(false);
     } catch {
-      toast.error('Failed to create category');
+      toast.error(t.createCategoryFailed);
     } finally {
       setAdding(false);
     }
@@ -315,7 +320,7 @@ export function BudgetPlanPanel({
               <span className="text-sm text-foreground truncate">{row.name}</span>
               {row.isOneMonth && (
                 <span className="text-xs bg-primary/10 text-primary rounded-full px-1.5 py-0.5 flex-shrink-0">
-                  this month
+                  {t.oneMonthBadge}
                 </span>
               )}
             </div>
@@ -396,7 +401,7 @@ export function BudgetPlanPanel({
             </Button>
             <Button size="sm" onClick={handleAddCustom} disabled={adding || !newName.trim()} className="gap-1.5">
               {adding && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              Add
+              {t.add}
             </Button>
           </div>
         </div>
@@ -408,7 +413,7 @@ export function BudgetPlanPanel({
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <Plus className="w-4 h-4" />
-            Add custom category for this month
+            {t.addOneMonthCategory}
           </button>
         </div>
       )}

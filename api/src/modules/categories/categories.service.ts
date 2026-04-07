@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -10,15 +10,21 @@ export class CategoriesService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAllForUser(clerkId: string, from?: string, to?: string) {
+  async findAllForUser(
+    clerkId: string,
+    from?: string,
+    to?: string,
+    calendarYear?: number,
+    calendarMonth?: number,
+  ) {
     const user = await this.findUser(clerkId);
 
     await this.ensureDefaultCategories(user.id);
 
     const { fromDate, toDate } = this.resolveDateRange(from, to);
 
-    const periodYear = from ? new Date(from).getFullYear() : null;
-    const periodMonth = from ? new Date(from).getMonth() + 1 : null;
+    const periodYear = calendarYear ?? (from ? new Date(from).getFullYear() : null);
+    const periodMonth = calendarMonth ?? (from ? new Date(from).getMonth() + 1 : null);
 
     const categories = await this.prisma.category.findMany({
       where: {
@@ -58,6 +64,13 @@ export class CategoriesService {
 
   async create(clerkId: string, dto: CreateCategoryDto) {
     const user = await this.findUser(clerkId);
+
+    const hasYear = dto.year !== undefined;
+    const hasMonth = dto.month !== undefined;
+
+    if (hasYear !== hasMonth) {
+      throw new BadRequestException('year and month must be provided together');
+    }
 
     const category = await this.prisma.category.create({
       data: {
@@ -135,7 +148,7 @@ export class CategoriesService {
     userId: string,
   ): Promise<Array<{ id: string; name: string; mccCodes: number[] }>> {
     const results = await this.prisma.category.findMany({
-      where: { userId },
+      where: { userId, year: null },
     });
 
     return results.map((cat) => ({
@@ -189,6 +202,8 @@ export class CategoriesService {
       where: { categoryId: id },
       data: { categoryId: null },
     });
+
+    await this.prisma.budgetPlanItem.deleteMany({ where: { categoryId: id } });
 
     await this.prisma.category.delete({ where: { id } });
 

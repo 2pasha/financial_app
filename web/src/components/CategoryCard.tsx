@@ -97,7 +97,11 @@ export function CategoryCard({ id, name, spent, net, budget, icon, color, showNe
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40 z-[60]">
+          <DropdownMenuContent
+            align="end"
+            className="w-40 z-[60]"
+            onClick={(e) => e.stopPropagation()}
+          >
             <DropdownMenuItem
               onClick={() => onEdit(id)}
               className="cursor-pointer"

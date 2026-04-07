@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   ValidationPipe,
   HttpCode,
@@ -24,8 +25,15 @@ export class IncomeController {
   constructor(private readonly incomeService: IncomeService) {}
 
   @Get()
-  async findAll(@CurrentUser() user: CurrentUserData) {
-    return this.incomeService.findAllForUser(user.clerkId);
+  async findAll(
+    @CurrentUser() user: CurrentUserData,
+    @Query('year') yearStr?: string,
+    @Query('month') monthStr?: string,
+  ) {
+    const year = yearStr ? parseInt(yearStr, 10) : undefined;
+    const month = monthStr ? parseInt(monthStr, 10) : undefined;
+
+    return this.incomeService.findAllForUser(user.clerkId, year, month);
   }
 
   @Post()

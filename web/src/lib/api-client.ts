@@ -60,6 +60,8 @@ export interface IncomeItem {
   id: string;
   source: string;
   amount: number;
+  year: number;
+  month: number;
 }
 
 export interface TransactionCategory {
@@ -166,8 +168,8 @@ export const monobankApi = {
 };
 
 export const incomeApi = {
-  async getAll(): Promise<IncomeItem[]> {
-    const response = await apiClient.get<IncomeItem[]>('/income');
+  async getAll(params?: { year?: number; month?: number }): Promise<IncomeItem[]> {
+    const response = await apiClient.get<IncomeItem[]>('/income', { params });
 
     return response.data;
   },
@@ -192,7 +194,12 @@ export const incomeApi = {
 };
 
 export const categoriesApi = {
-  async getAll(params?: { from?: string; to?: string }): Promise<Category[]> {
+  async getAll(params?: {
+    from?: string;
+    to?: string;
+    calendarYear?: number;
+    calendarMonth?: number;
+  }): Promise<Category[]> {
     const response = await apiClient.get<Category[]>('/categories', { params });
 
     return response.data;

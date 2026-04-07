@@ -168,17 +168,24 @@ export default function App() {
     ? new Set(budgetPlan.items.map((i) => i.categoryId))
     : null;
 
+  // A one-month category for the current viewed month is implicitly "planned"
+  // even before the user hits Save for the first time.
+  const isImplicitlyPlanned = (cat: { year: number | null; month: number | null }) =>
+    period.kind === 'month' && cat.year === period.year && cat.month === period.month;
+
   const plannedCategories = plannedCategoryIds
-    ? mergedCategories.filter((c) => plannedCategoryIds.has(c.id))
+    ? mergedCategories.filter((c) => plannedCategoryIds.has(c.id) || isImplicitlyPlanned(c))
     : mergedCategories;
 
   const unplannedWithSpend = plannedCategoryIds
-    ? mergedCategories.filter((c) => !plannedCategoryIds.has(c.id))
+    ? mergedCategories.filter((c) => !plannedCategoryIds.has(c.id) && !isImplicitlyPlanned(c))
     : [];
 
-  const totalBudget = mergedCategories.reduce((sum, cat) => sum + cat.budget, 0);
+  // When a plan exists for this month, budget and spent track only planned categories.
+  const budgetCategoriesForTotals = showSplit ? plannedCategories : mergedCategories;
+  const totalBudget = budgetCategoriesForTotals.reduce((sum, cat) => sum + cat.budget, 0);
   const totalIncome = incomeItems.reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
-  const totalSpent = mergedCategories.reduce((sum, cat) => sum + cat.spent, 0);
+  const totalSpent = budgetCategoriesForTotals.reduce((sum, cat) => sum + cat.spent, 0);
   const effectiveBudget = totalIncome > 0 ? totalIncome : totalBudget;
   const remaining = effectiveBudget - totalSpent;
   const savingsRate = totalIncome > 0 ? ((totalIncome - totalSpent) / totalIncome) * 100 : null;
@@ -189,14 +196,17 @@ export default function App() {
     setCategoriesLoading(true);
 
     try {
-      const data = await categoriesApi.getAll(dateRange);
+      const calendarParams = period.kind === 'month'
+        ? { calendarYear: period.year, calendarMonth: period.month }
+        : {};
+      const data = await categoriesApi.getAll({ ...dateRange, ...calendarParams });
       setCategories(data);
     } catch {
       toast.error('Failed to load categories');
     } finally {
       setCategoriesLoading(false);
     }
-  }, [dateRange.from, dateRange.to]);
+  }, [dateRange.from, dateRange.to, period.kind === 'month' ? period.year : 0, period.kind === 'month' ? period.month : 0, period.kind]);
 
   const fetchBudgetPlan = useCallback(async () => {
     if (period.kind !== 'month') {
@@ -222,11 +232,19 @@ export default function App() {
   }, [fetchBudgetPlan]);
 
   useEffect(() => {
-    incomeApi.getAll()
+    if (period.kind !== 'month') {
+      setIncomeItems([]);
+      setIncomeLoading(false);
+
+      return;
+    }
+
+    setIncomeLoading(true);
+    incomeApi.getAll({ year: period.year, month: period.month })
       .then(setIncomeItems)
       .catch(() => toast.error('Failed to load income'))
       .finally(() => setIncomeLoading(false));
-  }, []);
+  }, [period.kind === 'month' ? period.year : 0, period.kind === 'month' ? period.month : 0, period.kind]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -266,7 +284,7 @@ export default function App() {
     }
   };
 
-  const handleAddIncome = async (data: { source: string; amount: number }) => {
+  const handleAddIncome = async (data: { source: string; amount: number; year: number; month: number }) => {
     try {
       const created = await incomeApi.create(data);
       setIncomeItems((prev) => [...prev, created]);
@@ -314,7 +332,9 @@ export default function App() {
   };
 
   const handleEditCategory = (id: string) => {
-    const category = categories.find(cat => cat.id === id);
+    // Use mergedCategories so the dialog is pre-filled with the plan budget (what the
+    // user sees on the card), not the underlying Category.budget default.
+    const category = mergedCategories.find(cat => cat.id === id);
     if (category) {
       setCategoryToEdit(category);
       setEditDialogOpen(true);
@@ -330,6 +350,25 @@ export default function App() {
         budget: updatedCategory.budget,
       });
       setCategories((prev) => prev.map(cat => cat.id === saved.id ? { ...cat, ...saved } : cat));
+
+      // When a budget plan is active and this category has a plan line item, sync the
+      // plan budget too so the card immediately reflects the new amount.
+      if (budgetPlan && period.kind === 'month') {
+        const inPlan = budgetPlan.items.some((i) => i.categoryId === updatedCategory.id);
+        if (inPlan) {
+          const updatedItems = budgetPlan.items.map((item) => ({
+            categoryId: item.categoryId,
+            budget: item.categoryId === updatedCategory.id ? updatedCategory.budget : item.budget,
+          }));
+          const updatedPlan = await budgetPlansApi.upsert({
+            year: budgetPlan.year,
+            month: budgetPlan.month,
+            items: updatedItems,
+          });
+          setBudgetPlan(updatedPlan);
+        }
+      }
+
       toast.success('Category updated');
     } catch {
       toast.error('Failed to update category');
@@ -668,6 +707,8 @@ export default function App() {
         open={incomeDialogOpen}
         onOpenChange={setIncomeDialogOpen}
         items={incomeItems}
+        year={period.kind === 'month' ? period.year : currentMonthPeriod.year}
+        month={period.kind === 'month' ? period.month : currentMonthPeriod.month}
         onAdd={handleAddIncome}
         onUpdate={handleUpdateIncome}
         onRemove={handleRemoveIncome}

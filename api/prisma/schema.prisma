@@ -30,6 +30,8 @@ model Income {
   user      User     @relation(fields: [userId], references: [id])
   source    String
   amount    Float
+  year      Int
+  month     Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

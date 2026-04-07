@@ -59,9 +59,14 @@ export function TransactionDrawer({
     setCategoryId(transaction.categoryId ?? "none");
     setIsDirty(false);
 
-    // Fetch categories scoped to the transaction's month
+    // Fetch categories scoped to the transaction's month (local calendar)
     setCategoriesLoading(true);
-    categoriesApi.getAll({ from: transaction.time })
+    const d = new Date(transaction.time);
+    categoriesApi.getAll({
+      from: transaction.time,
+      calendarYear: d.getFullYear(),
+      calendarMonth: d.getMonth() + 1,
+    })
       .then(setCategories)
       .catch(() => {})
       .finally(() => setCategoriesLoading(false));

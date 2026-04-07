@@ -66,6 +66,11 @@ export const translations = {
     custom: 'Custom',
     plannedCategories: 'Planned',
     unplannedSpending: 'Unplanned spending',
+    addOneMonthCategory: 'Add custom category for this month',
+    oneMonthBadge: 'this month',
+    add: 'Add',
+    deleteCategoryFailed: 'Failed to delete category',
+    createCategoryFailed: 'Failed to create category',
   },
   uk: {
     appTitle: 'Облік Бюджету',
@@ -132,6 +137,11 @@ export const translations = {
     custom: 'Довільний',
     plannedCategories: 'Заплановано',
     unplannedSpending: 'Незаплановані витрати',
+    addOneMonthCategory: 'Додати категорію на цей місяць',
+    oneMonthBadge: 'цей місяць',
+    add: 'Додати',
+    deleteCategoryFailed: 'Не вдалося видалити категорію',
+    createCategoryFailed: 'Не вдалося створити категорію',
   }
 };
 
