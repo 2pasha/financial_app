@@ -30,8 +30,10 @@ export class IncomeController {
     @Query('year') yearStr?: string,
     @Query('month') monthStr?: string,
   ) {
-    const year = yearStr ? parseInt(yearStr, 10) : undefined;
-    const month = monthStr ? parseInt(monthStr, 10) : undefined;
+    const parsedYear = yearStr ? parseInt(yearStr, 10) : NaN;
+    const parsedMonth = monthStr ? parseInt(monthStr, 10) : NaN;
+    const year = Number.isInteger(parsedYear) ? parsedYear : undefined;
+    const month = Number.isInteger(parsedMonth) ? parsedMonth : undefined;
 
     return this.incomeService.findAllForUser(user.clerkId, year, month);
   }

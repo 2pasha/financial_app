@@ -359,7 +359,7 @@ export function BudgetPlanPanel({
             <input
               type="text"
               value={newIcon}
-              onChange={(e) => setNewIcon(e.target.value.slice(-2) || '🏷️')}
+              onChange={(e) => setNewIcon(Array.from(e.target.value).slice(-1).join('') || '🏷️')}
               className="w-12 text-center text-xl border border-border rounded px-1 py-1 bg-background"
               placeholder="🏷️"
             />

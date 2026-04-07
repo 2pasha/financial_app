@@ -68,7 +68,7 @@ export function TransactionDrawer({
       calendarMonth: d.getMonth() + 1,
     })
       .then(setCategories)
-      .catch(() => {})
+      .catch(() => toast.error('Failed to load categories'))
       .finally(() => setCategoriesLoading(false));
   }, [transaction?.id]);
 

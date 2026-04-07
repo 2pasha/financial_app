@@ -43,6 +43,9 @@ export class IncomeService {
     const user = await this.findUser(clerkId);
     await this.findOwnedIncome(id, user.id);
 
+    // year and month are intentionally immutable after creation — income rows are
+    // scoped to a specific calendar month and must not be silently moved.
+    // To record income for a different month, delete and recreate.
     const income = await this.prisma.income.update({
       where: { id },
       data: {
