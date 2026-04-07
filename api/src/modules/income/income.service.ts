@@ -9,11 +9,14 @@ export class IncomeService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAllForUser(clerkId: string) {
+  async findAllForUser(clerkId: string, year?: number, month?: number) {
     const user = await this.findUser(clerkId);
 
     return this.prisma.income.findMany({
-      where: { userId: user.id },
+      where: {
+        userId: user.id,
+        ...(year !== undefined && month !== undefined ? { year, month } : {}),
+      },
       orderBy: { createdAt: 'asc' },
     });
   }
@@ -26,6 +29,8 @@ export class IncomeService {
         userId: user.id,
         source: dto.source,
         amount: dto.amount,
+        year: dto.year,
+        month: dto.month,
       },
     });
 
@@ -38,6 +43,9 @@ export class IncomeService {
     const user = await this.findUser(clerkId);
     await this.findOwnedIncome(id, user.id);
 
+    // year and month are intentionally immutable after creation — income rows are
+    // scoped to a specific calendar month and must not be silently moved.
+    // To record income for a different month, delete and recreate.
     const income = await this.prisma.income.update({
       where: { id },
       data: {

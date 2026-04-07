@@ -29,8 +29,15 @@ export class CategoriesController {
     @CurrentUser() user: CurrentUserData,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Query('calendarYear') calendarYearStr?: string,
+    @Query('calendarMonth') calendarMonthStr?: string,
   ) {
-    return this.categoriesService.findAllForUser(user.clerkId, from, to);
+    const parsedYear = calendarYearStr ? parseInt(calendarYearStr, 10) : NaN;
+    const parsedMonth = calendarMonthStr ? parseInt(calendarMonthStr, 10) : NaN;
+    const calendarYear = Number.isInteger(parsedYear) ? parsedYear : undefined;
+    const calendarMonth = Number.isInteger(parsedMonth) ? parsedMonth : undefined;
+
+    return this.categoriesService.findAllForUser(user.clerkId, from, to, calendarYear, calendarMonth);
   }
 
   @Post()

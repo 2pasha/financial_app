@@ -7,6 +7,7 @@ import { MonobankModule } from './modules/monobank/monobank.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { TransactionsModule } from './modules/transactions/transactions.module';
 import { IncomeModule } from './modules/income/income.module';
+import { BudgetPlansModule } from './modules/budget-plans/budget-plans.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { IncomeModule } from './modules/income/income.module';
     CategoriesModule,
     TransactionsModule,
     IncomeModule,
+    BudgetPlansModule,
   ],
   controllers: [AppController],
   providers: [AppService],
