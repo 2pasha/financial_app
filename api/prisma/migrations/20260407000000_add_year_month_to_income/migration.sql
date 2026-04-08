@@ -1,12 +1,21 @@
 -- AlterTable: add year and month columns to Income.
--- Existing rows are backfilled from their createdAt timestamp so each historical
--- row reflects the month it was originally recorded in.
--- Falls back to CURRENT_DATE if createdAt is somehow NULL.
-ALTER TABLE "Income"
-  ADD COLUMN "year"  INTEGER NOT NULL DEFAULT EXTRACT(YEAR  FROM COALESCE("createdAt", CURRENT_DATE)),
-  ADD COLUMN "month" INTEGER NOT NULL DEFAULT EXTRACT(MONTH FROM COALESCE("createdAt", CURRENT_DATE));
+-- PostgreSQL does not allow column references in DEFAULT expressions, so we:
+--   1. Add the columns as nullable
+--   2. Backfill existing rows from their createdAt timestamp (falls back to
+--      CURRENT_DATE when createdAt is NULL)
+--   3. Make the columns NOT NULL now that every row has a value
 
--- Remove the defaults so new rows must always supply explicit values.
+-- Step 1: add as nullable
 ALTER TABLE "Income"
-  ALTER COLUMN "year"  DROP DEFAULT,
-  ALTER COLUMN "month" DROP DEFAULT;
+  ADD COLUMN "year"  INTEGER,
+  ADD COLUMN "month" INTEGER;
+
+-- Step 2: backfill from createdAt so each historical row reflects its original month
+UPDATE "Income"
+  SET "year"  = EXTRACT(YEAR  FROM COALESCE("createdAt", CURRENT_DATE)),
+      "month" = EXTRACT(MONTH FROM COALESCE("createdAt", CURRENT_DATE));
+
+-- Step 3: enforce NOT NULL now that all rows have values
+ALTER TABLE "Income"
+  ALTER COLUMN "year"  SET NOT NULL,
+  ALTER COLUMN "month" SET NOT NULL;
