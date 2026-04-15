@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { UserButton } from "@clerk/clerk-react";
 import { useNavigate } from "react-router-dom";
 import { CategoryCard } from "./components/CategoryCard";
 import { AddCategoryDialog } from "./components/AddCategoryDialog";
@@ -289,10 +290,6 @@ export default function App() {
             <div className="flex items-center gap-2">
               <Button variant={view === 'dashboard' ? 'default' : 'outline'} onClick={() => setView('dashboard')}>Dashboard</Button>
               <Button variant={view === 'expenses' ? 'default' : 'outline'} onClick={() => setView('expenses')}>Expenses</Button>
-              <Button variant="outline" onClick={() => navigate('/monobank/setup')} className="gap-2">
-                <CreditCard className="w-4 h-4" />
-                Monobank
-              </Button>
               <Select value={currency} onValueChange={setCurrency}>
                 <SelectTrigger className="w-[120px]">
                   <SelectValue placeholder={t.currency} />
@@ -330,6 +327,7 @@ export default function App() {
                   <Moon className="w-5 h-5" />
                 )}
               </Button>
+              <UserButton afterSignOutUrl="/sign-in" />
             </div>
           </div>
         </div>

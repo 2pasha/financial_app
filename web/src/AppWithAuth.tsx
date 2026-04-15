@@ -4,7 +4,6 @@ import {
   SignedOut,
   SignIn,
   SignUp,
-  UserButton,
 } from '@clerk/clerk-react';
 import App from './App';
 import MonobankSetupPage from './pages/monobank/MonobankSetupPage';
@@ -43,17 +42,11 @@ export default function AppWithAuth() {
                 <Navigate to="/sign-in" replace />
               </SignedOut>
               <SignedIn>
-                <div className="relative">
-                  {/* User button in top right */}
-                  <div className="absolute top-4 right-4 z-50">
-                    <UserButton afterSignOutUrl="/sign-in" />
-                  </div>
-                  <Routes>
-                    <Route path="/" element={<App />} />
-                    <Route path="/monobank/setup" element={<MonobankSetupPage />} />
-                    <Route path="/monobank/sync" element={<MonobankSyncPage />} />
-                  </Routes>
-                </div>
+                <Routes>
+                  <Route path="/" element={<App />} />
+                  <Route path="/monobank/setup" element={<MonobankSetupPage />} />
+                  <Route path="/monobank/sync" element={<MonobankSyncPage />} />
+                </Routes>
               </SignedIn>
             </>
           }
