@@ -181,14 +181,10 @@ export default function App() {
     ? mergedCategories.filter((c) => !plannedCategoryIds.has(c.id) && !isImplicitlyPlanned(c))
     : [];
 
-  // When a plan exists for this month, budget and spent track only planned categories.
-  const budgetCategoriesForTotals = showSplit ? plannedCategories : mergedCategories;
-  const totalBudget = budgetCategoriesForTotals.reduce((sum, cat) => sum + cat.budget, 0);
   const totalIncome = incomeItems.reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
-  const totalSpent = budgetCategoriesForTotals.reduce((sum, cat) => sum + cat.spent, 0);
-  const effectiveBudget = totalIncome > 0 ? totalIncome : totalBudget;
-  const remaining = effectiveBudget - totalSpent;
-  const savingsRate = totalIncome > 0 ? ((totalIncome - totalSpent) / totalIncome) * 100 : null;
+  const plannedSpent = plannedCategories.reduce((sum, cat) => sum + cat.budget, 0);
+  const unplannedMoney = totalIncome - plannedSpent;
+  const actualSpent = Math.abs(mergedCategories.reduce((sum, cat) => sum + cat.net, 0));
 
   const dateRange = getPeriodRange(period, customFrom, customTo);
 
@@ -504,29 +500,23 @@ export default function App() {
           <>
             {/* Balance Card */}
             <div className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-xl p-6 sm:p-8 mb-6 shadow-lg">
-              <p className="opacity-90 mb-2">{t.totalBalance}</p>
-              <h2 className="text-4xl sm:text-5xl mb-4">{formatAmount(remaining)}</h2>
+              <p className="opacity-90 mb-2">{t.actualSpent}</p>
+              <h2 className="text-4xl sm:text-5xl mb-4">{formatAmount(actualSpent)}</h2>
               <div className="flex flex-wrap gap-6 text-sm">
-                <div>
-                  <p className="opacity-75">{t.budget}</p>
-                  <p className="text-lg">{formatAmount(effectiveBudget)}</p>
-                </div>
-                <div>
-                  <p className="opacity-75">{t.spent}</p>
-                  <p className="text-lg">{formatAmount(totalSpent)}</p>
-                </div>
                 {totalIncome > 0 && (
                   <div>
                     <p className="opacity-75">{t.incomesTotal}</p>
                     <p className="text-lg">{formatAmount(totalIncome)}</p>
                   </div>
                 )}
-                {savingsRate !== null && (
+                <div>
+                  <p className="opacity-75">{t.plannedSpent}</p>
+                  <p className="text-lg">{formatAmount(plannedSpent)}</p>
+                </div>
+                {totalIncome > 0 && (
                   <div>
-                    <p className="opacity-75">Savings Rate</p>
-                    <p className={`text-lg font-semibold ${savingsRate < 0 ? 'text-red-300' : 'text-green-300'}`}>
-                      {savingsRate.toFixed(1)}%
-                    </p>
+                    <p className="opacity-75">{t.unplannedMoney}</p>
+                    <p className="text-lg">{formatAmount(unplannedMoney)}</p>
                   </div>
                 )}
               </div>
