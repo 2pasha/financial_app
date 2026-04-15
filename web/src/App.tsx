@@ -629,7 +629,7 @@ export default function App() {
                       </span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {plannedCategories.map(renderCategoryCard)}
+                      {plannedCategories.map((c) => renderCategoryCard(c))}
                     </div>
 
                     {/* Unplanned spending section */}
@@ -653,7 +653,7 @@ export default function App() {
                   </>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {mergedCategories.map(renderCategoryCard)}
+                    {mergedCategories.map((c) => renderCategoryCard(c))}
                   </div>
                 )}
               </>
