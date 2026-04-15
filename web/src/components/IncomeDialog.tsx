@@ -10,7 +10,9 @@ interface IncomeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   items: IncomeItem[];
-  onAdd: (data: { source: string; amount: number }) => Promise<void>;
+  year: number;
+  month: number;
+  onAdd: (data: { source: string; amount: number; year: number; month: number }) => Promise<void>;
   onUpdate: (id: string, data: { source?: string; amount?: number }) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
   translations: Record<string, string>;
@@ -20,6 +22,8 @@ export function IncomeDialog({
   open,
   onOpenChange,
   items,
+  year,
+  month,
   onAdd,
   onUpdate,
   onRemove,
@@ -38,7 +42,7 @@ export function IncomeDialog({
     setAdding(true);
 
     try {
-      await onAdd({ source: newSource.trim(), amount: Number(newAmount) || 0 });
+      await onAdd({ source: newSource.trim(), amount: Number(newAmount) || 0, year, month });
       setNewSource('');
       setNewAmount('');
     } finally {

@@ -12,9 +12,12 @@ interface CategoryCardProps {
   id: string;
   name: string;
   spent: number;
+  net: number;
   budget: number;
   icon: string;
   color: string;
+  /** When true, displays the signed net amount instead of spent, with red/green coloring */
+  showNet?: boolean;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
   onClick?: (id: string) => void;
@@ -26,10 +29,39 @@ interface CategoryCardProps {
   };
 }
 
-export function CategoryCard({ id, name, spent, budget, icon, color, onEdit, onDelete, onClick, translations }: CategoryCardProps) {
+export function CategoryCard({ id, name, spent, net, budget, icon, color, showNet, onEdit, onDelete, onClick, translations }: CategoryCardProps) {
   const hasBudget = budget > 0;
   const percentage = hasBudget ? (spent / budget) * 100 : 0;
   const isOverBudget = hasBudget && spent > budget;
+
+  const renderAmount = () => {
+    if (showNet) {
+      const isCredit = net > 0;
+      const isExpense = net < 0;
+      const displayValue = Math.abs(net).toLocaleString();
+
+      if (isExpense) {
+        return <span className="text-destructive">−₴{displayValue}</span>;
+      }
+
+      if (isCredit) {
+        return <span className="text-green-500">+₴{displayValue}</span>;
+      }
+
+      return <span className="text-muted-foreground">₴0</span>;
+    }
+
+    if (hasBudget) {
+      return (
+        <>
+          <span className="text-card-foreground">₴{spent.toLocaleString()}</span>
+          {' '}/ ₴{budget.toLocaleString()}
+        </>
+      );
+    }
+
+    return <span className="text-card-foreground">₴{spent.toLocaleString()}</span>;
+  };
 
   return (
     <div
@@ -38,9 +70,9 @@ export function CategoryCard({ id, name, spent, budget, icon, color, onEdit, onD
     >
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div 
+          <div
             className="w-12 h-12 rounded-xl flex items-center justify-center shadow-sm"
-            style={{ 
+            style={{
               backgroundColor: `${color}30`,
               border: `1px solid ${color}40`
             }}
@@ -50,37 +82,35 @@ export function CategoryCard({ id, name, spent, budget, icon, color, onEdit, onD
           <div>
             <h3 className="text-card-foreground mb-1">{name}</h3>
             <p className="text-muted-foreground">
-              {hasBudget ? (
-                <>
-                  <span className="text-card-foreground">₴{spent.toLocaleString()}</span> / ₴{budget.toLocaleString()}
-                </>
-              ) : (
-                <span className="text-card-foreground">₴{spent.toLocaleString()}</span>
-              )}
+              {renderAmount()}
             </p>
           </div>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="ghost"
+              size="icon"
               className="h-8 w-8 opacity-70 hover:opacity-100 transition-opacity"
               onClick={(e) => e.stopPropagation()}
             >
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40 z-[60]">
-            <DropdownMenuItem 
-              onClick={() => onEdit(id)} 
+          <DropdownMenuContent
+            align="end"
+            className="w-40 z-[60]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <DropdownMenuItem
+              onClick={() => onEdit(id)}
               className="cursor-pointer"
             >
               <Pencil className="mr-2 h-4 w-4" />
               {translations.edit}
             </DropdownMenuItem>
-            <DropdownMenuItem 
-              onClick={() => onDelete(id)} 
+            <DropdownMenuItem
+              onClick={() => onDelete(id)}
               className="cursor-pointer text-destructive focus:text-destructive"
             >
               <Trash2 className="mr-2 h-4 w-4" />
@@ -89,24 +119,28 @@ export function CategoryCard({ id, name, spent, budget, icon, color, onEdit, onD
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <Progress 
-        value={Math.min(percentage, 100)} 
-        className="h-2.5 mb-2"
-        style={
-          {
-            '--progress-background': isOverBudget ? 'var(--destructive)' : color
-          } as React.CSSProperties
-        }
-      />
-      {hasBudget && (
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-muted-foreground">
-            ₴{(budget - spent).toLocaleString()} {translations.remaining}
-          </span>
-          <span className={`${isOverBudget ? 'text-destructive' : 'text-card-foreground'}`}>
-            {percentage.toFixed(0)}%
-          </span>
-        </div>
+      {!showNet && (
+        <>
+          <Progress
+            value={Math.min(percentage, 100)}
+            className="h-2.5 mb-2"
+            style={
+              {
+                '--progress-background': isOverBudget ? 'var(--destructive)' : color
+              } as React.CSSProperties
+            }
+          />
+          {hasBudget && (
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground">
+                ₴{(budget - spent).toLocaleString()} {translations.remaining}
+              </span>
+              <span className={`${isOverBudget ? 'text-destructive' : 'text-card-foreground'}`}>
+                {percentage.toFixed(0)}%
+              </span>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

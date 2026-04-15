@@ -482,7 +482,6 @@ export default function ExpensesPage() {
         transaction={selectedTx}
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
-        categories={categories}
         onUpdate={handleTransactionUpdate}
         onDelete={handleTransactionDelete}
       />
@@ -490,7 +489,6 @@ export default function ExpensesPage() {
       <CreateTransactionDialog
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
-        categories={categories}
         onCreate={handleTransactionCreate}
       />
 

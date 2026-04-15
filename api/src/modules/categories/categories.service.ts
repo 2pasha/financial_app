@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -10,15 +10,29 @@ export class CategoriesService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAllForUser(clerkId: string, from?: string, to?: string) {
+  async findAllForUser(
+    clerkId: string,
+    from?: string,
+    to?: string,
+    calendarYear?: number,
+    calendarMonth?: number,
+  ) {
     const user = await this.findUser(clerkId);
 
     await this.ensureDefaultCategories(user.id);
 
     const { fromDate, toDate } = this.resolveDateRange(from, to);
 
+    const periodYear = calendarYear ?? (from ? new Date(from).getFullYear() : null);
+    const periodMonth = calendarMonth ?? (from ? new Date(from).getMonth() + 1 : null);
+
     const categories = await this.prisma.category.findMany({
-      where: { userId: user.id },
+      where: {
+        userId: user.id,
+        OR: (periodYear
+          ? [{ year: null }, { year: periodYear, month: periodMonth }]
+          : [{ year: null }]) as any,
+      },
       orderBy: { createdAt: 'asc' },
       include: {
         transactions: {
@@ -51,6 +65,13 @@ export class CategoriesService {
   async create(clerkId: string, dto: CreateCategoryDto) {
     const user = await this.findUser(clerkId);
 
+    const hasYear = dto.year !== undefined;
+    const hasMonth = dto.month !== undefined;
+
+    if (hasYear !== hasMonth) {
+      throw new BadRequestException('year and month must be provided together');
+    }
+
     const category = await this.prisma.category.create({
       data: {
         userId: user.id,
@@ -59,6 +80,7 @@ export class CategoriesService {
         color: dto.color,
         budget: dto.budget,
         mccCodes: dto.mccCodes ?? [],
+        ...(dto.year !== undefined && { year: dto.year, month: dto.month }),
       } as any,
       include: {
         transactions: {
@@ -126,7 +148,7 @@ export class CategoriesService {
     userId: string,
   ): Promise<Array<{ id: string; name: string; mccCodes: number[] }>> {
     const results = await this.prisma.category.findMany({
-      where: { userId },
+      where: { userId, year: null },
     });
 
     return results.map((cat) => ({
@@ -181,6 +203,8 @@ export class CategoriesService {
       data: { categoryId: null },
     });
 
+    await this.prisma.budgetPlanItem.deleteMany({ where: { categoryId: id } });
+
     await this.prisma.category.delete({ where: { id } });
 
     this.logger.log(`Category deleted: ${id}`);
@@ -194,6 +218,8 @@ export class CategoriesService {
     icon: string;
     color: string;
     budget: number;
+    year?: number | null;
+    month?: number | null;
     transactions: { amount: bigint }[];
   }) {
     const netMinorUnits = cat.transactions.reduce(
@@ -207,7 +233,10 @@ export class CategoriesService {
       icon: cat.icon,
       color: cat.color,
       budget: cat.budget,
+      year: cat.year ?? null,
+      month: cat.month ?? null,
       spent: Math.max(0, -netMinorUnits) / 100,
+      net: netMinorUnits / 100,
     };
   }
 

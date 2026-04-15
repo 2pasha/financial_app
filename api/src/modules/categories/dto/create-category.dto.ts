@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsNumber, Min, IsOptional, IsArray, IsInt } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, Min, Max, IsOptional, IsArray, IsInt, ValidateIf } from 'class-validator';
 
 export class CreateCategoryDto {
   @IsString()
@@ -21,4 +21,16 @@ export class CreateCategoryDto {
   @IsArray()
   @IsInt({ each: true })
   mccCodes?: number[];
+
+  // year and month must be provided together or not at all
+  @ValidateIf((o) => o.month !== undefined)
+  @IsInt()
+  @Min(2000)
+  year?: number;
+
+  @ValidateIf((o) => o.year !== undefined)
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  month?: number;
 }

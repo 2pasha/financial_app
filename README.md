@@ -6,12 +6,14 @@ A modern financial management application built with React, TypeScript, and Nest
 
 ## Architecture
 
-| Layer | Tech | Hosting |
-|-------|------|---------|
-| Frontend | React 18 + Vite + Tailwind CSS | Vercel |
-| Backend | NestJS + Prisma | Render (Docker) |
-| Database | PostgreSQL | Supabase |
-| Auth | Clerk | Clerk Cloud |
+
+| Layer    | Tech                           | Hosting         |
+| -------- | ------------------------------ | --------------- |
+| Frontend | React 18 + Vite + Tailwind CSS | Vercel          |
+| Backend  | NestJS + Prisma                | Render (Docker) |
+| Database | PostgreSQL                     | Supabase        |
+| Auth     | Clerk                          | Clerk Cloud     |
+
 
 This is a **monorepo** managed with `pnpm` workspaces:
 
@@ -81,10 +83,10 @@ The API container automatically runs `prisma migrate deploy` on startup.
 2. Connect your GitHub repository
 3. Set **Runtime** to **Docker**
 4. Set environment variables:
-   - `DATABASE_URL` - Supabase connection string
-   - `CLERK_SECRET_KEY` - from Clerk dashboard
-   - `ALLOWED_ORIGINS` - your Vercel frontend URL (e.g. `https://moneta.vercel.app`)
-   - `PORT` - `3000`
+  - `DATABASE_URL` - Supabase connection string
+  - `CLERK_SECRET_KEY` - from Clerk dashboard
+  - `ALLOWED_ORIGINS` - your Vercel frontend URL (e.g. `https://moneta.vercel.app`)
+  - `PORT` - `3000`
 5. Set **Health Check Path** to `/health`
 6. Deploy
 
@@ -98,15 +100,15 @@ The Dockerfile handles building, Prisma client generation, and runs `prisma migr
 2. Set **Root Directory** to `web`
 3. Vercel will auto-detect Vite. The `vercel.json` handles SPA rewrites.
 4. Set environment variables:
-   - `VITE_API_URL` - your Render backend URL (e.g. `https://moneta-api.onrender.com`)
-   - `VITE_CLERK_PUBLISHABLE_KEY` - from Clerk dashboard
+  - `VITE_API_URL` - your Render backend URL (e.g. `https://moneta-api.onrender.com`)
+  - `VITE_CLERK_PUBLISHABLE_KEY` - from Clerk dashboard
 
 ### Post-deployment checklist
 
-- [ ] Update `ALLOWED_ORIGINS` on Render with the Vercel URL
-- [ ] Verify `/health` endpoint returns `200`
-- [ ] Test Clerk authentication flow end-to-end
-- [ ] Set up UptimeRobot for the Render health endpoint
+- Update `ALLOWED_ORIGINS` on Render with the Vercel URL
+- Verify `/health` endpoint returns `200`
+- Test Clerk authentication flow end-to-end
+- Set up UptimeRobot for the Render health endpoint
 
 ---
 
@@ -131,3 +133,4 @@ The Dockerfile handles building, Prisma client generation, and runs `prisma migr
 
 - pnpm workspaces
 - `@financial-app/common-types` shared type definitions
+
