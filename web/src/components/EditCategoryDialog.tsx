@@ -13,6 +13,7 @@ interface EditCategoryDialogProps {
     budget: number;
     icon: string;
     color: string;
+    excludeFromDashboard: boolean;
   }) => void;
   category: {
     id: string;
@@ -21,6 +22,7 @@ interface EditCategoryDialogProps {
     budget: number;
     icon: string;
     color: string;
+    excludeFromDashboard: boolean;
   } | null;
   translations: {
     editCategory: string;
@@ -34,6 +36,8 @@ interface EditCategoryDialogProps {
     placeholderBudget: string;
     spentAmount: string;
     placeholderSpent: string;
+    excludeFromDashboard: string;
+    excludeFromDashboardHint: string;
   };
 }
 
@@ -56,6 +60,7 @@ export function EditCategoryDialog({ open, onOpenChange, onSave, category, trans
   const [budget, setBudget] = useState("");
   const [selectedIcon, setSelectedIcon] = useState(ICON_OPTIONS[0]);
   const [selectedColor, setSelectedColor] = useState(COLOR_OPTIONS[0]);
+  const [excludeFromDashboard, setExcludeFromDashboard] = useState(false);
 
   useEffect(() => {
     if (category) {
@@ -63,6 +68,7 @@ export function EditCategoryDialog({ open, onOpenChange, onSave, category, trans
       setBudget(category.budget.toString());
       setSelectedIcon(category.icon);
       setSelectedColor(category.color);
+      setExcludeFromDashboard(category.excludeFromDashboard);
     }
   }, [category]);
 
@@ -77,6 +83,7 @@ export function EditCategoryDialog({ open, onOpenChange, onSave, category, trans
       budget: parseFloat(budget),
       icon: selectedIcon,
       color: selectedColor,
+      excludeFromDashboard,
     });
     onOpenChange(false);
   };
@@ -147,6 +154,23 @@ export function EditCategoryDialog({ open, onOpenChange, onSave, category, trans
             </div>
           </div>
         </div>
+          <div className="flex items-start gap-3 pt-1">
+            <input
+              id="edit-exclude-dashboard"
+              type="checkbox"
+              checked={excludeFromDashboard}
+              onChange={(e) => setExcludeFromDashboard(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-border accent-primary cursor-pointer"
+            />
+            <div>
+              <Label htmlFor="edit-exclude-dashboard" className="cursor-pointer">
+                {translations.excludeFromDashboard}
+              </Label>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {translations.excludeFromDashboardHint}
+              </p>
+            </div>
+          </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {translations.cancel}

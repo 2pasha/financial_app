@@ -44,9 +44,10 @@ model Category {
   icon            String
   color           String
   budget          Float
-  mccCodes        Int[]            @default([])
-  year            Int?
-  month           Int?
+  mccCodes              Int[]            @default([])
+  year                  Int?
+  month                 Int?
+  excludeFromDashboard  Boolean          @default(false)
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   transactions    Transaction[]

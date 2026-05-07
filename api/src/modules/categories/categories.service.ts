@@ -80,6 +80,7 @@ export class CategoriesService {
         color: dto.color,
         budget: dto.budget,
         mccCodes: dto.mccCodes ?? [],
+        excludeFromDashboard: dto.excludeFromDashboard ?? false,
         ...(dto.year !== undefined && { year: dto.year, month: dto.month }),
       } as any,
       include: {
@@ -106,6 +107,7 @@ export class CategoriesService {
         color: dto.color,
         budget: dto.budget,
         ...(dto.mccCodes !== undefined && { mccCodes: dto.mccCodes }),
+        ...(dto.excludeFromDashboard !== undefined && { excludeFromDashboard: dto.excludeFromDashboard }),
       } as any,
       include: {
         transactions: {
@@ -220,6 +222,7 @@ export class CategoriesService {
     budget: number;
     year?: number | null;
     month?: number | null;
+    excludeFromDashboard?: boolean | null;
     transactions: { amount: bigint }[];
   }) {
     const netMinorUnits = cat.transactions.reduce(
@@ -235,6 +238,7 @@ export class CategoriesService {
       budget: cat.budget,
       year: cat.year ?? null,
       month: cat.month ?? null,
+      excludeFromDashboard: cat.excludeFromDashboard ?? false,
       spent: Math.max(0, -netMinorUnits) / 100,
       net: netMinorUnits / 100,
     };

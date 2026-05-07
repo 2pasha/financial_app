@@ -45,6 +45,8 @@ export interface Category {
   /** null = basic (always visible); set = one-month category for that year/month */
   year: number | null;
   month: number | null;
+  /** When true the category's net is excluded from the dashboard actual-spent total */
+  excludeFromDashboard: boolean;
 }
 
 export interface CategoryTransaction {
@@ -211,7 +213,7 @@ export const categoriesApi = {
     return response.data;
   },
 
-  async update(id: string, data: Partial<Omit<Category, 'id' | 'spent'>>): Promise<Category> {
+  async update(id: string, data: Partial<Omit<Category, 'id' | 'spent' | 'net'>>): Promise<Category> {
     const response = await apiClient.patch<Category>(`/categories/${id}`, data);
 
     return response.data;

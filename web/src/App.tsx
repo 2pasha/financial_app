@@ -185,7 +185,8 @@ export default function App() {
   const totalIncome = incomeItems.reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
   const plannedSpent = plannedCategories.reduce((sum, cat) => sum + cat.budget, 0);
   const unplannedMoney = totalIncome - plannedSpent;
-  const actualSpent = Math.abs(mergedCategories.reduce((sum, cat) => sum + cat.net, 0));
+  const dashboardCategories = mergedCategories.filter((cat) => !cat.excludeFromDashboard);
+  const actualSpent = Math.abs(dashboardCategories.reduce((sum, cat) => sum + cat.net, 0));
 
   const dateRange = getPeriodRange(period, customFrom, customTo);
 
@@ -311,7 +312,7 @@ export default function App() {
     }
   };
 
-  const handleAddCategory = async (newCategory: Omit<Category, "id" | "spent">) => {
+  const handleAddCategory = async (newCategory: Omit<Category, "id" | "spent" | "net">) => {
     try {
       const created = await categoriesApi.create(newCategory);
       setCategories((prev) => [...prev, created]);
@@ -338,13 +339,14 @@ export default function App() {
     }
   };
 
-  const handleSaveCategory = async (updatedCategory: Omit<Category, "spent">) => {
+  const handleSaveCategory = async (updatedCategory: Omit<Category, "spent" | "net">) => {
     try {
       const saved = await categoriesApi.update(updatedCategory.id, {
         name: updatedCategory.name,
         icon: updatedCategory.icon,
         color: updatedCategory.color,
         budget: updatedCategory.budget,
+        excludeFromDashboard: updatedCategory.excludeFromDashboard,
       });
       setCategories((prev) => prev.map(cat => cat.id === saved.id ? { ...cat, ...saved } : cat));
 

@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsNumber, Min, IsOptional, IsArray, IsInt } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, Min, IsOptional, IsArray, IsInt, IsBoolean } from 'class-validator';
 
 export class UpdateCategoryDto {
   @IsOptional()
@@ -25,4 +25,8 @@ export class UpdateCategoryDto {
   @IsArray()
   @IsInt({ each: true })
   mccCodes?: number[];
+
+  @IsOptional()
+  @IsBoolean()
+  excludeFromDashboard?: boolean;
 }

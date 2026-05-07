@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsNumber, Min, Max, IsOptional, IsArray, IsInt, ValidateIf } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, Min, Max, IsOptional, IsArray, IsInt, IsBoolean, ValidateIf } from 'class-validator';
 
 export class CreateCategoryDto {
   @IsString()
@@ -33,4 +33,8 @@ export class CreateCategoryDto {
   @Min(1)
   @Max(12)
   month?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  excludeFromDashboard?: boolean;
 }

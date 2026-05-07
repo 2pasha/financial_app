@@ -12,6 +12,7 @@ interface AddCategoryDialogProps {
     budget: number;
     icon: string;
     color: string;
+    excludeFromDashboard: boolean;
   }) => void;
   translations: {
     addNewCategory: string;
@@ -23,6 +24,8 @@ interface AddCategoryDialogProps {
     addCategory: string;
     placeholderCategoryName: string;
     placeholderBudget: string;
+    excludeFromDashboard: string;
+    excludeFromDashboardHint: string;
   };
 }
 
@@ -45,6 +48,7 @@ export function AddCategoryDialog({ open, onOpenChange, onAdd, translations }: A
   const [budget, setBudget] = useState("");
   const [selectedIcon, setSelectedIcon] = useState(ICON_OPTIONS[0]);
   const [selectedColor, setSelectedColor] = useState(COLOR_OPTIONS[0]);
+  const [excludeFromDashboard, setExcludeFromDashboard] = useState(false);
 
   const handleSubmit = () => {
     if (name && budget) {
@@ -52,12 +56,14 @@ export function AddCategoryDialog({ open, onOpenChange, onAdd, translations }: A
         name,
         budget: parseFloat(budget),
         icon: selectedIcon,
-        color: selectedColor
+        color: selectedColor,
+        excludeFromDashboard,
       });
       setName("");
       setBudget("");
       setSelectedIcon(ICON_OPTIONS[0]);
       setSelectedColor(COLOR_OPTIONS[0]);
+      setExcludeFromDashboard(false);
       onOpenChange(false);
     }
   };
@@ -124,6 +130,23 @@ export function AddCategoryDialog({ open, onOpenChange, onAdd, translations }: A
             </div>
           </div>
         </div>
+          <div className="flex items-start gap-3 pt-1">
+            <input
+              id="add-exclude-dashboard"
+              type="checkbox"
+              checked={excludeFromDashboard}
+              onChange={(e) => setExcludeFromDashboard(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-border accent-primary cursor-pointer"
+            />
+            <div>
+              <Label htmlFor="add-exclude-dashboard" className="cursor-pointer">
+                {translations.excludeFromDashboard}
+              </Label>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {translations.excludeFromDashboardHint}
+              </p>
+            </div>
+          </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {translations.cancel}

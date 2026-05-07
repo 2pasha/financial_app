@@ -74,6 +74,8 @@ export const translations = {
     add: 'Add',
     deleteCategoryFailed: 'Failed to delete category',
     createCategoryFailed: 'Failed to create category',
+    excludeFromDashboard: 'Exclude from dashboard',
+    excludeFromDashboardHint: 'Transactions in this category will not count toward actual spent',
   },
   uk: {
     appTitle: 'Облік Бюджету',
@@ -148,6 +150,8 @@ export const translations = {
     add: 'Додати',
     deleteCategoryFailed: 'Не вдалося видалити категорію',
     createCategoryFailed: 'Не вдалося створити категорію',
+    excludeFromDashboard: 'Виключити з дашборду',
+    excludeFromDashboardHint: 'Транзакції цієї категорії не враховуватимуться в загальних витратах',
   }
 };
 
