@@ -497,7 +497,7 @@ export default function ExpensesPage() {
 
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto px-4 py-6 flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -505,20 +505,18 @@ export default function ExpensesPage() {
 
   if (syncing) {
     return (
-      <div className="max-w-6xl mx-auto px-4 py-6">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Syncing Your Transactions</h3>
-              <p className="text-muted-foreground text-center max-w-md">
-                This may take several minutes due to Monobank API rate limits. 
-                Please don't close this page.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Syncing Your Transactions</h3>
+            <p className="text-muted-foreground text-center max-w-md">
+              This may take several minutes due to Monobank API rate limits.
+              Please don't close this page.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -543,10 +541,10 @@ export default function ExpensesPage() {
         onCreate={handleTransactionCreate}
       />
 
-      <div className="max-w-6xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+      <div>
         <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
+          <CardHeader className="pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <CardTitle>Expenses</CardTitle>
                 {tokenStatus && (
@@ -558,14 +556,15 @@ export default function ExpensesPage() {
                   </p>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   onClick={() => setCreateDialogOpen(true)}
                   size="sm"
                   className="gap-2"
                 >
                   <Plus className="h-4 w-4" />
-                  New Transaction
+                  <span className="hidden sm:inline">New Transaction</span>
+                  <span className="sm:hidden">New</span>
                 </Button>
                 <Button
                   onClick={handleConnectWebhook}
@@ -579,7 +578,8 @@ export default function ExpensesPage() {
                   ) : (
                     <Webhook className="h-4 w-4" />
                   )}
-                  Connect Webhook
+                  <span className="hidden sm:inline">Connect Webhook</span>
+                  <span className="sm:hidden">Webhook</span>
                 </Button>
                 <Button
                   onClick={handleRefetch}
@@ -593,7 +593,8 @@ export default function ExpensesPage() {
                   ) : (
                     <RefreshCw className="h-4 w-4" />
                   )}
-                  Refetch New
+                  <span className="hidden sm:inline">Refetch New</span>
+                  <span className="sm:hidden">Refetch</span>
                 </Button>
               </div>
             </div>
@@ -631,11 +632,11 @@ export default function ExpensesPage() {
                 )}
 
                 {/* Statistics Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
                   <Card>
-                    <CardContent className="pt-6">
-                      <div className="text-sm text-muted-foreground">Total Expenses</div>
-                      <div className="text-2xl font-bold text-red-600">
+                    <CardContent className="pt-4 sm:pt-6 px-3 sm:px-6">
+                      <div className="text-xs sm:text-sm text-muted-foreground">Total Expenses</div>
+                      <div className="text-xl sm:text-2xl font-bold text-red-600">
                         {currencySymbolFromCode(980)}
                         {Math.abs(totalExpense / 100).toLocaleString()}
                       </div>
@@ -643,9 +644,9 @@ export default function ExpensesPage() {
                   </Card>
                   
                   <Card>
-                    <CardContent className="pt-6">
-                      <div className="text-sm text-muted-foreground">Total Income</div>
-                      <div className="text-2xl font-bold text-green-600">
+                    <CardContent className="pt-4 sm:pt-6 px-3 sm:px-6">
+                      <div className="text-xs sm:text-sm text-muted-foreground">Total Income</div>
+                      <div className="text-xl sm:text-2xl font-bold text-green-600">
                         {currencySymbolFromCode(980)}
                         {Math.abs(totalIncome / 100).toLocaleString()}
                       </div>
@@ -653,18 +654,18 @@ export default function ExpensesPage() {
                   </Card>
                   
                   <Card>
-                    <CardContent className="pt-6">
-                      <div className="text-sm text-muted-foreground">Transactions</div>
-                      <div className="text-2xl font-bold">
+                    <CardContent className="pt-4 sm:pt-6 px-3 sm:px-6">
+                      <div className="text-xs sm:text-sm text-muted-foreground">Transactions</div>
+                      <div className="text-xl sm:text-2xl font-bold">
                         {filteredTransactions.length}
                       </div>
                     </CardContent>
                   </Card>
                   
                   <Card>
-                    <CardContent className="pt-6">
-                      <div className="text-sm text-muted-foreground">Categories</div>
-                      <div className="text-2xl font-bold">
+                    <CardContent className="pt-4 sm:pt-6 px-3 sm:px-6">
+                      <div className="text-xs sm:text-sm text-muted-foreground">Categories</div>
+                      <div className="text-xl sm:text-2xl font-bold">
                         {uniqueCategories}
                       </div>
                     </CardContent>
@@ -672,8 +673,8 @@ export default function ExpensesPage() {
                 </div>
 
                 {/* Table */}
-                <div className="rounded-md border">
-                  <Table>
+                <div className="rounded-md border overflow-x-auto">
+                  <Table className="min-w-[640px]">
                     <TableHeader>
                       <TableRow>
                         <SortableTableHead 
@@ -850,11 +851,11 @@ export default function ExpensesPage() {
                 </div>
 
                 {/* Pagination */}
-                <div className="flex items-center justify-between mt-4">
-                  <div className="text-sm text-muted-foreground">
-                    Showing {filteredTransactions.length === 0 ? 0 : ((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredTransactions.length)} of {filteredTransactions.length}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-4">
+                  <div className="text-sm text-muted-foreground text-center sm:text-left">
+                    Showing {filteredTransactions.length === 0 ? 0 : ((currentPage - 1) * itemsPerPage) + 1}–{Math.min(currentPage * itemsPerPage, filteredTransactions.length)} of {filteredTransactions.length}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex items-center justify-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -864,7 +865,7 @@ export default function ExpensesPage() {
                       <ChevronLeft className="h-4 w-4 mr-1" />
                       Previous
                     </Button>
-                    <div className="flex items-center px-3 text-sm">
+                    <div className="flex items-center px-3 text-sm whitespace-nowrap">
                       Page {currentPage} of {Math.max(1, Math.ceil(filteredTransactions.length / itemsPerPage))}
                     </div>
                     <Button

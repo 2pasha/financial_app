@@ -7,7 +7,8 @@ import { EditCategoryDialog } from "./components/EditCategoryDialog";
 import { BudgetPlanPanel } from "./components/BudgetPlanPanel";
 import { Button } from "./components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./components/ui/alert-dialog";
-import { Plus, Moon, Sun, Languages, CreditCard, Loader2, CalendarRange } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./components/ui/sheet";
+import { Plus, Moon, Sun, Languages, Loader2, CalendarRange, Menu } from "lucide-react";
 import { type Language, getTranslation } from "./lib/translations";
 import { toast } from "sonner";
 import { IncomeDialog } from "./components/IncomeDialog";
@@ -150,6 +151,8 @@ export default function App() {
 
     return 'dashboard';
   });
+
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const mergedCategories = categories.map((cat) => {
     if (period.kind !== 'month' || !budgetPlan) {
@@ -440,9 +443,10 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card">
-        <div className="max-w-6xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
+      <header className="border-b border-border bg-card sticky top-0 z-40">
+        <div className="max-w-6xl mx-auto px-4 py-3 sm:px-6 lg:px-8">
+          {/* Desktop header */}
+          <div className="hidden md:flex items-center justify-between">
             <div className="flex items-center gap-2">
               <img src="/favicon.png" alt="Moneta" className="w-8 h-8 coin-logo cursor-pointer" />
               <h1>{t.appTitle}</h1>
@@ -481,94 +485,192 @@ export default function App() {
                 onClick={toggleTheme}
                 className="rounded-full"
               >
-                {isDarkMode ? (
-                  <Sun className="w-5 h-5" />
-                ) : (
-                  <Moon className="w-5 h-5" />
-                )}
+                {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               </Button>
               <UserButton afterSignOutUrl="/sign-in" />
+            </div>
+          </div>
+
+          {/* Mobile header */}
+          <div className="flex md:hidden items-center justify-between">
+            <div className="flex items-center gap-2">
+              <img src="/favicon.png" alt="Moneta" className="w-7 h-7 coin-logo" />
+              <span className="font-semibold text-sm text-foreground">{t.appTitle}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant={view === 'dashboard' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setView('dashboard')}
+                className="h-8 px-3 text-xs"
+              >
+                Dashboard
+              </Button>
+              <Button
+                variant={view === 'expenses' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setView('expenses')}
+                className="h-8 px-3 text-xs"
+              >
+                Expenses
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setMobileMenuOpen(true)}
+              >
+                <Menu className="w-4 h-4" />
+                <span className="sr-only">Open menu</span>
+              </Button>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-6 sm:px-6 lg:px-8 pb-24">
+      {/* Mobile menu sheet */}
+      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <SheetContent side="right" className="w-72">
+          <SheetHeader>
+            <SheetTitle>Settings</SheetTitle>
+          </SheetHeader>
+          <div className="flex flex-col gap-4 mt-4 px-2">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Currency</span>
+              <Select value={currency} onValueChange={setCurrency}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={t.currency} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="USD">USD</SelectItem>
+                    <SelectItem value="EUR">EUR</SelectItem>
+                    <SelectItem value="UAH">UAH</SelectItem>
+                    <SelectItem value="GBP">GBP</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-2"
+              onClick={() => { setIncomeDialogOpen(true); setMobileMenuOpen(false); }}
+            >
+              {incomeLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              {t.manageIncomes}
+            </Button>
+
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={toggleLanguage}
+                className="rounded-full flex-1 h-9"
+              >
+                <Languages className="w-4 h-4" />
+                <span className="ml-1.5 text-sm">{language === 'en' ? 'EN' : 'UK'}</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={toggleTheme}
+                className="rounded-full flex-1 h-9"
+              >
+                {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                <span className="ml-1.5 text-sm">{isDarkMode ? 'Light' : 'Dark'}</span>
+              </Button>
+            </div>
+
+            <div className="border-t border-border pt-4 flex items-center gap-3">
+              <UserButton afterSignOutUrl="/sign-in" />
+              <span className="text-sm text-muted-foreground">Account</span>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <main className="max-w-6xl mx-auto px-4 py-4 sm:py-6 sm:px-6 lg:px-8 pb-28">
         {view === 'expenses' ? (
           <ExpensesPage />
         ) : (
           <>
             {/* Balance Card */}
-            <div className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-xl p-6 sm:p-8 mb-6 shadow-lg">
-              <p className="opacity-90 mb-2">{t.actualSpent}</p>
-              <h2 className="text-4xl sm:text-5xl mb-4">{formatAmount(actualSpent)}</h2>
-              <div className="flex flex-wrap gap-6 text-sm">
+            <div className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-xl p-4 sm:p-8 mb-4 sm:mb-6 shadow-lg">
+              <p className="opacity-90 mb-1 text-sm sm:text-base">{t.actualSpent}</p>
+              <h2 className="text-3xl sm:text-5xl mb-3 sm:mb-4 font-bold">{formatAmount(actualSpent)}</h2>
+              <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 sm:gap-6 text-sm">
                 {totalIncome > 0 && (
                   <div>
-                    <p className="opacity-75">{t.incomesTotal}</p>
-                    <p className="text-lg">{formatAmount(totalIncome)}</p>
+                    <p className="opacity-75 text-xs sm:text-sm">{t.incomesTotal}</p>
+                    <p className="text-base sm:text-lg font-medium">{formatAmount(totalIncome)}</p>
                   </div>
                 )}
                 <div>
-                  <p className="opacity-75">{t.plannedSpent}</p>
-                  <p className="text-lg">{formatAmount(plannedSpent)}</p>
+                  <p className="opacity-75 text-xs sm:text-sm">{t.plannedSpent}</p>
+                  <p className="text-base sm:text-lg font-medium">{formatAmount(plannedSpent)}</p>
                 </div>
                 {totalIncome > 0 && (
                   <div>
-                    <p className="opacity-75">{t.unplannedMoney}</p>
-                    <p className="text-lg">{formatAmount(unplannedMoney)}</p>
+                    <p className="opacity-75 text-xs sm:text-sm">{t.unplannedMoney}</p>
+                    <p className="text-base sm:text-lg font-medium">{formatAmount(unplannedMoney)}</p>
                   </div>
                 )}
               </div>
             </div>
 
             {/* Period Selector */}
-            <div className="mb-4 flex flex-wrap items-center gap-2">
-              {getLastNMonths(6).map((mp) => (
+            <div className="mb-4">
+              <div className="flex overflow-x-auto gap-1.5 pb-1 no-scrollbar sm:flex-wrap sm:gap-2">
+                {getLastNMonths(6).map((mp) => (
+                  <Button
+                    key={`${mp.year}-${mp.month}`}
+                    variant={periodEquals(period, mp) ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => handlePeriodChange(mp)}
+                    className="shrink-0 text-xs sm:text-sm"
+                  >
+                    {formatMonthLabel(mp, language)}
+                  </Button>
+                ))}
                 <Button
-                  key={`${mp.year}-${mp.month}`}
-                  variant={periodEquals(period, mp) ? 'default' : 'outline'}
+                  variant={period.kind === 'custom' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => handlePeriodChange(mp)}
+                  onClick={() => handlePeriodChange({ kind: 'custom' })}
+                  className="shrink-0 text-xs sm:text-sm"
                 >
-                  {formatMonthLabel(mp, language)}
+                  <CalendarRange className="w-3.5 h-3.5 mr-1.5" />
+                  {t.custom}
                 </Button>
-              ))}
-              <Button
-                variant={period.kind === 'custom' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => handlePeriodChange({ kind: 'custom' })}
-              >
-                <CalendarRange className="w-3.5 h-3.5 mr-1.5" />
-                {t.custom}
-              </Button>
+              </div>
               {period.kind === 'custom' && (
-                <div className="flex items-center gap-2 ml-2">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mt-2">
                   <input
                     type="date"
                     value={customFrom}
                     onChange={(e) => setCustomFrom(e.target.value)}
-                    className="border border-border rounded px-2 py-1 text-sm bg-background text-foreground"
+                    className="w-full sm:w-auto border border-border rounded px-2 py-1.5 text-sm bg-background text-foreground"
                   />
-                  <span className="text-muted-foreground text-sm">—</span>
+                  <span className="text-muted-foreground text-sm hidden sm:inline">—</span>
                   <input
                     type="date"
                     value={customTo}
                     onChange={(e) => setCustomTo(e.target.value)}
-                    className="border border-border rounded px-2 py-1 text-sm bg-background text-foreground"
+                    className="w-full sm:w-auto border border-border rounded px-2 py-1.5 text-sm bg-background text-foreground"
                   />
                 </div>
               )}
             </div>
 
             {/* Categories Section Header */}
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-foreground">{t.categories}</h2>
+            <div className="mb-4 flex items-center justify-between gap-2">
+              <h2 className="text-foreground text-base sm:text-xl">{t.categories}</h2>
               {isMonthPeriod && (
                 <Button
                   variant={planOpen ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setPlanOpen((prev) => !prev)}
+                  className="shrink-0 text-xs sm:text-sm"
                 >
                   {t.planBudget}
                 </Button>
@@ -655,10 +757,11 @@ export default function App() {
       {/* Floating Add Button */}
       <Button
         onClick={() => setDialogOpen(true)}
-        className="fixed bottom-6 right-6 rounded-full w-14 h-14 shadow-lg hover:shadow-xl transition-shadow"
+        className="fixed bottom-6 right-4 sm:right-6 rounded-full w-12 h-12 sm:w-14 sm:h-14 shadow-lg hover:shadow-xl transition-shadow z-30"
+        style={{ bottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))' }}
         size="icon"
       >
-        <Plus className="w-6 h-6" />
+        <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
       </Button>
 
       <AddCategoryDialog
