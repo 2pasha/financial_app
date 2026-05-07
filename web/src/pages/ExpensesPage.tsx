@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { monobankApi, categoriesApi } from "../lib/api-client";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { monobankApi, categoriesApi, transactionsApi } from "../lib/api-client";
 import type { Category, Transaction } from "../lib/api-client";
 import { AddTokenModal } from "../components/monobank/AddTokenModal";
 import { SortableTableHead } from "../components/monobank/SortableTableHead";
@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Loader2, RefreshCw, AlertCircle, DollarSign, ChevronLeft, ChevronRight, Webhook, Plus } from "lucide-react";
 import { toast } from "sonner";
 
@@ -206,6 +207,39 @@ export default function ExpensesPage() {
   const [selectedTx, setSelectedTx] = useState<MonoTxn | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+
+  // Inline category editing state
+  // categoryCache stores category lists keyed by "YYYY-M" (month of the transaction)
+  const categoryCache = useRef<Record<string, Category[]>>({});
+  const [inlineCategoryOptions, setInlineCategoryOptions] = useState<Record<string, Category[]>>({});
+  const [savingCategoryForTx, setSavingCategoryForTx] = useState<string | null>(null);
+
+  const monthKey = (isoTime: string) => {
+    const d = new Date(isoTime);
+
+    return `${d.getFullYear()}-${d.getMonth() + 1}`;
+  };
+
+  const loadCategoriesForMonth = useCallback(async (isoTime: string) => {
+    const key = monthKey(isoTime);
+    if (categoryCache.current[key]) {
+      return;
+    }
+
+    const d = new Date(isoTime);
+    try {
+      const cats = await categoriesApi.getAll({
+        from: isoTime,
+        calendarYear: d.getFullYear(),
+        calendarMonth: d.getMonth() + 1,
+      });
+
+      categoryCache.current[key] = cats;
+      setInlineCategoryOptions((prev) => ({ ...prev, [key]: cats }));
+    } catch {
+      // silently ignore — user can still open the drawer if needed
+    }
+  }, []);
 
   const [webhookConnecting, setWebhookConnecting] = useState(false);
 
@@ -442,6 +476,23 @@ export default function ExpensesPage() {
 
   const handleTransactionCreate = (created: MonoTxn) => {
     setTxns((prev) => [created, ...prev]);
+  };
+
+  const handleInlineCategoryChange = async (tx: MonoTxn, newCategoryId: string) => {
+    setSavingCategoryForTx(tx.id);
+
+    try {
+      const updated = await transactionsApi.update(tx.id, {
+        categoryId: newCategoryId === "none" ? null : newCategoryId,
+      });
+
+      handleTransactionUpdate(updated);
+      toast.success("Category updated");
+    } catch {
+      toast.error("Failed to update category");
+    } finally {
+      setSavingCategoryForTx(null);
+    }
   };
 
   if (loading) {
@@ -720,29 +771,60 @@ export default function ExpensesPage() {
                             <TableCell className="font-medium">
                               {tx.description}
                             </TableCell>
-                            <TableCell>
-                              {tx.category ? (
-                                <span className="flex items-center gap-1">
-                                  <span>{tx.category.icon}</span>
-                                  <span
-                                    className="text-xs font-medium px-2 py-0.5 rounded-full"
-                                    style={{ backgroundColor: tx.category.color + '33', color: tx.category.color }}
-                                  >
-                                    {tx.category.name}
-                                  </span>
+                            <TableCell
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseEnter={() => loadCategoriesForMonth(tx.time)}
+                              className="min-w-[160px]"
+                            >
+                              {savingCategoryForTx === tx.id ? (
+                                <span className="flex items-center gap-1 text-muted-foreground text-xs">
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                  Saving…
                                 </span>
-                              ) : tx.mcc ? (
-                                <a
-                                  href={mccUrl(tx.mcc)}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-primary hover:underline"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  {mccName(tx.mcc, mccCatalog)}
-                                </a>
                               ) : (
-                                <span className="text-muted-foreground text-xs">—</span>
+                                <Select
+                                  value={tx.categoryId ?? "none"}
+                                  onValueChange={(val) => handleInlineCategoryChange(tx, val)}
+                                  disabled={savingCategoryForTx !== null}
+                                >
+                                  <SelectTrigger
+                                    size="sm"
+                                    className="h-auto border-0 shadow-none bg-transparent px-0 py-0 gap-1 focus-visible:ring-0 hover:bg-muted/60 rounded-md w-full"
+                                  >
+                                    <SelectValue>
+                                      {tx.category ? (
+                                        <span className="flex items-center gap-1">
+                                          <span>{tx.category.icon}</span>
+                                          <span
+                                            className="text-xs font-medium px-2 py-0.5 rounded-full"
+                                            style={{ backgroundColor: tx.category.color + '33', color: tx.category.color }}
+                                          >
+                                            {tx.category.name}
+                                          </span>
+                                        </span>
+                                      ) : tx.mcc ? (
+                                        <span className="text-xs text-muted-foreground">
+                                          {mccName(tx.mcc, mccCatalog)}
+                                        </span>
+                                      ) : (
+                                        <span className="text-muted-foreground text-xs">— no category</span>
+                                      )}
+                                    </SelectValue>
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none">
+                                      <span className="text-muted-foreground">No category</span>
+                                    </SelectItem>
+                                    {(inlineCategoryOptions[monthKey(tx.time)] ?? categories).map((cat) => (
+                                      <SelectItem key={cat.id} value={cat.id}>
+                                        <span className="flex items-center gap-2">
+                                          <span>{cat.icon}</span>
+                                          <span>{cat.name}</span>
+                                        </span>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
                               )}
                             </TableCell>
                             <TableCell className={tx.amount < 0 ? 'text-red-600' : 'text-green-600'}>
