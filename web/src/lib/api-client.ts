@@ -88,7 +88,34 @@ export interface Transaction {
   cashbackAmount: number;
   categoryId: string | null;
   category: TransactionCategory | null;
+  tripId: string | null;
+  trip: { id: string; name: string; icon: string; color: string } | null;
   account: { id: string; type: string };
+}
+
+export interface TripPlannedItem {
+  id: string;
+  text: string;
+  completed: boolean;
+  createdAt: string;
+}
+
+export interface Trip {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  goalAmount: number;
+  targetDate: string | null;
+  isActive: boolean;
+  collectedAmount: number;
+  plannedItems: TripPlannedItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TripDetail extends Trip {
+  transactions: Transaction[];
 }
 
 export interface BudgetPlanCategory {
@@ -258,6 +285,7 @@ export const transactionsApi = {
       amount?: number;
       time?: string;
       categoryId?: string | null;
+      tripId?: string | null;
     }
   ): Promise<Transaction> {
     const response = await apiClient.patch<Transaction>(`/transactions/${id}`, data);
@@ -294,6 +322,61 @@ export const budgetPlansApi = {
   async delete(id: string): Promise<{ success: boolean }> {
     const response = await apiClient.delete<{ success: boolean }>(`/budget-plans/${id}`);
 
+    return response.data;
+  },
+};
+
+export const tripsApi = {
+  async getAll(): Promise<Trip[]> {
+    const response = await apiClient.get<Trip[]>('/trips');
+    return response.data;
+  },
+
+  async getOne(id: string): Promise<TripDetail> {
+    const response = await apiClient.get<TripDetail>(`/trips/${id}`);
+    return response.data;
+  },
+
+  async create(data: {
+    name: string;
+    icon?: string;
+    color?: string;
+    goalAmount: number;
+    targetDate?: string | null;
+  }): Promise<Trip> {
+    const response = await apiClient.post<Trip>('/trips', data);
+    return response.data;
+  },
+
+  async update(id: string, data: {
+    name?: string;
+    icon?: string;
+    color?: string;
+    goalAmount?: number;
+    targetDate?: string | null;
+    isActive?: boolean;
+  }): Promise<Trip> {
+    const response = await apiClient.patch<Trip>(`/trips/${id}`, data);
+    return response.data;
+  },
+
+  async remove(id: string): Promise<{ success: boolean }> {
+    const response = await apiClient.delete<{ success: boolean }>(`/trips/${id}`);
+    return response.data;
+  },
+
+  async addItem(tripId: string, data: { text: string }): Promise<TripPlannedItem> {
+    const response = await apiClient.post<TripPlannedItem>(`/trips/${tripId}/items`, data);
+    return response.data;
+  },
+
+  async updateItem(tripId: string, itemId: string, data: { text?: string; completed?: boolean }): Promise<TripPlannedItem> {
+    const response = await apiClient.patch<TripPlannedItem>(`/trips/${tripId}/items/${itemId}`, data);
+    return response.data;
+  },
+
+  async removeItem(tripId: string, itemId: string): Promise<{ success: boolean }> {
+    const response = await apiClient.delete<{ success: boolean }>(`/trips/${tripId}/items/${itemId}`);
     return response.data;
   },
 };

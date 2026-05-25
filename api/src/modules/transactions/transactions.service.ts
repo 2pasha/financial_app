@@ -31,7 +31,7 @@ export class TransactionsService {
         hold: false,
         categoryId: dto.categoryId ?? null,
       },
-      include: { account: true, category: true },
+      include: { account: true, category: true, trip: true },
     });
 
     this.logger.log(`Manual transaction created: ${tx.id}`);
@@ -61,10 +61,14 @@ export class TransactionsService {
       updateData.categoryId = dto.categoryId ?? null;
     }
 
+    if (Object.prototype.hasOwnProperty.call(dto, 'tripId')) {
+      updateData.tripId = dto.tripId ?? null;
+    }
+
     const tx = await this.prisma.transaction.update({
       where: { id },
       data: updateData,
-      include: { account: true, category: true },
+      include: { account: true, category: true, trip: true },
     });
 
     return this.formatTransaction(tx);
@@ -111,8 +115,10 @@ export class TransactionsService {
     commissionRate: bigint | null;
     cashbackAmount: bigint | null;
     categoryId: string | null;
+    tripId?: string | null;
     account: { accountId: string; type: string };
     category: { id: string; name: string; icon: string; color: string } | null;
+    trip?: { id: string; name: string; icon: string; color: string } | null;
   }) {
     return {
       id: tx.id,
@@ -135,6 +141,10 @@ export class TransactionsService {
             icon: tx.category.icon,
             color: tx.category.color,
           }
+        : null,
+      tripId: tx.tripId ?? null,
+      trip: tx.trip
+        ? { id: tx.trip.id, name: tx.trip.name, icon: tx.trip.icon, color: tx.trip.color }
         : null,
       account: {
         id: tx.account.accountId,
