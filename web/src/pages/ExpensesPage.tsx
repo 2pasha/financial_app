@@ -828,12 +828,28 @@ export default function ExpensesPage() {
                                 </Select>
                               )}
                             </TableCell>
-                            <TableCell className={tx.amount < 0 ? 'text-red-600' : 'text-green-600'}>
-                              <span className="font-semibold">
-                                {tx.amount > 0 ? '+' : ''}
-                                {currencySymbolFromCode(tx.currency)}
-                                {Math.abs(tx.amount / 100).toLocaleString()}
-                              </span>
+                            <TableCell>
+                              {(() => {
+                                const isCross = tx.operationAmount != null && tx.operationCurrency !== tx.currency;
+                                const primaryAmt = isCross ? tx.operationAmount! / 100 : tx.amount / 100;
+                                const primaryCur = isCross ? tx.operationCurrency! : tx.currency;
+                                return (
+                                  <div className="text-right">
+                                    <span className="font-semibold" style={{ color: primaryAmt < 0 ? '#E53935' : '#2E7D32' }}>
+                                      {primaryAmt > 0 ? '+' : ''}
+                                      {currencySymbolFromCode(primaryCur)}
+                                      {Math.abs(primaryAmt).toLocaleString()}
+                                    </span>
+                                    {isCross && (
+                                      <p className="text-xs text-muted-foreground">
+                                        {tx.amount > 0 ? '+' : ''}
+                                        {currencySymbolFromCode(tx.currency)}
+                                        {Math.abs(tx.amount / 100).toLocaleString()}
+                                      </p>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </TableCell>
                             <TableCell className="text-muted-foreground">
                               {new Date(tx.time).toLocaleString()}

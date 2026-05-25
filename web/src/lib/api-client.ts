@@ -86,6 +86,8 @@ export interface Transaction {
   hold: boolean;
   commissionRate: number;
   cashbackAmount: number;
+  operationAmount: number | null;
+  operationCurrency: number | null;
   categoryId: string | null;
   category: TransactionCategory | null;
   account: { id: string; type: string };

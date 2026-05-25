@@ -110,6 +110,8 @@ export class TransactionsService {
     hold: boolean;
     commissionRate: bigint | null;
     cashbackAmount: bigint | null;
+    operationAmount: bigint | null;
+    operationCurrency: number | null;
     categoryId: string | null;
     account: { accountId: string; type: string };
     category: { id: string; name: string; icon: string; color: string } | null;
@@ -127,6 +129,8 @@ export class TransactionsService {
       hold: tx.hold,
       commissionRate: Number(tx.commissionRate ?? 0),
       cashbackAmount: Number(tx.cashbackAmount ?? 0),
+      operationAmount: tx.operationAmount != null ? Number(tx.operationAmount) : null,
+      operationCurrency: tx.operationCurrency ?? null,
       categoryId: tx.categoryId,
       category: tx.category
         ? {

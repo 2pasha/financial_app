@@ -119,11 +119,13 @@ model Transaction {
   mcc            Int?
   originalMcc    Int?
   hold           Boolean
-  commissionRate BigInt?
-  cashbackAmount BigInt?
-  categoryId     String?
-  category       Category? @relation(fields: [categoryId], references: [id])
-  createdAt      DateTime  @default(now())
+  commissionRate    BigInt?
+  cashbackAmount    BigInt?
+  operationAmount   BigInt?
+  operationCurrency Int?
+  categoryId        String?
+  category          Category? @relation(fields: [categoryId], references: [id])
+  createdAt         DateTime  @default(now())
 
   @@index([userId, time])
 }
