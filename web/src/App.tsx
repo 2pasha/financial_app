@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { UserButton } from "@clerk/clerk-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { CategoryCard } from "./components/CategoryCard";
 import { AddCategoryDialog } from "./components/AddCategoryDialog";
 import { EditCategoryDialog } from "./components/EditCategoryDialog";
@@ -76,6 +76,7 @@ function periodEquals(a: Period, b: Period): boolean {
 
 export default function App() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -454,6 +455,7 @@ export default function App() {
             <div className="flex items-center gap-2">
               <Button variant={view === 'dashboard' ? 'default' : 'outline'} onClick={() => setView('dashboard')}>Dashboard</Button>
               <Button variant={view === 'expenses' ? 'default' : 'outline'} onClick={() => setView('expenses')}>Expenses</Button>
+              <Button variant={location.pathname.startsWith('/trips') ? 'default' : 'outline'} onClick={() => navigate('/trips')}>Trips</Button>
               <Select value={currency} onValueChange={setCurrency}>
                 <SelectTrigger className="w-[120px]">
                   <SelectValue placeholder={t.currency} />
@@ -513,6 +515,14 @@ export default function App() {
                 className="h-8 px-3 text-xs"
               >
                 Expenses
+              </Button>
+              <Button
+                variant={location.pathname.startsWith('/trips') ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => navigate('/trips')}
+                className="h-8 px-3 text-xs"
+              >
+                Trips
               </Button>
               <Button
                 variant="outline"
