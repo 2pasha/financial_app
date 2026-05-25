@@ -621,6 +621,8 @@ export class MonobankService {
                   hold: tx.hold,
                   commissionRate: BigInt(tx.commissionRate),
                   cashbackAmount: BigInt(tx.cashbackAmount),
+                  operationAmount: BigInt(tx.operationAmount),
+                  operationCurrency: monobankAccount.currencyCode,
                 },
                 create: {
                   userId: user.id,
@@ -636,6 +638,8 @@ export class MonobankService {
                   hold: tx.hold,
                   commissionRate: BigInt(tx.commissionRate),
                   cashbackAmount: BigInt(tx.cashbackAmount),
+                  operationAmount: BigInt(tx.operationAmount),
+                  operationCurrency: monobankAccount.currencyCode,
                   categoryId,
                 },
               });
@@ -751,6 +755,8 @@ export class MonobankService {
           hold: statementItem.hold,
           commissionRate: BigInt(statementItem.commissionRate),
           cashbackAmount: BigInt(statementItem.cashbackAmount),
+          operationAmount: BigInt(statementItem.operationAmount),
+          operationCurrency: account.currency,
         },
         create: {
           userId: account.userId,
@@ -766,6 +772,8 @@ export class MonobankService {
           hold: statementItem.hold,
           commissionRate: BigInt(statementItem.commissionRate),
           cashbackAmount: BigInt(statementItem.cashbackAmount),
+          operationAmount: BigInt(statementItem.operationAmount),
+          operationCurrency: account.currency,
           categoryId,
         },
       });

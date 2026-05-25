@@ -910,7 +910,7 @@ export default function ExpensesPage() {
                             <TableCell>
                               {(() => {
                                 const isCross = tx.operationAmount != null && tx.operationCurrency !== tx.currency;
-                                const primaryAmt = isCross ? tx.operationAmount! / 100 : tx.amount / 100;
+                                const primaryAmt = tx.amount / 100;
                                 const primaryCur = isCross ? tx.operationCurrency! : tx.currency;
                                 return (
                                   <div className="text-right">
@@ -921,9 +921,9 @@ export default function ExpensesPage() {
                                     </span>
                                     {isCross && (
                                       <p className="text-xs text-muted-foreground">
-                                        {tx.amount > 0 ? '+' : ''}
+                                        {tx.operationAmount! > 0 ? '+' : ''}
                                         {currencySymbolFromCode(tx.currency)}
-                                        {Math.abs(tx.amount / 100).toLocaleString()}
+                                        {Math.abs(tx.operationAmount! / 100).toLocaleString()}
                                       </p>
                                     )}
                                   </div>
