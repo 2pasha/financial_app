@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { monobankApi, categoriesApi, transactionsApi } from "../lib/api-client";
-import type { Category, Transaction } from "../lib/api-client";
+import { monobankApi, categoriesApi, transactionsApi, tripsApi } from "../lib/api-client";
+import type { Category, Transaction, Trip } from "../lib/api-client";
 import { AddTokenModal } from "../components/monobank/AddTokenModal";
 import { SortableTableHead } from "../components/monobank/SortableTableHead";
 import { MultiSelectFilter } from "../components/monobank/MultiSelectFilter";
@@ -150,6 +150,13 @@ export default function ExpensesPage() {
     categoriesApi.getAll().then(setCategories).catch(() => {});
   }, []);
 
+  // Load active trips for inline assignment
+  useEffect(() => {
+    tripsApi.getAll()
+      .then((all) => setActiveTrips(all.filter((t) => t.isActive)))
+      .catch(() => {});
+  }, []);
+
   // Check token status on mount
   useEffect(() => {
     checkStatus();
@@ -213,6 +220,10 @@ export default function ExpensesPage() {
   const categoryCache = useRef<Record<string, Category[]>>({});
   const [inlineCategoryOptions, setInlineCategoryOptions] = useState<Record<string, Category[]>>({});
   const [savingCategoryForTx, setSavingCategoryForTx] = useState<string | null>(null);
+
+  // Inline trip assignment state
+  const [activeTrips, setActiveTrips] = useState<Trip[]>([]);
+  const [savingTripForTx, setSavingTripForTx] = useState<string | null>(null);
 
   const monthKey = (isoTime: string) => {
     const d = new Date(isoTime);
@@ -478,6 +489,21 @@ export default function ExpensesPage() {
     setTxns((prev) => [created, ...prev]);
   };
 
+  const handleInlineTripChange = async (tx: MonoTxn, newTripId: string) => {
+    setSavingTripForTx(tx.id);
+    try {
+      const updated = await transactionsApi.update(tx.id, {
+        tripId: newTripId === "none" ? null : newTripId,
+      });
+      handleTransactionUpdate(updated);
+      toast.success("Trip updated");
+    } catch {
+      toast.error("Failed to update trip");
+    } finally {
+      setSavingTripForTx(null);
+    }
+  };
+
   const handleInlineCategoryChange = async (tx: MonoTxn, newCategoryId: string) => {
     setSavingCategoryForTx(tx.id);
 
@@ -674,26 +700,27 @@ export default function ExpensesPage() {
 
                 {/* Table */}
                 <div className="rounded-md border overflow-x-auto">
-                  <Table className="min-w-[640px]">
+                  <Table className="min-w-[780px]">
                     <TableHeader>
                       <TableRow>
-                        <SortableTableHead 
-                          column="name" 
-                          label="Name" 
+                        <SortableTableHead
+                          column="name"
+                          label="Name"
                           currentSort={sortColumn}
                           sortDirection={sortDirection}
                           onSort={handleSort}
                         />
-                        <SortableTableHead 
-                          column="category" 
-                          label="Category" 
+                        <SortableTableHead
+                          column="category"
+                          label="Category"
                           currentSort={sortColumn}
                           sortDirection={sortDirection}
                           onSort={handleSort}
                         />
-                        <SortableTableHead 
-                          column="amount" 
-                          label="Amount" 
+                        <TableHead className="text-xs font-semibold text-muted-foreground">Trip</TableHead>
+                        <SortableTableHead
+                          column="amount"
+                          label="Amount"
                           currentSort={sortColumn}
                           sortDirection={sortDirection}
                           onSort={handleSort}
@@ -732,6 +759,7 @@ export default function ExpensesPage() {
                             placeholder="Filter categories..."
                           />
                         </TableHead>
+                        <TableHead />
                         <TableHead>
                           <AmountFilter
                             filter={filters.amount}
@@ -758,7 +786,7 @@ export default function ExpensesPage() {
                     <TableBody>
                       {paginatedTransactions.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                             No transactions match your filters
                           </TableCell>
                         </TableRow>
@@ -821,6 +849,57 @@ export default function ExpensesPage() {
                                         <span className="flex items-center gap-2">
                                           <span>{cat.icon}</span>
                                           <span>{cat.name}</span>
+                                        </span>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              )}
+                            </TableCell>
+                            <TableCell
+                              onClick={(e) => e.stopPropagation()}
+                              className="min-w-[140px]"
+                            >
+                              {savingTripForTx === tx.id ? (
+                                <span className="flex items-center gap-1 text-muted-foreground text-xs">
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                  Saving…
+                                </span>
+                              ) : (
+                                <Select
+                                  value={tx.tripId ?? "none"}
+                                  onValueChange={(val) => handleInlineTripChange(tx, val)}
+                                  disabled={savingTripForTx !== null}
+                                >
+                                  <SelectTrigger
+                                    size="sm"
+                                    className="h-auto border-0 shadow-none bg-transparent px-0 py-0 gap-1 focus-visible:ring-0 hover:bg-muted/60 rounded-md w-full"
+                                  >
+                                    <SelectValue>
+                                      {tx.trip ? (
+                                        <span className="flex items-center gap-1">
+                                          <span>{tx.trip.icon}</span>
+                                          <span
+                                            className="text-xs font-medium px-2 py-0.5 rounded-full"
+                                            style={{ backgroundColor: tx.trip.color + '33', color: tx.trip.color }}
+                                          >
+                                            {tx.trip.name}
+                                          </span>
+                                        </span>
+                                      ) : (
+                                        <span className="text-muted-foreground text-xs">— no trip</span>
+                                      )}
+                                    </SelectValue>
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none">
+                                      <span className="text-muted-foreground">No trip</span>
+                                    </SelectItem>
+                                    {activeTrips.map((trip) => (
+                                      <SelectItem key={trip.id} value={trip.id}>
+                                        <span className="flex items-center gap-2">
+                                          <span>{trip.icon}</span>
+                                          <span>{trip.name}</span>
                                         </span>
                                       </SelectItem>
                                     ))}

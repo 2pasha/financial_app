@@ -8,6 +8,8 @@ import {
 import App from './App';
 import MonobankSetupPage from './pages/monobank/MonobankSetupPage';
 import MonobankSyncPage from './pages/monobank/MonobankSyncPage';
+import TripsPage from './pages/TripsPage';
+import TripDetailPage from './pages/TripDetailPage';
 import { Toaster } from './components/ui/sonner';
 
 export default function AppWithAuth() {
@@ -44,6 +46,8 @@ export default function AppWithAuth() {
               <SignedIn>
                 <Routes>
                   <Route path="/" element={<App />} />
+                  <Route path="/trips" element={<TripsPage />} />
+                  <Route path="/trips/:id" element={<TripDetailPage />} />
                   <Route path="/monobank/setup" element={<MonobankSetupPage />} />
                   <Route path="/monobank/sync" element={<MonobankSyncPage />} />
                 </Routes>

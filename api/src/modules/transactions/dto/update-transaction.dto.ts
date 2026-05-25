@@ -17,4 +17,8 @@ export class UpdateTransactionDto {
   @IsOptional()
   @IsString()
   categoryId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  tripId?: string | null;
 }
