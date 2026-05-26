@@ -844,6 +844,7 @@ export class MonobankService {
         include: {
           account: true,
           category: true,
+          trip: true,
         },
       }),
       this.prisma.transaction.count({
@@ -872,6 +873,15 @@ export class MonobankService {
               name: tx.category.name,
               icon: tx.category.icon,
               color: tx.category.color,
+            }
+          : null,
+        tripId: tx.tripId,
+        trip: tx.trip
+          ? {
+              id: tx.trip.id,
+              name: tx.trip.name,
+              icon: tx.trip.icon,
+              color: tx.trip.color,
             }
           : null,
         account: {
