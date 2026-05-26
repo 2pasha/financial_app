@@ -866,6 +866,8 @@ export class MonobankService {
         hold: tx.hold,
         commissionRate: Number(tx.commissionRate),
         cashbackAmount: Number(tx.cashbackAmount),
+        operationAmount: tx.operationAmount !== null ? Number(tx.operationAmount) : null,
+        operationCurrency: tx.operationCurrency,
         categoryId: tx.categoryId,
         category: tx.category
           ? {

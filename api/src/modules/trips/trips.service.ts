@@ -21,6 +21,8 @@ const TX_DETAIL_SELECT = {
     hold: true,
     commissionRate: true,
     cashbackAmount: true,
+    operationAmount: true,
+    operationCurrency: true,
     categoryId: true,
     category: { select: { id: true, name: true, icon: true, color: true } },
     account: { select: { accountId: true, type: true } },
@@ -226,6 +228,8 @@ export class TripsService {
     hold: boolean;
     commissionRate: bigint | null;
     cashbackAmount: bigint | null;
+    operationAmount: bigint | null;
+    operationCurrency: number | null;
     categoryId: string | null;
     category: { id: string; name: string; icon: string; color: string } | null;
     account: { accountId: string; type: string };
@@ -243,6 +247,8 @@ export class TripsService {
       hold: tx.hold,
       commissionRate: Number(tx.commissionRate ?? 0),
       cashbackAmount: Number(tx.cashbackAmount ?? 0),
+      operationAmount: tx.operationAmount !== null ? Number(tx.operationAmount) : null,
+      operationCurrency: tx.operationCurrency,
       categoryId: tx.categoryId,
       category: tx.category ?? null,
       account: { id: tx.account.accountId, type: tx.account.type },

@@ -25,6 +25,16 @@ function formatAmount(value: number, signed = false): string {
   }
 }
 
+function currencySymbolFromCode(code: number): string {
+  switch (code) {
+    case 980: return "₴";
+    case 840: return "$";
+    case 978: return "€";
+    case 826: return "£";
+    default: return "";
+  }
+}
+
 function formatDate(iso: string): string {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(iso));
 }
@@ -272,12 +282,23 @@ export default function TripDetailPage() {
                       {formatDate(tx.time)}
                     </p>
                   </div>
-                  <span
-                    className="text-sm font-semibold whitespace-nowrap shrink-0"
-                    style={{ color: tx.amount >= 0 ? "#2E7D32" : "#E53935" }}
-                  >
-                    {formatAmount(tx.amount / 100, true)}
-                  </span>
+                  <div className="text-right shrink-0">
+                    <span
+                      className="text-sm font-semibold whitespace-nowrap"
+                      style={{ color: tx.amount >= 0 ? "#2E7D32" : "#E53935" }}
+                    >
+                      {tx.amount >= 0 ? "+" : ""}
+                      {currencySymbolFromCode(tx.operationCurrency ?? tx.currency)}
+                      {Math.abs(tx.amount / 100).toLocaleString()}
+                    </span>
+                    {tx.operationAmount != null && tx.operationCurrency !== tx.currency && (
+                      <p className="text-xs text-muted-foreground">
+                        {tx.operationAmount > 0 ? "+" : ""}
+                        {currencySymbolFromCode(tx.currency)}
+                        {Math.abs(tx.operationAmount / 100).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
                 </div>
                 {/* Desktop row */}
                 <div className="hidden md:grid grid-cols-[1fr_110px_140px] px-5 py-3 items-center">
@@ -288,12 +309,23 @@ export default function TripDetailPage() {
                     )}
                   </div>
                   <span className="text-xs text-muted-foreground text-right self-center whitespace-nowrap">{formatDate(tx.time)}</span>
-                  <span
-                    className="text-sm font-semibold text-right self-center whitespace-nowrap"
-                    style={{ color: tx.amount >= 0 ? "#2E7D32" : "#E53935" }}
-                  >
-                    {formatAmount(tx.amount / 100, true)}
-                  </span>
+                  <div className="text-right self-center">
+                    <span
+                      className="text-sm font-semibold whitespace-nowrap"
+                      style={{ color: tx.amount >= 0 ? "#2E7D32" : "#E53935" }}
+                    >
+                      {tx.amount >= 0 ? "+" : ""}
+                      {currencySymbolFromCode(tx.operationCurrency ?? tx.currency)}
+                      {Math.abs(tx.amount / 100).toLocaleString()}
+                    </span>
+                    {tx.operationAmount != null && tx.operationCurrency !== tx.currency && (
+                      <p className="text-xs text-muted-foreground">
+                        {tx.operationAmount > 0 ? "+" : ""}
+                        {currencySymbolFromCode(tx.currency)}
+                        {Math.abs(tx.operationAmount / 100).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             ))

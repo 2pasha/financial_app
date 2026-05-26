@@ -19,11 +19,18 @@ interface TransactionDrawerProps {
   onDelete: (id: string) => void;
 }
 
-function formatAmountDisplay(amount: number, currencyCode: number): string {
-  const major = amount / 100;
-  const symbol = currencyCode === 980 ? "₴" : currencyCode === 840 ? "$" : currencyCode === 978 ? "€" : "";
+function currencySymbolFromCode(code: number): string {
+  switch (code) {
+    case 980: return "₴";
+    case 840: return "$";
+    case 978: return "€";
+    case 826: return "£";
+    default: return "";
+  }
+}
 
-  return `${symbol}${major.toFixed(2)}`;
+function formatAmountDisplay(amount: number, currencyCode: number): string {
+  return `${currencySymbolFromCode(currencyCode)}${(amount / 100).toFixed(2)}`;
 }
 
 function formatDateForInput(isoString: string): string {
@@ -145,8 +152,14 @@ export function TransactionDrawer({
                 <div className="space-y-1">
                   <Label className="text-muted-foreground text-xs">Amount (raw)</Label>
                   <p className="text-sm font-mono">
-                    {formatAmountDisplay(transaction.amount, transaction.currency)}
+                    {formatAmountDisplay(transaction.amount, transaction.operationCurrency ?? transaction.currency)}
                   </p>
+                  {transaction.operationAmount != null && transaction.operationCurrency !== transaction.currency && (
+                    <p className="text-xs text-muted-foreground font-mono">
+                      {currencySymbolFromCode(transaction.currency)}
+                      {Math.abs(transaction.operationAmount / 100).toFixed(2)}
+                    </p>
+                  )}
                 </div>
 
                 {transaction.mcc && (
@@ -170,7 +183,7 @@ export function TransactionDrawer({
 
                   <div className="space-y-2">
                     <Label htmlFor="tx-amount">
-                      Amount ({transaction.currency === 980 ? "UAH" : transaction.currency === 840 ? "USD" : String(transaction.currency)})
+                      Amount ({(transaction.operationCurrency ?? transaction.currency) === 980 ? "UAH" : (transaction.operationCurrency ?? transaction.currency) === 840 ? "USD" : (transaction.operationCurrency ?? transaction.currency) === 978 ? "EUR" : String(transaction.operationCurrency ?? transaction.currency)})
                       <span className="text-muted-foreground ml-1 text-xs">negative = expense</span>
                     </Label>
                     <Input
