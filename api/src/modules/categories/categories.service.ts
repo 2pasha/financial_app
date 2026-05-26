@@ -39,12 +39,43 @@ export class CategoriesService {
           select: { amount: true },
           where: {
             time: { gte: fromDate, lte: toDate },
+            tripId: null,
           },
         },
       },
     });
 
-    return categories.map((cat) => this.formatCategory(cat));
+    const trips = await this.prisma.trip.findMany({
+      where: {
+        userId: user.id,
+        transactions: { some: { userId: user.id, time: { gte: fromDate, lte: toDate } } },
+      },
+      include: {
+        transactions: {
+          select: { amount: true },
+          where: { userId: user.id, time: { gte: fromDate, lte: toDate } },
+        },
+      },
+    });
+
+    const tripCategories = trips.map((trip) => {
+      const net = trip.transactions.reduce((sum, tx) => sum + Number(tx.amount), 0);
+      return {
+        id: trip.id,
+        name: trip.name,
+        icon: trip.icon,
+        color: trip.color,
+        budget: 0,
+        year: null as null,
+        month: null as null,
+        excludeFromDashboard: false,
+        spent: Math.max(0, -net) / 100,
+        net: net / 100,
+        isTrip: true,
+      };
+    });
+
+    return [...categories.map((cat) => this.formatCategory(cat)), ...tripCategories];
   }
 
   private resolveDateRange(
@@ -183,6 +214,9 @@ export class CategoriesService {
         time: true,
         description: true,
         amount: true,
+        currency: true,
+        operationAmount: true,
+        operationCurrency: true,
         mcc: true,
       },
     });
@@ -192,6 +226,9 @@ export class CategoriesService {
       time: tx.time,
       description: tx.description,
       amount: Number(tx.amount) / 100,
+      currency: tx.currency,
+      operationAmount: tx.operationAmount !== null ? Number(tx.operationAmount) / 100 : null,
+      operationCurrency: tx.operationCurrency,
       mcc: tx.mcc,
     }));
   }

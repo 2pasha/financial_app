@@ -328,9 +328,7 @@ export default function App() {
 
   const handleCategoryClick = (id: string) => {
     const category = categories.find((cat) => cat.id === id);
-    if (category) {
-      setSelectedCategory(category);
-    }
+    if (category) setSelectedCategory(category);
   };
 
   const handleEditCategory = (id: string) => {
@@ -435,8 +433,8 @@ export default function App() {
       icon={category.icon}
       color={category.color}
       showNet={showNet}
-      onEdit={handleEditCategory}
-      onDelete={handleDeleteCategory}
+      onEdit={category.isTrip ? undefined : handleEditCategory}
+      onDelete={category.isTrip ? undefined : handleDeleteCategory}
       onClick={handleCategoryClick}
       translations={t}
     />
@@ -827,6 +825,7 @@ export default function App() {
           categoryIcon={selectedCategory.icon}
           categoryColor={selectedCategory.color}
           dateRange={dateRange}
+          tripId={selectedCategory.isTrip ? selectedCategory.id : undefined}
         />
       )}
     </div>

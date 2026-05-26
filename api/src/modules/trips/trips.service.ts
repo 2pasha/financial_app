@@ -75,6 +75,32 @@ export class TripsService {
     };
   }
 
+  async getTransactions(clerkId: string, tripId: string, from?: string, to?: string) {
+    const user = await this.findUser(clerkId);
+
+    const fromDate = from ? new Date(from) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const toDate = to ? new Date(to) : new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0, 23, 59, 59, 999);
+
+    await this.assertOwnership(tripId, user.id);
+
+    const transactions = await this.prisma.transaction.findMany({
+      where: { tripId, userId: user.id, time: { gte: fromDate, lte: toDate } },
+      orderBy: { time: 'desc' },
+      select: { id: true, time: true, description: true, amount: true, currency: true, operationAmount: true, operationCurrency: true, mcc: true },
+    });
+
+    return transactions.map((tx) => ({
+      id: tx.id,
+      time: tx.time.toISOString(),
+      description: tx.description,
+      amount: Number(tx.amount) / 100,
+      currency: tx.currency,
+      operationAmount: tx.operationAmount !== null ? Number(tx.operationAmount) / 100 : null,
+      operationCurrency: tx.operationCurrency,
+      mcc: tx.mcc,
+    }));
+  }
+
   async create(clerkId: string, dto: CreateTripDto) {
     const user = await this.findUser(clerkId);
 

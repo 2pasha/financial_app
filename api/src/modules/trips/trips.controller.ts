@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   ValidationPipe,
   HttpCode,
@@ -44,6 +45,16 @@ export class TripsController {
     @Param('id') id: string,
   ) {
     return this.tripsService.findOne(user.clerkId, id);
+  }
+
+  @Get(':id/transactions')
+  getTransactions(
+    @CurrentUser() user: CurrentUserData,
+    @Param('id') id: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.tripsService.getTransactions(user.clerkId, id, from, to);
   }
 
   @Patch(':id')

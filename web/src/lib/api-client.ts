@@ -47,14 +47,19 @@ export interface Category {
   month: number | null;
   /** When true the category's net is excluded from the dashboard actual-spent total */
   excludeFromDashboard: boolean;
+  /** True for virtual trip entries returned alongside real categories */
+  isTrip?: boolean;
 }
 
 export interface CategoryTransaction {
   id: string;
   time: string;
   description: string;
-  /** Signed amount in currency units: negative = expense, positive = refund */
+  /** Signed amount in the account's own currency (operationCurrency), already in major units */
   amount: number;
+  currency: number;
+  operationAmount: number | null;
+  operationCurrency: number | null;
   mcc: number | null;
 }
 
@@ -336,6 +341,11 @@ export const tripsApi = {
 
   async getOne(id: string): Promise<TripDetail> {
     const response = await apiClient.get<TripDetail>(`/trips/${id}`);
+    return response.data;
+  },
+
+  async getTransactions(id: string, params: { from: string; to: string }): Promise<CategoryTransaction[]> {
+    const response = await apiClient.get<CategoryTransaction[]>(`/trips/${id}/transactions`, { params });
     return response.data;
   },
 

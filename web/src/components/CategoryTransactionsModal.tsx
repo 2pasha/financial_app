@@ -6,7 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
-import { categoriesApi, type CategoryTransaction } from "../lib/api-client";
+import { categoriesApi, tripsApi, type CategoryTransaction } from "../lib/api-client";
 
 interface CategoryTransactionsModalProps {
   open: boolean;
@@ -16,6 +16,7 @@ interface CategoryTransactionsModalProps {
   categoryIcon: string;
   categoryColor: string;
   dateRange: { from: string; to: string };
+  tripId?: string;
 }
 
 function formatDate(isoString: string): string {
@@ -26,13 +27,24 @@ function formatDate(isoString: string): string {
   });
 }
 
-function formatAmount(amount: number): string {
+function currencySymbolFromCode(code: number): string {
+  switch (code) {
+    case 980: return "₴";
+    case 840: return "$";
+    case 978: return "€";
+    case 826: return "£";
+    default: return "";
+  }
+}
+
+function formatAmount(amount: number, currencyCode: number): string {
+  const symbol = currencySymbolFromCode(currencyCode);
   const abs = Math.abs(amount).toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 
-  return amount >= 0 ? `+₴${abs}` : `-₴${abs}`;
+  return amount >= 0 ? `+${symbol}${abs}` : `-${symbol}${abs}`;
 }
 
 function NetTotal({ transactions }: { transactions: CategoryTransaction[] }) {
@@ -49,6 +61,8 @@ function NetTotal({ transactions }: { transactions: CategoryTransaction[] }) {
 
 function TransactionRow({ tx }: { tx: CategoryTransaction }) {
   const isRefund = tx.amount > 0;
+  const ownCurrency = tx.operationCurrency ?? tx.currency;
+  const isCross = tx.operationAmount != null && tx.operationCurrency !== tx.currency;
 
   return (
     <div className="flex items-center justify-between py-2.5 border-b border-border last:border-0">
@@ -56,9 +70,16 @@ function TransactionRow({ tx }: { tx: CategoryTransaction }) {
         <span className="text-sm text-card-foreground truncate">{tx.description}</span>
         <span className="text-xs text-muted-foreground">{formatDate(tx.time)}</span>
       </div>
-      <span className={`text-sm font-medium shrink-0 ${isRefund ? "text-green-500" : "text-destructive"}`}>
-        {formatAmount(tx.amount)}
-      </span>
+      <div className="text-right shrink-0">
+        <span className={`text-sm font-medium ${isRefund ? "text-green-500" : "text-destructive"}`}>
+          {formatAmount(tx.amount, ownCurrency)}
+        </span>
+        {isCross && (
+          <p className="text-xs text-muted-foreground">
+            {formatAmount(tx.operationAmount!, tx.currency)}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -71,6 +92,7 @@ export function CategoryTransactionsModal({
   categoryIcon,
   categoryColor,
   dateRange,
+  tripId,
 }: CategoryTransactionsModalProps) {
   const [transactions, setTransactions] = useState<CategoryTransaction[]>([]);
   const [loading, setLoading] = useState(false);
@@ -82,11 +104,12 @@ export function CategoryTransactionsModal({
 
     setLoading(true);
 
-    categoriesApi
-      .getTransactions(categoryId, { from: dateRange.from, to: dateRange.to })
-      .then(setTransactions)
-      .finally(() => setLoading(false));
-  }, [open, categoryId, dateRange.from, dateRange.to]);
+    const fetch = tripId
+      ? tripsApi.getTransactions(tripId, { from: dateRange.from, to: dateRange.to })
+      : categoriesApi.getTransactions(categoryId, { from: dateRange.from, to: dateRange.to });
+
+    fetch.then(setTransactions).finally(() => setLoading(false));
+  }, [open, categoryId, tripId, dateRange.from, dateRange.to]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
