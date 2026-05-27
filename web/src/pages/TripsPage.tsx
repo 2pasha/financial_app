@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserButton } from "@clerk/clerk-react";
-import { Loader2, Plus, Pencil } from "lucide-react";
+import { Loader2, Plus, Pencil, Menu } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "../components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../components/ui/sheet";
 import { AddTripDialog } from "../components/AddTripDialog";
 import { EditTripDialog } from "../components/EditTripDialog";
 import { tripsApi } from "../lib/api-client";
@@ -33,6 +34,7 @@ export default function TripsPage() {
   const [loading, setLoading] = useState(true);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     tripsApi.getAll()
@@ -85,13 +87,10 @@ export default function TripsPage() {
               <img src="/favicon.png" alt="Moneta" className="w-7 h-7 coin-logo cursor-pointer" onClick={() => navigate("/")} />
               <span className="font-semibold text-sm text-foreground">Moneta</span>
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => navigate("/")}>Dashboard</Button>
-              <Button variant="default" size="sm" className="h-8 px-3 text-xs">Trips</Button>
-              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setAddDialogOpen(true)}>
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
+            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setMobileMenuOpen(true)}>
+              <Menu className="w-4 h-4" />
+              <span className="sr-only">Open menu</span>
+            </Button>
           </div>
         </div>
       </header>
@@ -147,6 +146,28 @@ export default function TripsPage() {
 
       <AddTripDialog open={addDialogOpen} onOpenChange={setAddDialogOpen} onCreated={handleCreated} />
       <EditTripDialog open={editingTrip !== null} onOpenChange={(o) => { if (!o) setEditingTrip(null); }} trip={editingTrip} onSaved={handleTripSaved} />
+
+      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <SheetContent side="right" className="w-72 flex flex-col">
+          <SheetHeader>
+            <SheetTitle>Menu</SheetTitle>
+          </SheetHeader>
+          <div className="flex flex-col gap-4 mt-4 px-2 flex-1">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Navigation</span>
+              <div className="flex flex-col gap-0.5">
+                <Button variant="ghost" className="w-full justify-start" onClick={() => { navigate("/"); setMobileMenuOpen(false); }}>Dashboard</Button>
+                <Button variant="ghost" className="w-full justify-start" onClick={() => { navigate("/"); setMobileMenuOpen(false); }}>Expenses</Button>
+                <Button variant="default" className="w-full justify-start">Trips</Button>
+              </div>
+            </div>
+            <div className="mt-auto pt-4 border-t border-border flex items-center gap-3">
+              <UserButton afterSignOutUrl="/sign-in" />
+              <span className="text-sm text-foreground">Account</span>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

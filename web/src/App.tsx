@@ -497,54 +497,57 @@ export default function App() {
               <img src="/favicon.png" alt="Moneta" className="w-7 h-7 coin-logo" />
               <span className="font-semibold text-sm text-foreground">{t.appTitle}</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <Button
-                variant={view === 'dashboard' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setView('dashboard')}
-                className="h-8 px-3 text-xs"
-              >
-                Dashboard
-              </Button>
-              <Button
-                variant={view === 'expenses' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setView('expenses')}
-                className="h-8 px-3 text-xs"
-              >
-                Expenses
-              </Button>
-              <Button
-                variant={location.pathname.startsWith('/trips') ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => navigate('/trips')}
-                className="h-8 px-3 text-xs"
-              >
-                Trips
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setMobileMenuOpen(true)}
-              >
-                <Menu className="w-4 h-4" />
-                <span className="sr-only">Open menu</span>
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setMobileMenuOpen(true)}
+            >
+              <Menu className="w-4 h-4" />
+              <span className="sr-only">Open menu</span>
+            </Button>
           </div>
         </div>
       </header>
 
       {/* Mobile menu sheet */}
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        <SheetContent side="right" className="w-72">
+        <SheetContent side="right" className="w-72 flex flex-col">
           <SheetHeader>
-            <SheetTitle>Settings</SheetTitle>
+            <SheetTitle>Menu</SheetTitle>
           </SheetHeader>
-          <div className="flex flex-col gap-4 mt-4 px-2">
+          <div className="flex flex-col gap-4 mt-4 px-2 flex-1">
+            {/* Navigation */}
             <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Currency</span>
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Navigation</span>
+              <div className="flex flex-col gap-0.5">
+                <Button
+                  variant={view === 'dashboard' && !location.pathname.startsWith('/trips') ? 'default' : 'ghost'}
+                  className="w-full justify-start"
+                  onClick={() => { setView('dashboard'); if (location.pathname.startsWith('/trips')) navigate('/'); setMobileMenuOpen(false); }}
+                >
+                  Dashboard
+                </Button>
+                <Button
+                  variant={view === 'expenses' && !location.pathname.startsWith('/trips') ? 'default' : 'ghost'}
+                  className="w-full justify-start"
+                  onClick={() => { setView('expenses'); if (location.pathname.startsWith('/trips')) navigate('/'); setMobileMenuOpen(false); }}
+                >
+                  Expenses
+                </Button>
+                <Button
+                  variant={location.pathname.startsWith('/trips') ? 'default' : 'ghost'}
+                  className="w-full justify-start"
+                  onClick={() => { navigate('/trips'); setMobileMenuOpen(false); }}
+                >
+                  Trips
+                </Button>
+              </div>
+            </div>
+
+            {/* Settings */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Settings</span>
               <Select value={currency} onValueChange={setCurrency}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder={t.currency} />
@@ -590,9 +593,10 @@ export default function App() {
               </Button>
             </div>
 
-            <div className="border-t border-border pt-4 flex items-center gap-3">
+            {/* Account */}
+            <div className="mt-auto pt-4 border-t border-border flex items-center gap-3">
               <UserButton afterSignOutUrl="/sign-in" />
-              <span className="text-sm text-muted-foreground">Account</span>
+              <span className="text-sm text-foreground">Account</span>
             </div>
           </div>
         </SheetContent>
