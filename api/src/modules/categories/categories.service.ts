@@ -207,6 +207,7 @@ export class CategoriesService {
         categoryId,
         userId: user.id,
         time: { gte: fromDate, lte: toDate },
+        tripId: null,
       },
       orderBy: { time: 'desc' },
       select: {
