@@ -3,12 +3,18 @@ import { PrismaService } from '../../database/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { DEFAULT_CATEGORIES } from './default-categories';
+import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
+
+const UAH = 980;
 
 @Injectable()
 export class CategoriesService {
   private readonly logger = new Logger(CategoriesService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly exchangeRates: ExchangeRatesService,
+  ) {}
 
   async findAllForUser(
     clerkId: string,
@@ -26,6 +32,8 @@ export class CategoriesService {
     const periodYear = calendarYear ?? (from ? new Date(from).getFullYear() : null);
     const periodMonth = calendarMonth ?? (from ? new Date(from).getMonth() + 1 : null);
 
+    const rateToUAH = await this.exchangeRates.buildRateToUAH();
+
     const categories = await this.prisma.category.findMany({
       where: {
         userId: user.id,
@@ -36,7 +44,7 @@ export class CategoriesService {
       orderBy: { createdAt: 'asc' },
       include: {
         transactions: {
-          select: { amount: true },
+          select: { amount: true, currency: true },
           where: {
             time: { gte: fromDate, lte: toDate },
             tripId: null,
@@ -52,14 +60,17 @@ export class CategoriesService {
       },
       include: {
         transactions: {
-          select: { amount: true },
+          select: { amount: true, currency: true },
           where: { userId: user.id, time: { gte: fromDate, lte: toDate } },
         },
       },
     });
 
     const tripCategories = trips.map((trip) => {
-      const net = trip.transactions.reduce((sum, tx) => sum + Number(tx.amount), 0);
+      const netUAH = trip.transactions.reduce((sum, tx) => {
+        const amt = Number(tx.amount);
+        return sum + (tx.currency === UAH ? amt : Math.round(amt * rateToUAH(tx.currency)));
+      }, 0);
       return {
         id: trip.id,
         name: trip.name,
@@ -69,13 +80,13 @@ export class CategoriesService {
         year: null as null,
         month: null as null,
         excludeFromDashboard: false,
-        spent: Math.max(0, -net) / 100,
-        net: net / 100,
+        spent: Math.max(0, -netUAH) / 100,
+        net: netUAH / 100,
         isTrip: true,
       };
     });
 
-    return [...categories.map((cat) => this.formatCategory(cat)), ...tripCategories];
+    return [...categories.map((cat) => this.formatCategory(cat, rateToUAH)), ...tripCategories];
   }
 
   private resolveDateRange(
@@ -116,7 +127,7 @@ export class CategoriesService {
       } as any,
       include: {
         transactions: {
-          select: { amount: true },
+          select: { amount: true, currency: true },
         },
       },
     });
@@ -142,7 +153,7 @@ export class CategoriesService {
       } as any,
       include: {
         transactions: {
-          select: { amount: true },
+          select: { amount: true, currency: true },
         },
       },
     });
@@ -252,21 +263,24 @@ export class CategoriesService {
     return { success: true };
   }
 
-  private formatCategory(cat: {
-    id: string;
-    name: string;
-    icon: string;
-    color: string;
-    budget: number;
-    year?: number | null;
-    month?: number | null;
-    excludeFromDashboard?: boolean | null;
-    transactions: { amount: bigint }[];
-  }) {
-    const netMinorUnits = cat.transactions.reduce(
-      (sum, tx) => sum + Number(tx.amount),
-      0,
-    );
+  private formatCategory(
+    cat: {
+      id: string;
+      name: string;
+      icon: string;
+      color: string;
+      budget: number;
+      year?: number | null;
+      month?: number | null;
+      excludeFromDashboard?: boolean | null;
+      transactions: { amount: bigint; currency: number }[];
+    },
+    rateToUAH: (code: number) => number = () => 1,
+  ) {
+    const netMinorUnits = cat.transactions.reduce((sum, tx) => {
+      const amt = Number(tx.amount);
+      return sum + (tx.currency === UAH ? amt : Math.round(amt * rateToUAH(tx.currency)));
+    }, 0);
 
     return {
       id: cat.id,

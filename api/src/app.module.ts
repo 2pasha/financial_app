@@ -9,6 +9,7 @@ import { TransactionsModule } from './modules/transactions/transactions.module';
 import { IncomeModule } from './modules/income/income.module';
 import { BudgetPlansModule } from './modules/budget-plans/budget-plans.module';
 import { TripsModule } from './modules/trips/trips.module';
+import { ExchangeRatesModule } from './modules/exchange-rates/exchange-rates.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { TripsModule } from './modules/trips/trips.module';
     IncomeModule,
     BudgetPlansModule,
     TripsModule,
+    ExchangeRatesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

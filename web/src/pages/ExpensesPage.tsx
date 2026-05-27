@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { monobankApi, categoriesApi, transactionsApi, tripsApi } from "../lib/api-client";
+import { useExchangeRates } from "../hooks/useExchangeRates";
 import type { Category, Transaction, Trip } from "../lib/api-client";
 import { AddTokenModal } from "../components/monobank/AddTokenModal";
 import { SortableTableHead } from "../components/monobank/SortableTableHead";
@@ -107,7 +108,10 @@ function formatCardType(accountType: string, accountId: string): string {
   return `${displayType} ${shortId}`.trim();
 }
 
+const UAH_CODE = 980;
+
 export default function ExpensesPage() {
+  const { rateToUAH } = useExchangeRates();
   const [tokenStatus, setTokenStatus] = useState<{
     hasToken: boolean;
     hasTransactions: boolean;
@@ -429,14 +433,19 @@ export default function ExpensesPage() {
       }));
   }, [txns]);
 
-  // Statistics
+  // Statistics — convert non-UAH amounts to UAH using current exchange rates
+  const toUAH = (tx: MonoTxn) => {
+    if (tx.currency === UAH_CODE) return tx.amount;
+    return Math.round(tx.amount * (rateToUAH(tx.currency) ?? 1));
+  };
+
   const totalExpense = useMemo(() => {
-    return filteredTransactions.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0);
-  }, [filteredTransactions]);
+    return filteredTransactions.filter(t => t.amount < 0).reduce((s, t) => s + toUAH(t), 0);
+  }, [filteredTransactions, rateToUAH]);
 
   const totalIncome = useMemo(() => {
-    return filteredTransactions.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
-  }, [filteredTransactions]);
+    return filteredTransactions.filter(t => t.amount > 0).reduce((s, t) => s + toUAH(t), 0);
+  }, [filteredTransactions, rateToUAH]);
 
   const uniqueCategories = useMemo(() => {
     return new Set(filteredTransactions.map(t => t.mcc)).size;
@@ -910,8 +919,10 @@ export default function ExpensesPage() {
                             <TableCell>
                               {(() => {
                                 const isCross = tx.operationAmount != null && tx.operationCurrency !== tx.currency;
+                                const isForeignAccount = !isCross && tx.currency !== UAH_CODE;
                                 const primaryAmt = tx.amount / 100;
                                 const primaryCur = isCross ? tx.operationCurrency! : tx.currency;
+                                const rate = isForeignAccount ? rateToUAH(tx.currency) : null;
                                 return (
                                   <div className="text-right">
                                     <span className="font-semibold" style={{ color: primaryAmt < 0 ? '#E53935' : '#2E7D32' }}>
@@ -924,6 +935,11 @@ export default function ExpensesPage() {
                                         {tx.operationAmount! > 0 ? '+' : ''}
                                         {currencySymbolFromCode(tx.currency)}
                                         {Math.abs(tx.operationAmount! / 100).toLocaleString()}
+                                      </p>
+                                    )}
+                                    {isForeignAccount && rate && (
+                                      <p className="text-xs text-muted-foreground">
+                                        ≈{primaryAmt < 0 ? '' : '+'}₴{Math.abs(primaryAmt * rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                       </p>
                                     )}
                                   </div>

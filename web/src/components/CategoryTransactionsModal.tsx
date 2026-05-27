@@ -7,6 +7,9 @@ import {
   DialogTitle,
 } from "./ui/dialog";
 import { categoriesApi, tripsApi, type CategoryTransaction } from "../lib/api-client";
+import { useExchangeRates } from "../hooks/useExchangeRates";
+
+const UAH = 980;
 
 interface CategoryTransactionsModalProps {
   open: boolean;
@@ -47,9 +50,19 @@ function formatAmount(amount: number, currencyCode: number): string {
   return amount >= 0 ? `+${symbol}${abs}` : `-${symbol}${abs}`;
 }
 
-function NetTotal({ transactions }: { transactions: CategoryTransaction[] }) {
-  const net = transactions.reduce((sum, tx) => sum + tx.amount, 0);
-  const spent = Math.max(0, -net);
+function NetTotal({
+  transactions,
+  rateToUAH,
+}: {
+  transactions: CategoryTransaction[];
+  rateToUAH: (code: number) => number | null;
+}) {
+  const netUAH = transactions.reduce((sum, tx) => {
+    if (tx.currency === UAH) return sum + tx.amount;
+    const rate = rateToUAH(tx.currency) ?? 1;
+    return sum + tx.amount * rate;
+  }, 0);
+  const spent = Math.max(0, -netUAH);
 
   return (
     <div className="flex justify-between items-center pt-3 border-t border-border font-medium">
@@ -59,10 +72,17 @@ function NetTotal({ transactions }: { transactions: CategoryTransaction[] }) {
   );
 }
 
-function TransactionRow({ tx }: { tx: CategoryTransaction }) {
+function TransactionRow({
+  tx,
+  rateToUAH,
+}: {
+  tx: CategoryTransaction;
+  rateToUAH: (code: number) => number | null;
+}) {
   const isRefund = tx.amount > 0;
   const ownCurrency = tx.operationCurrency ?? tx.currency;
   const isCross = tx.operationAmount != null && tx.operationCurrency !== tx.currency;
+  const isForeignAccount = !isCross && tx.currency !== UAH;
 
   return (
     <div className="flex items-center justify-between py-2.5 border-b border-border last:border-0">
@@ -79,6 +99,15 @@ function TransactionRow({ tx }: { tx: CategoryTransaction }) {
             {formatAmount(tx.operationAmount!, tx.currency)}
           </p>
         )}
+        {isForeignAccount && (() => {
+          const rate = rateToUAH(tx.currency);
+          if (!rate) return null;
+          return (
+            <p className="text-xs text-muted-foreground">
+              ≈{formatAmount(tx.amount * rate, UAH)}
+            </p>
+          );
+        })()}
       </div>
     </div>
   );
@@ -96,6 +125,7 @@ export function CategoryTransactionsModal({
 }: CategoryTransactionsModalProps) {
   const [transactions, setTransactions] = useState<CategoryTransaction[]>([]);
   const [loading, setLoading] = useState(false);
+  const { rateToUAH, rates } = useExchangeRates();
 
   useEffect(() => {
     if (!open) {
@@ -110,6 +140,11 @@ export function CategoryTransactionsModal({
 
     fetch.then(setTransactions).finally(() => setLoading(false));
   }, [open, categoryId, tripId, dateRange.from, dateRange.to]);
+
+  // Collect distinct foreign currencies present in the list
+  const foreignCurrencies = Array.from(
+    new Set(transactions.filter((tx) => tx.currency !== UAH && tx.operationCurrency === tx.currency).map((tx) => tx.currency)),
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -130,6 +165,19 @@ export function CategoryTransactionsModal({
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto mt-2">
+          {foreignCurrencies.length > 0 && rates.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-1">
+              {foreignCurrencies.map((code) => {
+                const rate = rateToUAH(code);
+                if (!rate) return null;
+                return (
+                  <span key={code} className="text-xs text-muted-foreground bg-muted rounded px-2 py-0.5">
+                    1 {currencySymbolFromCode(code)} = ₴{rate.toFixed(2)} (today)
+                  </span>
+                );
+              })}
+            </div>
+          )}
           {loading ? (
             <div className="flex justify-center py-10">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -141,14 +189,14 @@ export function CategoryTransactionsModal({
           ) : (
             <div className="flex flex-col">
               {transactions.map((tx) => (
-                <TransactionRow key={tx.id} tx={tx} />
+                <TransactionRow key={tx.id} tx={tx} rateToUAH={rateToUAH} />
               ))}
             </div>
           )}
         </div>
 
         {!loading && transactions.length > 0 && (
-          <NetTotal transactions={transactions} />
+          <NetTotal transactions={transactions} rateToUAH={rateToUAH} />
         )}
       </DialogContent>
     </Dialog>

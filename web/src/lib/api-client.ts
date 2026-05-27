@@ -333,6 +333,22 @@ export const budgetPlansApi = {
   },
 };
 
+export interface ExchangeRate {
+  currencyCodeA: number;
+  currencyCodeB: number;
+  date: number;
+  rateBuy: number;
+  rateSell: number;
+  rateCross?: number;
+}
+
+export const exchangeRatesApi = {
+  async getAll(): Promise<ExchangeRate[]> {
+    const response = await apiClient.get<ExchangeRate[]>('/exchange-rates');
+    return response.data;
+  },
+};
+
 export const tripsApi = {
   async getAll(): Promise<Trip[]> {
     const response = await apiClient.get<Trip[]>('/trips');

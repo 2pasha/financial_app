@@ -4,8 +4,9 @@ import { CreateTripDto } from './dto/create-trip.dto';
 import { UpdateTripDto } from './dto/update-trip.dto';
 import { CreateTripItemDto } from './dto/create-trip-item.dto';
 import { UpdateTripItemDto } from './dto/update-trip-item.dto';
+import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 
-const TX_SUMMARY_SELECT = { select: { amount: true } } as const;
+const TX_SUMMARY_SELECT = { select: { amount: true, currency: true } } as const;
 
 const TX_DETAIL_SELECT = {
   select: {
@@ -34,10 +35,14 @@ const TX_DETAIL_SELECT = {
 export class TripsService {
   private readonly logger = new Logger(TripsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly exchangeRates: ExchangeRatesService,
+  ) {}
 
   async findAll(clerkId: string) {
     const user = await this.findUser(clerkId);
+    const rateToUAH = await this.exchangeRates.buildRateToUAH();
 
     const trips = await this.prisma.trip.findMany({
       where: { userId: user.id },
@@ -48,11 +53,12 @@ export class TripsService {
       },
     });
 
-    return trips.map((trip) => this.formatTrip(trip));
+    return trips.map((trip) => this.formatTrip(trip, rateToUAH));
   }
 
   async findOne(clerkId: string, id: string) {
     const user = await this.findUser(clerkId);
+    const rateToUAH = await this.exchangeRates.buildRateToUAH();
 
     const trip = await this.prisma.trip.findFirst({
       where: { id, userId: user.id },
@@ -66,7 +72,7 @@ export class TripsService {
       throw new NotFoundException('Trip not found');
     }
 
-    const collectedAmount = this.calcCollected(trip.transactions);
+    const collectedAmount = this.calcCollected(trip.transactions, rateToUAH);
 
     return {
       ...this.formatTripBase(trip),
@@ -103,6 +109,7 @@ export class TripsService {
 
   async create(clerkId: string, dto: CreateTripDto) {
     const user = await this.findUser(clerkId);
+    const rateToUAH = await this.exchangeRates.buildRateToUAH();
 
     const trip = await this.prisma.trip.create({
       data: {
@@ -121,12 +128,13 @@ export class TripsService {
 
     this.logger.log(`Trip created: ${trip.id}`);
 
-    return this.formatTrip(trip);
+    return this.formatTrip(trip, rateToUAH);
   }
 
   async update(clerkId: string, id: string, dto: UpdateTripDto) {
     const user = await this.findUser(clerkId);
     await this.assertOwnership(id, user.id);
+    const rateToUAH = await this.exchangeRates.buildRateToUAH();
 
     const { targetDate, ...rest } = dto;
     const trip = await this.prisma.trip.update({
@@ -143,7 +151,7 @@ export class TripsService {
       },
     });
 
-    return this.formatTrip(trip);
+    return this.formatTrip(trip, rateToUAH);
   }
 
   async remove(clerkId: string, id: string) {
@@ -188,11 +196,18 @@ export class TripsService {
     return { success: true };
   }
 
-  private calcCollected(transactions: { amount: bigint }[]) {
+  private calcCollected(
+    transactions: { amount: bigint; currency: number }[],
+    rateToUAH: (code: number) => number = () => 1,
+  ) {
+    const UAH = 980;
     return (
       transactions
         .filter((t) => t.amount > 0n)
-        .reduce((sum, t) => sum + Number(t.amount), 0) / 100
+        .reduce((sum, t) => {
+          const amt = Number(t.amount);
+          return sum + (t.currency === UAH ? amt : Math.round(amt * rateToUAH(t.currency)));
+        }, 0) / 100
     );
   }
 
@@ -222,22 +237,25 @@ export class TripsService {
     };
   }
 
-  private formatTrip(trip: {
-    id: string;
-    name: string;
-    icon: string;
-    color: string;
-    goalAmount: number;
-    targetDate: Date | null;
-    isActive: boolean;
-    createdAt: Date;
-    updatedAt: Date;
-    plannedItems: { id: string; text: string; completed: boolean; createdAt: Date }[];
-    transactions: { amount: bigint }[];
-  }) {
+  private formatTrip(
+    trip: {
+      id: string;
+      name: string;
+      icon: string;
+      color: string;
+      goalAmount: number;
+      targetDate: Date | null;
+      isActive: boolean;
+      createdAt: Date;
+      updatedAt: Date;
+      plannedItems: { id: string; text: string; completed: boolean; createdAt: Date }[];
+      transactions: { amount: bigint; currency: number }[];
+    },
+    rateToUAH: (code: number) => number = () => 1,
+  ) {
     return {
       ...this.formatTripBase(trip),
-      collectedAmount: this.calcCollected(trip.transactions),
+      collectedAmount: this.calcCollected(trip.transactions, rateToUAH),
     };
   }
 

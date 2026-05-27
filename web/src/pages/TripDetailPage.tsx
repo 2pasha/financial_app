@@ -8,6 +8,9 @@ import { Input } from "../components/ui/input";
 import { EditTripDialog } from "../components/EditTripDialog";
 import { tripsApi } from "../lib/api-client";
 import type { TripDetail, TripPlannedItem, Trip } from "../lib/api-client";
+import { useExchangeRates } from "../hooks/useExchangeRates";
+
+const UAH_CODE = 980;
 
 function getStoredCurrency(): string {
   try { return localStorage.getItem("currency") || "UAH"; } catch { return "UAH"; }
@@ -42,6 +45,7 @@ function formatDate(iso: string): string {
 export default function TripDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { rateToUAH } = useExchangeRates();
   const [trip, setTrip] = useState<TripDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAllTx, setShowAllTx] = useState(false);
@@ -282,23 +286,36 @@ export default function TripDetailPage() {
                       {formatDate(tx.time)}
                     </p>
                   </div>
-                  <div className="text-right shrink-0">
-                    <span
-                      className="text-sm font-semibold whitespace-nowrap"
-                      style={{ color: tx.amount >= 0 ? "#2E7D32" : "#E53935" }}
-                    >
-                      {tx.amount >= 0 ? "+" : ""}
-                      {currencySymbolFromCode(tx.operationCurrency ?? tx.currency)}
-                      {Math.abs(tx.amount / 100).toLocaleString()}
-                    </span>
-                    {tx.operationAmount != null && tx.operationCurrency !== tx.currency && (
-                      <p className="text-xs text-muted-foreground">
-                        {tx.operationAmount > 0 ? "+" : ""}
-                        {currencySymbolFromCode(tx.currency)}
-                        {Math.abs(tx.operationAmount / 100).toLocaleString()}
-                      </p>
-                    )}
-                  </div>
+                  {(() => {
+                    const isCross = tx.operationAmount != null && tx.operationCurrency !== tx.currency;
+                    const isForeignAccount = !isCross && tx.currency !== UAH_CODE;
+                    const rate = isForeignAccount ? rateToUAH(tx.currency) : null;
+                    const amtMajor = tx.amount / 100;
+                    return (
+                      <div className="text-right shrink-0">
+                        <span
+                          className="text-sm font-semibold whitespace-nowrap"
+                          style={{ color: amtMajor >= 0 ? "#2E7D32" : "#E53935" }}
+                        >
+                          {amtMajor >= 0 ? "+" : ""}
+                          {currencySymbolFromCode(tx.operationCurrency ?? tx.currency)}
+                          {Math.abs(amtMajor).toLocaleString()}
+                        </span>
+                        {isCross && (
+                          <p className="text-xs text-muted-foreground">
+                            {tx.operationAmount! > 0 ? "+" : ""}
+                            {currencySymbolFromCode(tx.currency)}
+                            {Math.abs(tx.operationAmount! / 100).toLocaleString()}
+                          </p>
+                        )}
+                        {isForeignAccount && rate && (
+                          <p className="text-xs text-muted-foreground">
+                            ≈{amtMajor >= 0 ? "+" : ""}₴{Math.abs(amtMajor * rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
                 {/* Desktop row */}
                 <div className="hidden md:grid grid-cols-[1fr_110px_140px] px-5 py-3 items-center">
@@ -309,23 +326,36 @@ export default function TripDetailPage() {
                     )}
                   </div>
                   <span className="text-xs text-muted-foreground text-right self-center whitespace-nowrap">{formatDate(tx.time)}</span>
-                  <div className="text-right self-center">
-                    <span
-                      className="text-sm font-semibold whitespace-nowrap"
-                      style={{ color: tx.amount >= 0 ? "#2E7D32" : "#E53935" }}
-                    >
-                      {tx.amount >= 0 ? "+" : ""}
-                      {currencySymbolFromCode(tx.operationCurrency ?? tx.currency)}
-                      {Math.abs(tx.amount / 100).toLocaleString()}
-                    </span>
-                    {tx.operationAmount != null && tx.operationCurrency !== tx.currency && (
-                      <p className="text-xs text-muted-foreground">
-                        {tx.operationAmount > 0 ? "+" : ""}
-                        {currencySymbolFromCode(tx.currency)}
-                        {Math.abs(tx.operationAmount / 100).toLocaleString()}
-                      </p>
-                    )}
-                  </div>
+                  {(() => {
+                    const isCross = tx.operationAmount != null && tx.operationCurrency !== tx.currency;
+                    const isForeignAccount = !isCross && tx.currency !== UAH_CODE;
+                    const rate = isForeignAccount ? rateToUAH(tx.currency) : null;
+                    const amtMajor = tx.amount / 100;
+                    return (
+                      <div className="text-right self-center">
+                        <span
+                          className="text-sm font-semibold whitespace-nowrap"
+                          style={{ color: amtMajor >= 0 ? "#2E7D32" : "#E53935" }}
+                        >
+                          {amtMajor >= 0 ? "+" : ""}
+                          {currencySymbolFromCode(tx.operationCurrency ?? tx.currency)}
+                          {Math.abs(amtMajor).toLocaleString()}
+                        </span>
+                        {isCross && (
+                          <p className="text-xs text-muted-foreground">
+                            {tx.operationAmount! > 0 ? "+" : ""}
+                            {currencySymbolFromCode(tx.currency)}
+                            {Math.abs(tx.operationAmount! / 100).toLocaleString()}
+                          </p>
+                        )}
+                        {isForeignAccount && rate && (
+                          <p className="text-xs text-muted-foreground">
+                            ≈{amtMajor >= 0 ? "+" : ""}₴{Math.abs(amtMajor * rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             ))
