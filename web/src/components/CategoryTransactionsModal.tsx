@@ -300,7 +300,10 @@ export function CategoryTransactionsModal({
     const groups = new Map<string, number>();
     for (const tx of transactions) {
       if (tx.amount < 0) {
-        groups.set(tx.description, (groups.get(tx.description) ?? 0) + Math.abs(tx.amount));
+        const amountInUAH = tx.currency === UAH
+          ? tx.amount
+          : tx.amount * (rateToUAH(tx.currency) ?? 1);
+        groups.set(tx.description, (groups.get(tx.description) ?? 0) + Math.abs(amountInUAH));
       }
     }
     const sorted = [...groups.entries()].sort((a, b) => b[1] - a[1]);
@@ -310,7 +313,7 @@ export function CategoryTransactionsModal({
       top.push({ name: "Other", value: rest.reduce((s, [, v]) => s + v, 0) });
     }
     return top;
-  }, [transactions]);
+  }, [transactions, rateToUAH]);
 
   const selectedTransactions = useMemo(() => {
     if (!selectedSliceName) return [];
