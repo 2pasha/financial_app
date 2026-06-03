@@ -812,7 +812,7 @@ export default function ExpensesPage() {
                             <TableCell
                               onClick={(e) => e.stopPropagation()}
                               onMouseEnter={() => loadCategoriesForMonth(tx.time)}
-                              className="min-w-[160px]"
+                              className="w-[160px] max-w-[160px]"
                             >
                               {savingCategoryForTx === tx.id ? (
                                 <span className="flex items-center gap-1 text-muted-foreground text-xs">
@@ -834,7 +834,7 @@ export default function ExpensesPage() {
                                         <span className="flex items-center gap-1">
                                           <span>{tx.category.icon}</span>
                                           <span
-                                            className="text-xs font-medium px-2 py-0.5 rounded-full"
+                                            className="text-xs font-medium px-2 py-0.5 rounded-full truncate max-w-[110px] inline-block"
                                             style={{ backgroundColor: tx.category.color + '33', color: tx.category.color }}
                                           >
                                             {tx.category.name}
