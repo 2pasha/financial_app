@@ -19,6 +19,12 @@ import {
 
 const UAH = 980;
 const TOP_N = 8;
+
+function txToUAH(tx: CategoryTransaction, rateToUAH: (code: number) => number | null): number {
+  if (tx.operationCurrency === UAH) return tx.amount;
+  if (tx.currency === UAH) return tx.operationAmount ?? tx.amount;
+  return tx.amount * (rateToUAH(tx.currency) ?? 1);
+}
 const CHART_COLORS = [
   "#6366f1",
   "#f59e0b",
@@ -208,11 +214,7 @@ function NetTotal({
   transactions: CategoryTransaction[];
   rateToUAH: (code: number) => number | null;
 }) {
-  const netUAH = transactions.reduce((sum, tx) => {
-    if (tx.currency === UAH) return sum + tx.amount;
-    const rate = rateToUAH(tx.currency) ?? 1;
-    return sum + tx.amount * rate;
-  }, 0);
+  const netUAH = transactions.reduce((sum, tx) => sum + txToUAH(tx, rateToUAH), 0);
   const spent = Math.max(0, -netUAH);
 
   return (
@@ -300,9 +302,7 @@ export function CategoryTransactionsModal({
     const groups = new Map<string, number>();
     for (const tx of transactions) {
       if (tx.amount < 0) {
-        const amountInUAH = tx.currency === UAH
-          ? tx.amount
-          : tx.amount * (rateToUAH(tx.currency) ?? 1);
+        const amountInUAH = txToUAH(tx, rateToUAH);
         groups.set(tx.description, (groups.get(tx.description) ?? 0) + Math.abs(amountInUAH));
       }
     }

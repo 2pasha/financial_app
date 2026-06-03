@@ -7,6 +7,22 @@ import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 
 const UAH = 980;
 
+function toUAHMinorUnits(
+  tx: { amount: bigint; currency: number; operationAmount: bigint | null; operationCurrency: number | null },
+  rateToUAH: (code: number) => number,
+): number {
+  // operation/merchant currency is UAH → amount is already UAH kopiykas
+  if (tx.operationCurrency === UAH) {
+    return Number(tx.amount);
+  }
+  // account currency is UAH → operationAmount is already UAH kopiykas
+  if (tx.currency === UAH) {
+    return tx.operationAmount !== null ? Number(tx.operationAmount) : Number(tx.amount);
+  }
+  // neither side is UAH → convert account-currency amount via exchange rate
+  return Math.round(Number(tx.amount) * rateToUAH(tx.currency));
+}
+
 @Injectable()
 export class CategoriesService {
   private readonly logger = new Logger(CategoriesService.name);
@@ -44,7 +60,7 @@ export class CategoriesService {
       orderBy: { createdAt: 'asc' },
       include: {
         transactions: {
-          select: { amount: true, currency: true },
+          select: { amount: true, currency: true, operationAmount: true, operationCurrency: true },
           where: {
             time: { gte: fromDate, lte: toDate },
             tripId: null,
@@ -60,7 +76,7 @@ export class CategoriesService {
       },
       include: {
         transactions: {
-          select: { amount: true, currency: true },
+          select: { amount: true, currency: true, operationAmount: true, operationCurrency: true },
           where: { userId: user.id, time: { gte: fromDate, lte: toDate } },
         },
       },
@@ -68,8 +84,7 @@ export class CategoriesService {
 
     const tripCategories = trips.map((trip) => {
       const netUAH = trip.transactions.reduce((sum, tx) => {
-        const amt = Number(tx.amount);
-        return sum + (tx.currency === UAH ? amt : Math.round(amt * rateToUAH(tx.currency)));
+        return sum + toUAHMinorUnits(tx, rateToUAH);
       }, 0);
       return {
         id: trip.id,
@@ -127,7 +142,7 @@ export class CategoriesService {
       } as any,
       include: {
         transactions: {
-          select: { amount: true, currency: true },
+          select: { amount: true, currency: true, operationAmount: true, operationCurrency: true },
         },
       },
     });
@@ -153,7 +168,7 @@ export class CategoriesService {
       } as any,
       include: {
         transactions: {
-          select: { amount: true, currency: true },
+          select: { amount: true, currency: true, operationAmount: true, operationCurrency: true },
         },
       },
     });
@@ -273,13 +288,12 @@ export class CategoriesService {
       year?: number | null;
       month?: number | null;
       excludeFromDashboard?: boolean | null;
-      transactions: { amount: bigint; currency: number }[];
+      transactions: { amount: bigint; currency: number; operationAmount: bigint | null; operationCurrency: number | null }[];
     },
     rateToUAH: (code: number) => number = () => 1,
   ) {
     const netMinorUnits = cat.transactions.reduce((sum, tx) => {
-      const amt = Number(tx.amount);
-      return sum + (tx.currency === UAH ? amt : Math.round(amt * rateToUAH(tx.currency)));
+      return sum + toUAHMinorUnits(tx, rateToUAH);
     }, 0);
 
     return {
