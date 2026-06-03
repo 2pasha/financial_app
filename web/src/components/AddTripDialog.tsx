@@ -76,7 +76,7 @@ export function AddTripDialog({ open, onOpenChange, onCreated }: AddTripDialogPr
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="trip-goal">Goal Amount</Label>
+            <Label htmlFor="trip-goal">Planned Amount</Label>
             <Input
               id="trip-goal"
               type="number"

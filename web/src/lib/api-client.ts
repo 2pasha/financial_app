@@ -116,6 +116,7 @@ export interface Trip {
   targetDate: string | null;
   isActive: boolean;
   collectedAmount: number;
+  spentAmount: number;
   plannedItems: TripPlannedItem[];
   createdAt: string;
   updatedAt: string;

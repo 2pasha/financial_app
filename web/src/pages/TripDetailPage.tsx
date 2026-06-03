@@ -66,14 +66,10 @@ export default function TripDetailPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  const pct = trip ? Math.min(100, Math.round((trip.collectedAmount / trip.goalAmount) * 100)) : 0;
-  const remaining = trip ? Math.max(0, trip.goalAmount - trip.collectedAmount) : 0;
-  const isCompleted = trip ? (!trip.isActive || trip.collectedAmount >= trip.goalAmount) : false;
-
-  const now = new Date();
-  const thisMonthAmount = trip?.transactions
-    .filter((tx) => tx.amount > 0 && new Date(tx.time).getMonth() === now.getMonth() && new Date(tx.time).getFullYear() === now.getFullYear())
-    .reduce((s, tx) => s + tx.amount / 100, 0) ?? 0;
+  const collectedPct = trip ? Math.min(100, Math.round((trip.collectedAmount / trip.goalAmount) * 100)) : 0;
+  const spentPct = trip ? Math.min(collectedPct, Math.round((trip.spentAmount / trip.goalAmount) * 100)) : 0;
+  const available = trip ? Math.max(0, trip.collectedAmount - trip.spentAmount) : 0;
+  const isCompleted = trip ? !trip.isActive : false;
 
   const displayedTx = trip ? (showAllTx ? trip.transactions : trip.transactions.slice(0, 5)) : [];
 
@@ -233,8 +229,8 @@ export default function TripDetailPage() {
             {isCompleted ? (
               <span className="text-xs font-semibold px-3 py-1.5 rounded-full" style={{ backgroundColor: "#E8F5E9", color: "#2E7D32" }}>Completed</span>
             ) : (
-              <span className="text-xs font-semibold px-3 py-1.5 rounded-full" style={{ backgroundColor: pct >= 80 ? "#E8F5E9" : "#E3F2FD", color: pct >= 80 ? "#2E7D32" : "#1565C0" }}>
-                {pct >= 80 ? "On Track" : "Active"}
+              <span className="text-xs font-semibold px-3 py-1.5 rounded-full" style={{ backgroundColor: collectedPct >= 80 ? "#E8F5E9" : "#E3F2FD", color: collectedPct >= 80 ? "#2E7D32" : "#1565C0" }}>
+                {collectedPct >= 80 ? "On Track" : "Active"}
               </span>
             )}
           </div>
@@ -244,35 +240,34 @@ export default function TripDetailPage() {
         <div className="bg-card border border-border rounded-xl p-5 space-y-3">
           <div className="flex items-baseline justify-between">
             <span className="text-sm font-semibold text-foreground">
-              {formatAmount(trip.collectedAmount)} saved
+              {formatAmount(trip.collectedAmount)} collected
             </span>
-            <span className="text-sm text-muted-foreground">of {formatAmount(trip.goalAmount)} goal</span>
+            <span className="text-sm text-muted-foreground">of {formatAmount(trip.goalAmount)} planned</span>
           </div>
-          <div className="w-full h-2.5 rounded-full overflow-hidden" style={{ backgroundColor: "#F0F0F0" }}>
-            <div
-              className="h-full rounded-full transition-all duration-500"
-              style={{ width: `${pct}%`, backgroundColor: "#2E7D32" }}
-            />
+          {/* Stacked bar: spent (red) + available (trip color) against goal */}
+          <div className="w-full h-2.5 rounded-full overflow-hidden flex" style={{ backgroundColor: "#F0F0F0" }}>
+            <div className="h-full transition-all duration-500" style={{ width: `${spentPct}%`, backgroundColor: "#E53935" }} />
+            <div className="h-full transition-all duration-500" style={{ width: `${collectedPct - spentPct}%`, backgroundColor: "#2E7D32" }} />
           </div>
           <div className="flex items-center justify-between text-xs">
-            <span className="font-medium" style={{ color: "#2E7D32" }}>{pct}% complete</span>
-            <span className="text-muted-foreground">{formatAmount(remaining)} remaining</span>
+            <span className="font-medium" style={{ color: "#2E7D32" }}>{collectedPct}% collected</span>
+            <span className="text-muted-foreground">{formatAmount(trip.goalAmount - trip.collectedAmount > 0 ? trip.goalAmount - trip.collectedAmount : 0)} left to collect</span>
           </div>
         </div>
 
         {/* Stat cards */}
         <div className="grid grid-cols-3 gap-2 md:gap-3">
           <div className="bg-card border border-border rounded-xl p-3 md:p-4 space-y-1">
-            <span className="text-xs font-medium text-muted-foreground leading-tight block">Goal Amount</span>
-            <p className="text-sm md:text-lg font-bold leading-tight" style={{ color: "#1565C0" }}>{formatAmount(trip.goalAmount)}</p>
-          </div>
-          <div className="bg-card border border-border rounded-xl p-3 md:p-4 space-y-1">
-            <span className="text-xs font-medium text-muted-foreground leading-tight block">Amount Saved</span>
+            <span className="text-xs font-medium text-muted-foreground leading-tight block">Collected</span>
             <p className="text-sm md:text-lg font-bold leading-tight" style={{ color: "#2E7D32" }}>{formatAmount(trip.collectedAmount)}</p>
           </div>
           <div className="bg-card border border-border rounded-xl p-3 md:p-4 space-y-1">
-            <span className="text-xs font-medium text-muted-foreground leading-tight block">This Month</span>
-            <p className="text-sm md:text-lg font-bold leading-tight" style={{ color: "#2E7D32" }}>{formatAmount(thisMonthAmount, true)}</p>
+            <span className="text-xs font-medium text-muted-foreground leading-tight block">Spent</span>
+            <p className="text-sm md:text-lg font-bold leading-tight" style={{ color: "#E53935" }}>{formatAmount(trip.spentAmount)}</p>
+          </div>
+          <div className="bg-card border border-border rounded-xl p-3 md:p-4 space-y-1">
+            <span className="text-xs font-medium text-muted-foreground leading-tight block">Available</span>
+            <p className="text-sm md:text-lg font-bold leading-tight" style={{ color: "#1565C0" }}>{formatAmount(available)}</p>
           </div>
         </div>
 

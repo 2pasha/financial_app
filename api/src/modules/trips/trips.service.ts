@@ -5,8 +5,9 @@ import { UpdateTripDto } from './dto/update-trip.dto';
 import { CreateTripItemDto } from './dto/create-trip-item.dto';
 import { UpdateTripItemDto } from './dto/update-trip-item.dto';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
+import { toUAHMinorUnits } from '../../utils/currency';
 
-const TX_SUMMARY_SELECT = { select: { amount: true, currency: true } } as const;
+const TX_SUMMARY_SELECT = { select: { amount: true, currency: true, operationAmount: true, operationCurrency: true } } as const;
 
 const TX_DETAIL_SELECT = {
   select: {
@@ -72,11 +73,11 @@ export class TripsService {
       throw new NotFoundException('Trip not found');
     }
 
-    const collectedAmount = this.calcCollected(trip.transactions, rateToUAH);
+    const amounts = this.calcAmounts(trip.transactions, rateToUAH);
 
     return {
       ...this.formatTripBase(trip),
-      collectedAmount,
+      ...amounts,
       transactions: trip.transactions.map((tx) => this.formatTransaction(tx)),
     };
   }
@@ -196,19 +197,21 @@ export class TripsService {
     return { success: true };
   }
 
-  private calcCollected(
-    transactions: { amount: bigint; currency: number }[],
+  private calcAmounts(
+    transactions: { amount: bigint; currency: number; operationAmount: bigint | null; operationCurrency: number | null }[],
     rateToUAH: (code: number) => number = () => 1,
   ) {
-    const UAH = 980;
-    return (
-      transactions
-        .filter((t) => t.amount > 0n)
-        .reduce((sum, t) => {
-          const amt = Number(t.amount);
-          return sum + (t.currency === UAH ? amt : Math.round(amt * rateToUAH(t.currency)));
-        }, 0) / 100
-    );
+    let collectedMinor = 0;
+    let spentMinor = 0;
+    for (const t of transactions) {
+      const uah = toUAHMinorUnits(t, rateToUAH);
+      if (uah > 0) collectedMinor += uah;
+      else spentMinor += Math.abs(uah);
+    }
+    return {
+      collectedAmount: collectedMinor / 100,
+      spentAmount: spentMinor / 100,
+    };
   }
 
   private formatTripBase(trip: {
@@ -249,13 +252,13 @@ export class TripsService {
       createdAt: Date;
       updatedAt: Date;
       plannedItems: { id: string; text: string; completed: boolean; createdAt: Date }[];
-      transactions: { amount: bigint; currency: number }[];
+      transactions: { amount: bigint; currency: number; operationAmount: bigint | null; operationCurrency: number | null }[];
     },
     rateToUAH: (code: number) => number = () => 1,
   ) {
     return {
       ...this.formatTripBase(trip),
-      collectedAmount: this.calcCollected(trip.transactions, rateToUAH),
+      ...this.calcAmounts(trip.transactions, rateToUAH),
     };
   }
 

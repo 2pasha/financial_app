@@ -90,7 +90,7 @@ export function EditTripDialog({ open, onOpenChange, trip, onSaved }: EditTripDi
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="edit-trip-goal">Goal Amount</Label>
+            <Label htmlFor="edit-trip-goal">Planned Amount</Label>
             <Input
               id="edit-trip-goal"
               type="number"

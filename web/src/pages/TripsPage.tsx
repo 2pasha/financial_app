@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserButton } from "@clerk/clerk-react";
-import { Loader2, Plus, Pencil, Menu } from "lucide-react";
+import { Loader2, Plus, Pencil, Menu, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "../components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../components/ui/sheet";
@@ -58,9 +58,10 @@ export default function TripsPage() {
   };
 
   const totalGoal = trips.reduce((s, t) => s + t.goalAmount, 0);
-  const totalSaved = trips.reduce((s, t) => s + t.collectedAmount, 0);
+  const totalCollected = trips.reduce((s, t) => s + t.collectedAmount, 0);
+  const totalSpent = trips.reduce((s, t) => s + t.spentAmount, 0);
   const activeCount = trips.filter((t) => t.isActive).length;
-  const completedCount = trips.filter((t) => !t.isActive || t.collectedAmount >= t.goalAmount).length;
+  const completedCount = trips.filter((t) => !t.isActive).length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -110,11 +111,13 @@ export default function TripsPage() {
 
         {/* Stat cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <StatCard accent="#0D9488" label="Total Goal Amount" value={formatAmount(totalGoal)} />
-          <StatCard accent="#43A047" label="Total Saved" value={formatAmount(totalSaved)} />
+          <StatCard accent="#0D9488" label="Total Planned" value={formatAmount(totalGoal)} />
+          <StatCard accent="#43A047" label="Total Collected" value={formatAmount(totalCollected)} />
+          <StatCard accent="#E53935" label="Total Spent" value={formatAmount(totalSpent)} />
           <StatCard accent="#1E88E5" label="Active Trips" value={String(activeCount)} />
-          <StatCard accent="#7E57C2" label="Completed" value={String(completedCount)} />
         </div>
+
+        <TripsTip />
 
         {/* Trips table */}
         {loading ? (
@@ -124,7 +127,7 @@ export default function TripsPage() {
         ) : trips.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground">
             <p className="text-lg font-medium mb-2">No trips yet</p>
-            <p className="text-sm mb-4">Create your first trip to start tracking your savings goals.</p>
+            <p className="text-sm mb-4">Create your first trip to start tracking your spending.</p>
             <Button onClick={() => setAddDialogOpen(true)}>
               <Plus className="w-4 h-4 mr-1" /> Create New Trip
             </Button>
@@ -132,8 +135,8 @@ export default function TripsPage() {
         ) : (
           <div className="rounded-xl border border-border bg-card overflow-hidden">
             {/* Table header */}
-            <div className="hidden md:grid grid-cols-[1fr_100px_100px_110px_95px_100px] gap-0 border-b border-border px-4 py-3">
-              {["Trip Name", "Goal", "Saved", "Progress", "Status", "Target Date"].map((h) => (
+            <div className="hidden md:grid grid-cols-[1fr_90px_100px_120px_90px_90px] gap-x-4 border-b border-border px-5 py-3">
+              {["Trip Name", "Goal", "Collected", "Progress", "Status", "Target Date"].map((h) => (
                 <span key={h} className="text-xs font-semibold text-muted-foreground">{h}</span>
               ))}
             </div>
@@ -172,6 +175,59 @@ export default function TripsPage() {
   );
 }
 
+function TripsTip() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="rounded-xl border border-border bg-card mb-4 overflow-hidden">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-muted/40 transition-colors"
+      >
+        <span className="text-sm font-medium text-foreground flex items-center gap-2">
+          <span>💡</span> How to use Trips
+        </span>
+        {open ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 space-y-4 text-sm text-muted-foreground border-t border-border pt-3">
+          <p>
+            A trip tracks both the money you set aside <strong className="text-foreground">and</strong> the money you actually spend — at the same time.
+          </p>
+
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-foreground">Tag these as trip transactions ✓</p>
+            <ul className="space-y-1 list-none">
+              <li className="flex gap-2"><span className="text-green-600 shrink-0">+</span>Monthly savings transfers to a jar or EUR account — these count as <strong className="text-foreground">Collected</strong></li>
+              <li className="flex gap-2"><span className="text-red-500 shrink-0">−</span>Actual purchases during the trip (flights, hotels, food, transport) — these count as <strong className="text-foreground">Spent</strong></li>
+              <li className="flex gap-2"><span className="text-red-500 shrink-0">−</span>Spending directly from your EUR card or savings card</li>
+            </ul>
+          </div>
+
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-foreground">Don't tag these ✗</p>
+            <ul className="space-y-1 list-none">
+              <li className="flex gap-2"><span className="text-muted-foreground shrink-0">−</span>Jar or card withdrawals back to your main account — these are internal transfers and would double-count</li>
+              <li className="flex gap-2"><span className="text-muted-foreground shrink-0">−</span>Top-ups between your own accounts for the same trip money</li>
+            </ul>
+          </div>
+
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-foreground">What the numbers mean</p>
+            <ul className="space-y-1 list-none">
+              <li className="flex gap-2"><span className="font-semibold text-green-600 shrink-0">Collected</span> Money you've put aside for this trip so far</li>
+              <li className="flex gap-2"><span className="font-semibold text-red-500 shrink-0">Spent</span> Money actually used on the trip</li>
+              <li className="flex gap-2"><span className="font-semibold text-blue-600 shrink-0">Available</span> Collected minus Spent — ready to spend</li>
+            </ul>
+            <p className="pt-1">The progress bar shows <span className="text-red-500 font-medium">red</span> for spent and <span className="text-green-600 font-medium">green</span> for available, against your planned budget.</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function StatCard({ accent, label, value }: { accent: string; label: string; value: string }) {
   return (
     <div className="bg-card border border-border rounded-xl p-3 md:p-4 flex flex-col gap-1.5">
@@ -183,13 +239,14 @@ function StatCard({ accent, label, value }: { accent: string; label: string; val
 }
 
 function TripRow({ trip, onClick, onEdit }: { trip: Trip; onClick: () => void; onEdit: () => void }) {
-  const pct = trip.goalAmount > 0 ? Math.min(100, Math.round((trip.collectedAmount / trip.goalAmount) * 100)) : 0;
-  const isCompleted = !trip.isActive || trip.collectedAmount >= trip.goalAmount;
+  const collectedPct = trip.goalAmount > 0 ? Math.min(100, Math.round((trip.collectedAmount / trip.goalAmount) * 100)) : 0;
+  const spentPct = trip.goalAmount > 0 ? Math.min(collectedPct, Math.round((trip.spentAmount / trip.goalAmount) * 100)) : 0;
+  const isCompleted = !trip.isActive;
 
   return (
     <div
       onClick={onClick}
-      className="group grid grid-cols-1 md:grid-cols-[1fr_100px_100px_110px_95px_100px] gap-1.5 md:gap-0 px-4 py-3.5 md:py-3 border-b border-border last:border-0 hover:bg-muted/40 cursor-pointer transition-colors"
+      className="group grid grid-cols-1 md:grid-cols-[1fr_90px_100px_120px_90px_90px] gap-y-1.5 md:gap-y-0 gap-x-4 px-5 py-3.5 md:py-3 border-b border-border last:border-0 hover:bg-muted/40 cursor-pointer transition-colors"
     >
       {/* Trip name */}
       <div className="flex items-center gap-2 min-w-0">
@@ -207,7 +264,9 @@ function TripRow({ trip, onClick, onEdit }: { trip: Trip; onClick: () => void; o
           </div>
           <p className="text-xs text-muted-foreground md:hidden mt-0.5">
             <span style={{ color: "#43A047" }}>{formatAmount(trip.collectedAmount)}</span>
-            {" / "}{formatAmount(trip.goalAmount)}
+            {" collected · "}
+            <span style={{ color: "#E53935" }}>{formatAmount(trip.spentAmount)}</span>
+            {" spent"}
             {trip.targetDate && ` · ${formatTargetDate(trip.targetDate)}`}
           </p>
         </div>
@@ -216,23 +275,25 @@ function TripRow({ trip, onClick, onEdit }: { trip: Trip; onClick: () => void; o
       <span className="text-sm text-muted-foreground hidden md:block self-center">
         {formatAmount(trip.goalAmount)}
       </span>
-      {/* Saved */}
+      {/* Collected */}
       <span className="text-sm font-medium hidden md:block self-center" style={{ color: "#43A047" }}>
         {formatAmount(trip.collectedAmount)}
       </span>
-      {/* Progress */}
+      {/* Progress — stacked: spent (dark) + available (light) against goal */}
       <div className="hidden md:flex items-center gap-2 self-center">
-        <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-          <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: trip.color }} />
+        <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden flex">
+          <div className="h-full transition-all" style={{ width: `${spentPct}%`, backgroundColor: "#E53935" }} />
+          <div className="h-full transition-all" style={{ width: `${collectedPct - spentPct}%`, backgroundColor: trip.color }} />
         </div>
-        <span className="text-xs text-muted-foreground w-7 text-right">{pct}%</span>
+        <span className="text-xs text-muted-foreground w-7 text-right">{collectedPct}%</span>
       </div>
       {/* Mobile progress line */}
       <div className="flex md:hidden items-center gap-3 text-xs text-muted-foreground">
-        <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-          <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: trip.color }} />
+        <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden flex">
+          <div className="h-full" style={{ width: `${spentPct}%`, backgroundColor: "#E53935" }} />
+          <div className="h-full" style={{ width: `${collectedPct - spentPct}%`, backgroundColor: trip.color }} />
         </div>
-        <span>{pct}%</span>
+        <span>{collectedPct}%</span>
         <StatusBadge completed={isCompleted} />
       </div>
       {/* Status */}

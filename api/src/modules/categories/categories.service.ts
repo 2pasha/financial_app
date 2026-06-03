@@ -4,24 +4,9 @@ import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { DEFAULT_CATEGORIES } from './default-categories';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
+import { toUAHMinorUnits } from '../../utils/currency';
 
 const UAH = 980;
-
-function toUAHMinorUnits(
-  tx: { amount: bigint; currency: number; operationAmount: bigint | null; operationCurrency: number | null },
-  rateToUAH: (code: number) => number,
-): number {
-  // operation/merchant currency is UAH → amount is already UAH kopiykas
-  if (tx.operationCurrency === UAH) {
-    return Number(tx.amount);
-  }
-  // account currency is UAH → operationAmount is already UAH kopiykas
-  if (tx.currency === UAH) {
-    return tx.operationAmount !== null ? Number(tx.operationAmount) : Number(tx.amount);
-  }
-  // neither side is UAH → convert account-currency amount via exchange rate
-  return Math.round(Number(tx.amount) * rateToUAH(tx.currency));
-}
 
 @Injectable()
 export class CategoriesService {
