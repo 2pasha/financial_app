@@ -24,7 +24,7 @@ function formatAmount(value: number): string {
   try {
     return new Intl.NumberFormat(undefined, { style: "currency", currency, minimumFractionDigits: 0 }).format(value);
   } catch {
-    return `${value.toLocaleString()} ${currency}`;
+    return `${(value ?? 0).toLocaleString()} ${currency}`;
   }
 }
 

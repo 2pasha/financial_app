@@ -54,13 +54,13 @@ export function CategoryCard({ id, name, spent, net, budget, icon, color, showNe
     if (hasBudget) {
       return (
         <>
-          <span className="text-card-foreground">₴{spent.toLocaleString()}</span>
-          {' '}/ ₴{budget.toLocaleString()}
+          <span className="text-card-foreground">₴{(spent ?? 0).toLocaleString()}</span>
+          {' '}/ ₴{(budget ?? 0).toLocaleString()}
         </>
       );
     }
 
-    return <span className="text-card-foreground">₴{spent.toLocaleString()}</span>;
+    return <span className="text-card-foreground">₴{(spent ?? 0).toLocaleString()}</span>;
   };
 
   return (
@@ -133,7 +133,7 @@ export function CategoryCard({ id, name, spent, net, budget, icon, color, showNe
           {hasBudget && (
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">
-                ₴{(budget - spent).toLocaleString()} {translations.remaining}
+                ₴{((budget ?? 0) - (spent ?? 0)).toLocaleString()} {translations.remaining}
               </span>
               <span className={`${isOverBudget ? 'text-destructive' : 'text-card-foreground'}`}>
                 {percentage.toFixed(0)}%

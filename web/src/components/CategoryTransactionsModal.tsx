@@ -120,6 +120,7 @@ function CategoryChart({
   const tooltipContent = ({ active, payload }: any) => {
     if (!active || !payload?.length) return null;
     const { name, value } = payload[0];
+    if (value == null) return null;
     const pct = total > 0 ? ((value / total) * 100).toFixed(1) : "0";
     return (
       <div className="bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs shadow-xl min-w-[130px]">

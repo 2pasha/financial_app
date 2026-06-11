@@ -24,8 +24,8 @@ function formatAmount(value: number, signed = false): string {
     if (signed && value > 0) return "+" + fmt.format(value);
     return fmt.format(value);
   } catch {
-    const prefix = signed && value > 0 ? "+" : "";
-    return `${prefix}${value.toLocaleString()} ${currency}`;
+    const prefix = signed && (value ?? 0) > 0 ? "+" : "";
+    return `${prefix}${(value ?? 0).toLocaleString()} ${currency}`;
   }
 }
 

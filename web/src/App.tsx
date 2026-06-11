@@ -282,7 +282,7 @@ export default function App() {
     try {
       return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(value);
     } catch {
-      return `${value.toLocaleString()} ${currency}`;
+      return `${(value ?? 0).toLocaleString()} ${currency}`;
     }
   };
 
