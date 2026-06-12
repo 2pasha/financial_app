@@ -197,6 +197,12 @@ export const monobankApi = {
     return response.data;
   },
 
+  async getWebhookStatus(): Promise<API.WebhookStatusResponse> {
+    const response = await apiClient.get<API.WebhookStatusResponse>('/monobank/webhook/status');
+
+    return response.data;
+  },
+
   async getTransactions(params?: { page?: number; limit?: number }): Promise<any> {
     const response = await apiClient.get('/monobank/transactions', { params });
 

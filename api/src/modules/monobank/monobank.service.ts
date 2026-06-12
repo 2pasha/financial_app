@@ -11,9 +11,24 @@ import type { MonobankWebhookPayload, MonobankWebhookStatementItem } from './int
 
 type CategoryMccEntry = { id: string; name: string; mccCodes: number[] };
 
+type WebhookStatus = 'not_connected' | 'running' | 'stopped';
+type WebhookStatusResult = {
+  status: WebhookStatus;
+  webhookUrl: string | null;
+  checkedAt: string;
+};
+
+const WEBHOOK_STATUS_TTL_MS = 60_000;
+
 @Injectable()
 export class MonobankService {
   private readonly logger = new Logger(MonobankService.name);
+
+  // Per-user cache for the rate-limited Monobank client-info check (1 req / 60s).
+  private readonly webhookStatusCache = new Map<
+    string,
+    { result: WebhookStatusResult; expiresAt: number }
+  >();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -700,9 +715,86 @@ export class MonobankService {
 
     await this.monobankApi.setWebhook(token, webhookUrl);
 
+    await this.prisma.monobankToken.update({
+      where: { userId: user.id },
+      data: { webhookConnectedAt: new Date() },
+    });
+
+    // Invalidate any cached status so the UI reflects the reconnect immediately.
+    this.webhookStatusCache.delete(clerkId);
+
     this.logger.log(`Webhook registered for user ${user.id}: ${webhookUrl}`);
 
     return { success: true, webhookUrl };
+  }
+
+  /**
+   * Resolve the user's webhook status.
+   * - not_connected: no token, or webhook never set up.
+   * - running: Monobank's registered webHookUrl matches ours.
+   * - stopped: previously connected but the registered URL no longer matches
+   *   (e.g. APP_URL changed, Monobank cleared it) or the token check failed.
+   *
+   * The live client-info call is rate-limited to 1 req/60s, so results are
+   * cached per-user for that window to keep auto-polling safe.
+   */
+  async getWebhookStatus(clerkId: string): Promise<WebhookStatusResult> {
+    const cached = this.webhookStatusCache.get(clerkId);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.result;
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { clerkId },
+      include: { monobankToken: true },
+    });
+
+    const appUrl = this.config.getOrThrow<string>('APP_URL');
+    const ourWebhookUrl = `${appUrl}/monobank/webhook`;
+
+    if (!user?.monobankToken || !user.monobankToken.webhookConnectedAt) {
+      // Not connected — no Monobank call needed, no need to cache.
+      return {
+        status: 'not_connected',
+        webhookUrl: null,
+        checkedAt: new Date().toISOString(),
+      };
+    }
+
+    let status: WebhookStatus;
+    let registeredUrl: string | null = null;
+
+    try {
+      const rawToken = user.monobankToken.token;
+      const token = this.crypto.isEncrypted(rawToken)
+        ? this.crypto.decrypt(rawToken)
+        : rawToken;
+
+      const clientInfo = await this.monobankApi.getClientInfo(token);
+      registeredUrl = clientInfo.webHookUrl ?? null;
+      status = registeredUrl === ourWebhookUrl ? 'running' : 'stopped';
+    } catch (error) {
+      // Revoked token, rate limit, or network error — degrade to stopped
+      // rather than failing the request.
+      this.logger.warn(
+        `Webhook status check failed for ${clerkId}, treating as stopped`,
+        error instanceof Error ? error.message : error,
+      );
+      status = 'stopped';
+    }
+
+    const result: WebhookStatusResult = {
+      status,
+      webhookUrl: registeredUrl,
+      checkedAt: new Date().toISOString(),
+    };
+
+    this.webhookStatusCache.set(clerkId, {
+      result,
+      expiresAt: Date.now() + WEBHOOK_STATUS_TTL_MS,
+    });
+
+    return result;
   }
 
   /**

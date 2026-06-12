@@ -257,6 +257,25 @@ export default function ExpensesPage() {
   }, []);
 
   const [webhookConnecting, setWebhookConnecting] = useState(false);
+  const [webhookStatus, setWebhookStatus] = useState<'not_connected' | 'running' | 'stopped' | null>(null);
+
+  const fetchWebhookStatus = useCallback(async () => {
+    try {
+      const result = await monobankApi.getWebhookStatus();
+      setWebhookStatus(result.status);
+    } catch {
+      // silently ignore — status indicator just won't update
+    }
+  }, []);
+
+  // Poll webhook status on mount and every 3 minutes (backend caches the
+  // rate-limited Monobank call for 60s, so polling is safe).
+  useEffect(() => {
+    fetchWebhookStatus();
+    const interval = setInterval(fetchWebhookStatus, 3 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [fetchWebhookStatus]);
 
   const handleConnectWebhook = async () => {
     setWebhookConnecting(true);
@@ -264,6 +283,7 @@ export default function ExpensesPage() {
     try {
       const result = await monobankApi.setupWebhook();
       toast.success(`Webhook connected: ${result.webhookUrl}`);
+      await fetchWebhookStatus();
     } catch (err: any) {
       toast.error('Failed to connect webhook: ' + err.message);
     } finally {
@@ -601,27 +621,61 @@ export default function ExpensesPage() {
                   <span className="hidden sm:inline">New Transaction</span>
                   <span className="sm:hidden">New</span>
                 </Button>
-                <Button
-                  onClick={handleConnectWebhook}
-                  disabled={webhookConnecting || !tokenStatus?.hasToken}
-                  size="sm"
-                  variant="outline"
-                  className="gap-2"
-                >
-                  {webhookConnecting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Webhook className="h-4 w-4" />
-                  )}
-                  <span className="hidden sm:inline">Connect Webhook</span>
-                  <span className="sm:hidden">Webhook</span>
-                </Button>
+                {webhookStatus === 'running' ? (
+                  <Badge
+                    variant="outline"
+                    className="py-2 gap-1.5 border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-400"
+                  >
+                    <span className="h-2 w-2 rounded-full bg-green-500" />
+                    <span className="hidden sm:inline">Webhook running</span>
+                    <span className="sm:hidden">Running</span>
+                  </Badge>
+                ) : webhookStatus === 'stopped' ? (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="destructive" className="gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-current" />
+                      <span className="hidden sm:inline">Webhook stopped</span>
+                      <span className="sm:hidden">Stopped</span>
+                    </Badge>
+                    <Button
+                      onClick={handleConnectWebhook}
+                      disabled={webhookConnecting}
+                      size="sm"
+                      variant="outline"
+                      className="gap-2"
+                    >
+                      {webhookConnecting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Webhook className="h-4 w-4" />
+                      )}
+                      <span className="hidden sm:inline">Reconnect</span>
+                      <span className="sm:hidden">Reconnect</span>
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    onClick={handleConnectWebhook}
+                    disabled={webhookConnecting || !tokenStatus?.hasToken}
+                    size="sm"
+                    variant="outline"
+                    className="gap-2"
+                  >
+                    {webhookConnecting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Webhook className="h-4 w-4" />
+                    )}
+                    <span className="hidden sm:inline">Connect Webhook</span>
+                    <span className="sm:hidden">Webhook</span>
+                  </Button>
+                )}
                 <Button
                   onClick={handleRefetch}
                   disabled={refetching || !tokenStatus?.hasToken}
                   size="sm"
                   variant="outline"
-                  className="gap-2"
+                  className="gap-2 py-2"
                 >
                   {refetching ? (
                     <Loader2 className="h-4 w-4 animate-spin" />

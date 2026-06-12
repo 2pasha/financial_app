@@ -68,6 +68,12 @@ export class MonobankController {
     return this.monobankService.checkTokenStatus(user.clerkId);
   }
 
+  @Get('webhook/status')
+  @UseGuards(ClerkAuthGuard)
+  async getWebhookStatus(@CurrentUser() user: CurrentUserData) {
+    return this.monobankService.getWebhookStatus(user.clerkId);
+  }
+
   @Post('sync')
   @UseGuards(ClerkAuthGuard)
   @HttpCode(HttpStatus.ACCEPTED)

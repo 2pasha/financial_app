@@ -93,6 +93,12 @@ export namespace API {
     transactionCount: number;
     lastTransactionDate: string | null;
   }
+
+  export interface WebhookStatusResponse {
+    status: 'not_connected' | 'running' | 'stopped';
+    webhookUrl: string | null;
+    checkedAt: string;
+  }
 }
 
 /**
