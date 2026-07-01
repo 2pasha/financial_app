@@ -43,6 +43,11 @@ function getPeriodRange(period: Period, customFrom: string, customTo: string): {
   };
 }
 
+function sortByBudgetUsage<T extends { spent: number; budget: number }>(cats: T[]): T[] {
+  const ratio = (c: T) => (c.budget > 0 ? c.spent / c.budget : -Infinity);
+  return [...cats].sort((a, b) => ratio(b) - ratio(a)); // budget===0 (−Infinity) sinks to the end
+}
+
 function getLastNMonths(n: number): MonthPeriod[] {
   const now = new Date();
   const months: MonthPeriod[] = [];
@@ -792,8 +797,8 @@ export default function App() {
                         {plannedCategories.length}
                       </span>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {plannedCategories.map((c) => renderCategoryCard(c))}
+                    <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(300px,1fr))]">
+                      {sortByBudgetUsage(plannedCategories).map((c) => renderCategoryCard(c))}
                     </div>
 
                     {/* Unplanned spending section */}
@@ -816,8 +821,8 @@ export default function App() {
                     )}
                   </>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {mergedCategories.map((c) => renderCategoryCard(c))}
+                  <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(300px,1fr))]">
+                    {sortByBudgetUsage(mergedCategories).map((c) => renderCategoryCard(c))}
                   </div>
                 )}
               </>
