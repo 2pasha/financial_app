@@ -109,7 +109,7 @@ export default function App() {
   const t = getTranslation(language);
   const [currency, setCurrency] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('currency') || 'UAH';
+      return localStorage.getItem('currency') || '₴';
     }
 
     return 'USD';
@@ -310,7 +310,7 @@ export default function App() {
 
   const formatAmount = (value: number) => {
     try {
-      return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(value);
+      return new Intl.NumberFormat(undefined, { style: 'currency', currency, currencyDisplay: 'narrowSymbol' }).format(value);
     } catch {
       return `${(value ?? 0).toLocaleString()} ${currency}`;
     }
