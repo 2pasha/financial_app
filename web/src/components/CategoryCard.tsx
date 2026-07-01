@@ -44,7 +44,7 @@ export function CategoryCard({ id, name, spent, net, budget, icon, color, showNe
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+          className="size-7 overflow-hidden opacity-0 max-w-0 ml-0 group-hover:opacity-100 group-hover:max-w-7 group-hover:ml-1 data-[state=open]:opacity-100 data-[state=open]:max-w-7 data-[state=open]:ml-1 transition-all duration-200"
           onClick={(e) => e.stopPropagation()}
         >
           <MoreVertical className="h-4 w-4" />
@@ -150,7 +150,7 @@ export function CategoryCard({ id, name, spent, net, budget, icon, color, showNe
           {iconBox}
           <h3 className="text-sm text-card-foreground truncate">{name}</h3>
         </div>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center shrink-0">
           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass}`}>
             {status === 'none' ? translations.noBudgetSet : `${percentage.toFixed(0)}%`}
           </span>
