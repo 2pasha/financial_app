@@ -116,72 +116,88 @@ export function CategoryCard({ id, name, spent, net, budget, icon, color, showNe
     );
   }
 
-  // Budgeted compact card: status drives badge + bar color.
-  const status: 'none' | 'ok' | 'warn' | 'over' = !hasBudget
+  // Budgeted compact card: severity drives the primary ₴ amount color + bar treatment.
+  const severity: 'none' | 'ok' | 'warn' | 'overMild' | 'overExtreme' = !hasBudget
     ? 'none'
     : percentage <= 90
       ? 'ok'
       : percentage <= 100
         ? 'warn'
-        : 'over';
+        : percentage <= 200
+          ? 'overMild'
+          : 'overExtreme';
 
-  const badgeClass = {
-    ok: 'bg-green-500 text-white',
-    warn: 'bg-amber-500 text-white',
-    over: 'bg-destructive text-white',
-    none: 'bg-muted text-muted-foreground',
-  }[status];
+  const amountColor = {
+    ok: 'text-green-600',
+    warn: 'text-amber-600',
+    overMild: 'text-red-500',
+    overExtreme: 'text-red-700',
+    none: 'text-muted-foreground',
+  }[severity];
 
-  const barClass = {
-    ok: 'bg-green-500',
-    warn: 'bg-amber-500',
-    over: 'bg-destructive',
-    none: '',
-  }[status];
+  // 0–100% portion: green under budget, amber at/near the limit.
+  const baseFillClass = severity === 'ok' ? 'bg-green-500' : 'bg-amber-500';
+
+  // Overflow cap past 100%: length scales subtly with overage (capped so it never dominates),
+  // muted red for 100–200%, intense red for >200%.
+  const overflowWidth = isOverBudget ? Math.min(6 + (percentage - 100) * 0.08, 24) : 0;
+  const stripeBg = severity === 'overExtreme' ? '#b91c1c' : '#f87171';
 
   return (
     <div
       className="bg-card border border-border rounded-lg p-3 hover:shadow-md transition-all hover:border-primary/30 group cursor-pointer"
       onClick={() => onClick?.(id)}
     >
-      {/* Row 1: icon + name, status badge + hover menu */}
-      <div className="flex items-center justify-between gap-2 mb-2">
+      {/* Row 1: icon + name, primary ₴ amount (colored) + muted % + hover menu */}
+      <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-2 min-w-0">
           {iconBox}
           <h3 className="text-sm text-card-foreground truncate">{name}</h3>
         </div>
-        <div className="flex items-center shrink-0">
-          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass}`}>
-            {status === 'none' ? translations.noBudgetSet : `${percentage.toFixed(0)}%`}
-          </span>
+        <div className="flex items-start shrink-0">
+          <div className="flex flex-col items-end leading-tight">
+            {severity === 'none' ? (
+              <span className="text-sm font-medium text-muted-foreground">{translations.noBudgetSet}</span>
+            ) : (
+              <>
+                <span className={`text-sm font-bold whitespace-nowrap ${amountColor}`}>
+                  ₴{(isOverBudget ? spent - budget : budget - spent).toLocaleString()}
+                  <span className="text-[11px] font-medium ml-0.5">
+                    {isOverBudget ? translations.over : translations.left}
+                  </span>
+                </span>
+                <span className="text-[10px] text-muted-foreground">({percentage.toFixed(0)}%)</span>
+              </>
+            )}
+          </div>
           {menu}
         </div>
       </div>
 
-      {/* Row 2: thin progress bar (fill capped at 100%) */}
-      <div className="h-1 w-full rounded-full overflow-hidden bg-muted mb-2">
-        <div
-          className={`h-full rounded-full transition-all ${barClass}`}
-          style={{ width: `${Math.min(percentage, 100)}%` }}
-        />
+      {/* Row 2: bar capped at 100% + striped overflow cap when over budget */}
+      <div className="flex items-center gap-1 mb-2">
+        <div className="h-1.5 flex-1 rounded-full overflow-hidden bg-muted">
+          <div
+            className={`h-full rounded-full transition-all ${baseFillClass}`}
+            style={{ width: `${Math.min(percentage, 100)}%` }}
+          />
+        </div>
+        {isOverBudget && (
+          <div
+            className="h-2 rounded-sm shrink-0"
+            aria-hidden
+            style={{
+              width: `${overflowWidth}px`,
+              backgroundColor: stripeBg,
+              backgroundImage: 'repeating-linear-gradient(45deg, rgba(255,255,255,0.45) 0 2px, transparent 2px 4px)',
+            }}
+          />
+        )}
       </div>
 
-      {/* Row 3: spent (left) + remaining/over (right) */}
-      <div className="flex items-center justify-between text-xs">
-        <span className="text-muted-foreground">
-          ₴{(spent ?? 0).toLocaleString()} {translations.spent}
-        </span>
-        {status !== 'none' && (
-          isOverBudget ? (
-            <span className="text-destructive font-medium">
-              ₴{(spent - budget).toLocaleString()} {translations.over}
-            </span>
-          ) : (
-            <span className="text-muted-foreground">
-              ₴{(budget - spent).toLocaleString()} {translations.left}
-            </span>
-          )
-        )}
+      {/* Row 3: spent line */}
+      <div className="text-xs text-muted-foreground">
+        ₴{(spent ?? 0).toLocaleString()} {translations.spent}
       </div>
     </div>
   );

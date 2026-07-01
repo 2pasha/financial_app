@@ -214,13 +214,13 @@ export default function App() {
   const paceColor =
     markerPct === null
       ? isOverBudget
-        ? 'bg-destructive'
+        ? 'bg-red-400'
         : 'bg-green-500'
       : fillPct <= markerPct
         ? 'bg-green-500'
         : fillPct <= markerPct + 10
           ? 'bg-amber-500'
-          : 'bg-destructive';
+          : 'bg-red-400';
 
   const dateRange = getPeriodRange(period, customFrom, customTo);
 
@@ -640,14 +640,14 @@ export default function App() {
             {/* Balance Card */}
             <div className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-xl p-4 sm:p-8 mb-4 sm:mb-6 shadow-lg">
               <p className="opacity-90 mb-1 text-sm sm:text-base">{isOverBudget ? t.overBudgetBy : t.safeToSpend}</p>
-              <h2 className={`text-3xl sm:text-5xl mb-3 sm:mb-4 font-bold ${isOverBudget ? 'text-destructive' : ''}`}>
+              <h2 className={`text-3xl sm:text-5xl mb-3 sm:mb-4 font-bold ${isOverBudget ? 'text-red-300' : ''}`}>
                 {formatAmount(isOverBudget ? overageAmount : safeToSpend)}
               </h2>
 
               {plannedSpent > 0 && (
                 <div className="mb-4 sm:mb-6">
                   {actualSpent > plannedSpent && (
-                    <p className="text-destructive text-xs sm:text-sm font-medium mb-1">
+                    <p className="text-red-300 text-xs sm:text-sm font-medium mb-1">
                       +{formatAmount(actualSpent - plannedSpent)} {t.overLabel}
                     </p>
                   )}
