@@ -188,9 +188,34 @@ export default function App() {
 
   const totalIncome = incomeItems.reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
   const plannedSpent = plannedCategories.reduce((sum, cat) => sum + cat.budget, 0);
-  const unplannedMoney = totalIncome - plannedSpent;
+  const unassignedMoney = totalIncome - plannedSpent;
   const dashboardCategories = mergedCategories.filter((cat) => !cat.excludeFromDashboard);
   const actualSpent = Math.abs(dashboardCategories.reduce((sum, cat) => sum + cat.net, 0));
+
+  // Hero "Safe to spend" + pacing bar derivations
+  const safeToSpend = plannedSpent - actualSpent;
+  const isOverBudget = safeToSpend < 0;
+  const overageAmount = Math.abs(safeToSpend);
+  const fillPct = plannedSpent > 0 ? Math.min(actualSpent / plannedSpent, 1) * 100 : 0;
+
+  const heroNow = new Date();
+  const isCurrentMonth =
+    period.kind === 'month' &&
+    period.year === heroNow.getFullYear() &&
+    period.month === heroNow.getMonth() + 1;
+  const daysInMonth = new Date(heroNow.getFullYear(), heroNow.getMonth() + 1, 0).getDate();
+  const markerPct = isCurrentMonth ? (heroNow.getDate() / daysInMonth) * 100 : null;
+
+  const paceColor =
+    markerPct === null
+      ? isOverBudget
+        ? 'bg-destructive'
+        : 'bg-green-500'
+      : fillPct <= markerPct
+        ? 'bg-green-500'
+        : fillPct <= markerPct + 10
+          ? 'bg-amber-500'
+          : 'bg-destructive';
 
   const dateRange = getPeriodRange(period, customFrom, customTo);
 
@@ -609,23 +634,58 @@ export default function App() {
           <>
             {/* Balance Card */}
             <div className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-xl p-4 sm:p-8 mb-4 sm:mb-6 shadow-lg">
-              <p className="opacity-90 mb-1 text-sm sm:text-base">{t.actualSpent}</p>
-              <h2 className="text-3xl sm:text-5xl mb-3 sm:mb-4 font-bold">{formatAmount(actualSpent)}</h2>
-              <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 sm:gap-6 text-sm">
+              <p className="opacity-90 mb-1 text-sm sm:text-base">{isOverBudget ? t.overBudgetBy : t.safeToSpend}</p>
+              <h2 className={`text-3xl sm:text-5xl mb-3 sm:mb-4 font-bold ${isOverBudget ? 'text-destructive' : ''}`}>
+                {formatAmount(isOverBudget ? overageAmount : safeToSpend)}
+              </h2>
+
+              {plannedSpent > 0 && (
+                <div className="mb-4 sm:mb-6">
+                  {actualSpent > plannedSpent && (
+                    <p className="text-destructive text-xs sm:text-sm font-medium mb-1">
+                      +{formatAmount(actualSpent - plannedSpent)} {t.overLabel}
+                    </p>
+                  )}
+                  <div className="relative h-2.5 w-full rounded-full overflow-hidden bg-primary-foreground/20">
+                    <div
+                      className={`h-full rounded-full transition-all ${paceColor}`}
+                      style={{ width: `${fillPct}%` }}
+                    />
+                    {markerPct !== null && (
+                      <div
+                        className="absolute top-0 h-full w-0.5 bg-primary-foreground"
+                        style={{ left: `${markerPct}%` }}
+                      />
+                    )}
+                  </div>
+                  {markerPct !== null && (
+                    <div className="relative h-4 mt-0.5">
+                      <span
+                        className="absolute text-[10px] opacity-75 -translate-x-1/2"
+                        style={{ left: `${markerPct}%` }}
+                      >
+                        {t.today}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 sm:gap-6 text-sm opacity-90">
                 {totalIncome > 0 && (
                   <div>
                     <p className="opacity-75 text-xs sm:text-sm">{t.incomesTotal}</p>
-                    <p className="text-base sm:text-lg font-medium">{formatAmount(totalIncome)}</p>
+                    <p className="text-sm sm:text-base font-medium">{formatAmount(totalIncome)}</p>
                   </div>
                 )}
                 <div>
                   <p className="opacity-75 text-xs sm:text-sm">{t.plannedSpent}</p>
-                  <p className="text-base sm:text-lg font-medium">{formatAmount(plannedSpent)}</p>
+                  <p className="text-sm sm:text-base font-medium">{formatAmount(plannedSpent)}</p>
                 </div>
                 {totalIncome > 0 && (
                   <div>
-                    <p className="opacity-75 text-xs sm:text-sm">{t.unplannedMoney}</p>
-                    <p className="text-base sm:text-lg font-medium">{formatAmount(unplannedMoney)}</p>
+                    <p className="opacity-75 text-xs sm:text-sm">{t.unassignedMoney}</p>
+                    <p className="text-sm sm:text-base font-medium">{formatAmount(unassignedMoney)}</p>
                   </div>
                 )}
               </div>
