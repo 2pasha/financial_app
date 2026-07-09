@@ -30,6 +30,12 @@ export class MonobankService {
     { result: WebhookStatusResult; expiresAt: number }
   >();
 
+  // Per-account queue tail. Webhook items for the same Monobank account are
+  // processed one at a time, in arrival order, so a hold row is always committed
+  // before the settled item's supersede-check runs (and Monobank retries /
+  // concurrent deliveries can't interleave). Single-instance deployment only.
+  private readonly webhookQueues = new Map<string, Promise<void>>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly monobankApi: MonobankApiService,
@@ -798,7 +804,32 @@ export class MonobankService {
   }
 
   /**
-   * Handle incoming webhook from Monobank
+   * Enqueue a single-item async task on a per-key serial chain. Tasks with the
+   * same key run one at a time, in call order. A failing task is isolated so it
+   * neither breaks the chain nor surfaces as an unhandled rejection.
+   * The returned promise resolves once the enqueued task settles.
+   */
+  private enqueue(key: string, task: () => Promise<void>): Promise<void> {
+    const prev = this.webhookQueues.get(key) ?? Promise.resolve();
+    // Run after the previous task regardless of whether it resolved or rejected.
+    const tail = prev.then(
+      () => task(),
+      () => task(),
+    ).catch(() => undefined);
+
+    this.webhookQueues.set(key, tail);
+    void tail.finally(() => {
+      // Drop the entry only if no newer task has been chained on since.
+      if (this.webhookQueues.get(key) === tail) {
+        this.webhookQueues.delete(key);
+      }
+    });
+
+    return tail;
+  }
+
+  /**
+   * Handle incoming webhook from Monobank. Serialized per Monobank account.
    */
   async handleWebhook(payload: MonobankWebhookPayload): Promise<void> {
     if (payload.type !== 'StatementItem') {
@@ -807,6 +838,15 @@ export class MonobankService {
       return;
     }
 
+    const { account: monobankAccountId } = payload.data;
+
+    return this.enqueue(monobankAccountId, () => this.processWebhook(payload));
+  }
+
+  /**
+   * Persist a single Monobank statement item. Runs inside the per-account queue.
+   */
+  private async processWebhook(payload: MonobankWebhookPayload): Promise<void> {
     const { account: monobankAccountId, statementItem } = payload.data;
 
     this.logger.log(
@@ -831,7 +871,7 @@ export class MonobankService {
       otherCategory?.id ?? '',
     );
 
-    await this.deleteMatchingHoldTransaction(account.id, statementItem);
+    await this.deleteSupersededDuplicate(account.id, statementItem);
 
     try {
       await this.prisma.transaction.upsert({
@@ -877,34 +917,59 @@ export class MonobankService {
     }
   }
 
-  private async deleteMatchingHoldTransaction(
+  /**
+   * Remove a pre-existing row that is the same real transaction as the incoming
+   * statement item but stored under a different Monobank id. Two cases:
+   *
+   *  1. Re-issue: Monobank redelivers the same item under a new id. Observed rows
+   *     are byte-identical except the id — crucially they share the exact same
+   *     `time`. We match on the natural key (account + amount + mcc + description)
+   *     AND the exact `time`, regardless of hold flag. Using exact time (not a
+   *     window) is what keeps legitimately-distinct repeat purchases — e.g. two
+   *     identical transit fares an hour apart — from being collapsed into one.
+   *
+   *  2. Settlement: a settled item (hold=false) supersedes an earlier pending
+   *     hold of the same purchase, which may carry a slightly different time.
+   *     Only applied when the incoming item is settled, and limited to hold=true
+   *     rows within a short window — the original supersede behavior.
+   */
+  private async deleteSupersededDuplicate(
     accountId: string,
     statementItem: MonobankWebhookStatementItem,
   ): Promise<void> {
-    if (statementItem.hold) {
-      return;
-    }
-
     const txTime = new Date(statementItem.time * 1000);
-    const windowMs = 5 * 60 * 1000;
+    const holdWindowMs = 5 * 60 * 1000;
+
+    const orConditions: Array<Record<string, unknown>> = [
+      // Case 1: exact-time re-issue under a new id.
+      { time: txTime },
+    ];
+
+    // Case 2: settled item supersedes a recent pending hold.
+    if (!statementItem.hold) {
+      orConditions.push({
+        hold: true,
+        time: {
+          gte: new Date(txTime.getTime() - holdWindowMs),
+          lte: new Date(txTime.getTime() + holdWindowMs),
+        },
+      });
+    }
 
     const deleted = await this.prisma.transaction.deleteMany({
       where: {
         accountId,
-        hold: true,
         amount: BigInt(statementItem.amount),
         mcc: statementItem.mcc ?? null,
+        description: statementItem.description,
         monobankId: { not: statementItem.id },
-        time: {
-          gte: new Date(txTime.getTime() - windowMs),
-          lte: new Date(txTime.getTime() + windowMs),
-        },
+        OR: orConditions,
       },
     });
 
     if (deleted.count > 0) {
       this.logger.log(
-        `Deleted ${deleted.count} hold transaction(s) superseded by settled tx ${statementItem.id}`,
+        `Deleted ${deleted.count} duplicate transaction(s) superseded by tx ${statementItem.id}`,
       );
     }
   }
