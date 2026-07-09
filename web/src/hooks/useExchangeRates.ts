@@ -27,7 +27,14 @@ export function useExchangeRates() {
       const pair = rates.find(
         (r) => r.currencyCodeA === code && r.currencyCodeB === UAH,
       );
-      if (pair) return (pair.rateBuy + pair.rateSell) / 2;
+      if (pair) {
+        // Many currencies (e.g. GBP) are quoted only by cross rate, with no
+        // buy/sell spread. Averaging the missing fields would yield NaN.
+        if (pair.rateBuy != null && pair.rateSell != null) {
+          return (pair.rateBuy + pair.rateSell) / 2;
+        }
+        if (pair.rateCross != null) return pair.rateCross;
+      }
       const cross = rates.find((r) => r.currencyCodeA === code);
       return cross?.rateCross ?? null;
     },

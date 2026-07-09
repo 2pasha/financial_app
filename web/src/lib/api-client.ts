@@ -344,8 +344,9 @@ export interface ExchangeRate {
   currencyCodeA: number;
   currencyCodeB: number;
   date: number;
-  rateBuy: number;
-  rateSell: number;
+  // Monobank quotes either a buy/sell spread OR a single cross rate — never both.
+  rateBuy?: number;
+  rateSell?: number;
   rateCross?: number;
 }
 

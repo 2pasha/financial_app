@@ -456,7 +456,10 @@ export default function ExpensesPage() {
   // Statistics — convert non-UAH amounts to UAH using current exchange rates
   const toUAH = (tx: MonoTxn) => {
     if (tx.currency === UAH_CODE) return tx.amount;
-    return Math.round(tx.amount * (rateToUAH(tx.currency) ?? 1));
+    const rate = rateToUAH(tx.currency);
+    // Guard against a missing/NaN rate poisoning the running total (?? misses NaN).
+    const safeRate = rate != null && !Number.isNaN(rate) ? rate : 1;
+    return Math.round(tx.amount * safeRate);
   };
 
   const totalExpense = useMemo(() => {
