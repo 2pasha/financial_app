@@ -197,7 +197,9 @@ export function CategoryCard({ id, name, spent, net, budget, icon, color, showNe
 
       {/* Row 3: spent line */}
       <div className="text-xs text-muted-foreground">
-        ₴{(spent ?? 0).toLocaleString()} {translations.spent}
+        {hasBudget
+          ? `₴${(spent ?? 0).toLocaleString()} / ₴${budget.toLocaleString()}`
+          : `₴${(spent ?? 0).toLocaleString()} ${translations.spent}`}
       </div>
     </div>
   );
