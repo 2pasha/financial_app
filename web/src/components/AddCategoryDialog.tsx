@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { IconPicker } from "./IconPicker";
 
 interface AddCategoryDialogProps {
   open: boolean;
@@ -29,7 +30,7 @@ interface AddCategoryDialogProps {
   };
 }
 
-const ICON_OPTIONS = ["🛒", "🏠", "🚗", "💊", "🎬", "👕", "🍔", "✈️", "📚", "💰"];
+const DEFAULT_ICON = "🛒";
 const COLOR_OPTIONS = [
   "#6366f1",
   "#8b5cf6",
@@ -46,7 +47,7 @@ const COLOR_OPTIONS = [
 export function AddCategoryDialog({ open, onOpenChange, onAdd, translations }: AddCategoryDialogProps) {
   const [name, setName] = useState("");
   const [budget, setBudget] = useState("");
-  const [selectedIcon, setSelectedIcon] = useState(ICON_OPTIONS[0]);
+  const [selectedIcon, setSelectedIcon] = useState(DEFAULT_ICON);
   const [selectedColor, setSelectedColor] = useState(COLOR_OPTIONS[0]);
   const [excludeFromDashboard, setExcludeFromDashboard] = useState(false);
 
@@ -61,7 +62,7 @@ export function AddCategoryDialog({ open, onOpenChange, onAdd, translations }: A
       });
       setName("");
       setBudget("");
-      setSelectedIcon(ICON_OPTIONS[0]);
+      setSelectedIcon(DEFAULT_ICON);
       setSelectedColor(COLOR_OPTIONS[0]);
       setExcludeFromDashboard(false);
       onOpenChange(false);
@@ -96,21 +97,7 @@ export function AddCategoryDialog({ open, onOpenChange, onAdd, translations }: A
           </div>
           <div className="space-y-2">
             <Label>{translations.icon}</Label>
-            <div className="flex gap-2 flex-wrap">
-              {ICON_OPTIONS.map((icon) => (
-                <button
-                  key={icon}
-                  onClick={() => setSelectedIcon(icon)}
-                  className={`w-10 h-10 rounded-lg border-2 transition-all ${
-                    selectedIcon === icon
-                      ? "border-primary bg-accent"
-                      : "border-border hover:border-primary/50"
-                  }`}
-                >
-                  <span className="text-xl">{icon}</span>
-                </button>
-              ))}
-            </div>
+            <IconPicker value={selectedIcon} onChange={setSelectedIcon} />
           </div>
           <div className="space-y-2">
             <Label>{translations.color}</Label>

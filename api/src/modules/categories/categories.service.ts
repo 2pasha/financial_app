@@ -141,6 +141,13 @@ export class CategoriesService {
     const user = await this.findUser(clerkId);
     await this.findOwnedCategory(id, user.id);
 
+    const hasYear = dto.year !== undefined;
+    const hasMonth = dto.month !== undefined;
+
+    if (hasYear !== hasMonth) {
+      throw new BadRequestException('year and month must be provided together');
+    }
+
     const category = await this.prisma.category.update({
       where: { id },
       data: {
@@ -150,6 +157,8 @@ export class CategoriesService {
         budget: dto.budget,
         ...(dto.mccCodes !== undefined && { mccCodes: dto.mccCodes }),
         ...(dto.excludeFromDashboard !== undefined && { excludeFromDashboard: dto.excludeFromDashboard }),
+        // Setting both to null promotes a one-month category to a repeating one.
+        ...(hasYear && { year: dto.year, month: dto.month }),
       } as any,
       include: {
         transactions: {

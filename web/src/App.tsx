@@ -672,6 +672,7 @@ export default function App() {
             onRemoveIncome={handleRemoveIncome}
             onCategoryCreated={(cat) => setCategories((prev) => [...prev, cat])}
             onCategoryDeleted={(id) => setCategories((prev) => prev.filter((c) => c.id !== id))}
+            onCategoryUpdated={(cat) => setCategories((prev) => prev.map((c) => (c.id === cat.id ? { ...c, ...cat } : c)))}
             onPlanSaved={handlePlanSaved}
             onPlanDeleted={handlePlanDeleted}
             translations={t as unknown as Record<string, string>}

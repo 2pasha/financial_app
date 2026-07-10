@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { IconPicker } from "./IconPicker";
 import { Loader2 } from "lucide-react";
 
 interface AddTripDialogProps {
@@ -17,7 +18,7 @@ interface AddTripDialogProps {
   }) => Promise<void>;
 }
 
-const TRIP_ICON_OPTIONS = ["✈️", "🏖️", "🚗", "🏠", "🎓", "💍", "🏥", "🎬", "⛷️", "🌍"];
+const DEFAULT_TRIP_ICON = "✈️";
 const COLOR_OPTIONS = [
   "#6366f1", "#8b5cf6", "#ec4899", "#f43f5e", "#f97316",
   "#eab308", "#22c55e", "#10b981", "#14b8a6", "#06b6d4",
@@ -27,7 +28,7 @@ export function AddTripDialog({ open, onOpenChange, onCreated }: AddTripDialogPr
   const [name, setName] = useState("");
   const [goalAmount, setGoalAmount] = useState("");
   const [targetDate, setTargetDate] = useState("");
-  const [selectedIcon, setSelectedIcon] = useState(TRIP_ICON_OPTIONS[0]);
+  const [selectedIcon, setSelectedIcon] = useState(DEFAULT_TRIP_ICON);
   const [selectedColor, setSelectedColor] = useState(COLOR_OPTIONS[0]);
   const [loading, setLoading] = useState(false);
 
@@ -35,7 +36,7 @@ export function AddTripDialog({ open, onOpenChange, onCreated }: AddTripDialogPr
     setName("");
     setGoalAmount("");
     setTargetDate("");
-    setSelectedIcon(TRIP_ICON_OPTIONS[0]);
+    setSelectedIcon(DEFAULT_TRIP_ICON);
     setSelectedColor(COLOR_OPTIONS[0]);
   };
 
@@ -97,20 +98,7 @@ export function AddTripDialog({ open, onOpenChange, onCreated }: AddTripDialogPr
           </div>
           <div className="space-y-2">
             <Label>Icon</Label>
-            <div className="flex gap-2 flex-wrap">
-              {TRIP_ICON_OPTIONS.map((icon) => (
-                <button
-                  key={icon}
-                  type="button"
-                  onClick={() => setSelectedIcon(icon)}
-                  className={`w-10 h-10 rounded-lg border-2 transition-all ${
-                    selectedIcon === icon ? "border-primary bg-accent" : "border-border hover:border-primary/50"
-                  }`}
-                >
-                  <span className="text-xl">{icon}</span>
-                </button>
-              ))}
-            </div>
+            <IconPicker value={selectedIcon} onChange={setSelectedIcon} />
           </div>
           <div className="space-y-2">
             <Label>Color</Label>

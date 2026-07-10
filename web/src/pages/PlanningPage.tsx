@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Button } from "../components/ui/button";
-import { Loader2, Trash2, X, Plus } from "lucide-react";
+import { Switch } from "../components/ui/switch";
+import { IconPicker } from "../components/IconPicker";
+import { Loader2, Trash2, X, Plus, Repeat } from "lucide-react";
 import { toast } from "sonner";
 import { budgetPlansApi, categoriesApi } from "../lib/api-client";
 import type { Category, IncomeItem, BudgetPlan } from "../lib/api-client";
@@ -45,6 +47,7 @@ interface PlanningPageProps {
   onRemoveIncome: (id: string) => Promise<void>;
   onCategoryCreated: (cat: Category) => void;
   onCategoryDeleted: (id: string) => void;
+  onCategoryUpdated: (cat: Category) => void;
   onPlanSaved: (plan: BudgetPlan) => void;
   onPlanDeleted: () => Promise<void>;
   translations: Record<string, string>;
@@ -113,6 +116,7 @@ export function PlanningPage({
   onRemoveIncome,
   onCategoryCreated,
   onCategoryDeleted,
+  onCategoryUpdated,
   onPlanSaved,
   onPlanDeleted,
   translations: t,
@@ -127,7 +131,9 @@ export function PlanningPage({
   const [newIcon, setNewIcon] = useState('🏷️');
   const [newColor, setNewColor] = useState(COLOR_OPTIONS[0]);
   const [newBudget, setNewBudget] = useState('');
+  const [newRepeat, setNewRepeat] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [promotingId, setPromotingId] = useState<string | null>(null);
 
   // Inline income "add" form
   const [incomeSource, setIncomeSource] = useState('');
@@ -190,15 +196,18 @@ export function PlanningPage({
     setAdding(true);
 
     try {
-      const created = await categoriesApi.create({
+      // Repeating categories must omit year/month entirely (create validation rejects nulls);
+      // one-month categories carry the current year/month.
+      const payload = {
         name: newName.trim(),
         icon: newIcon,
         color: newColor,
         budget: 0,
-        year,
-        month,
         excludeFromDashboard: false,
-      });
+        ...(newRepeat ? {} : { year, month }),
+      } as Omit<Category, 'id' | 'spent' | 'net'>;
+
+      const created = await categoriesApi.create(payload);
 
       onCategoryCreated(created);
 
@@ -212,7 +221,7 @@ export function PlanningPage({
           defaultBudget: 0,
           budget: newBudget || '0',
           included: true,
-          isOneMonth: true,
+          isOneMonth: !newRepeat,
         },
       ]);
 
@@ -220,11 +229,28 @@ export function PlanningPage({
       setNewIcon('🏷️');
       setNewColor(COLOR_OPTIONS[0]);
       setNewBudget('');
+      setNewRepeat(false);
       setShowAddForm(false);
     } catch {
       toast.error(t.createCategoryFailed);
     } finally {
       setAdding(false);
+    }
+  };
+
+  const handlePromote = async (categoryId: string) => {
+    setPromotingId(categoryId);
+
+    try {
+      const updated = await categoriesApi.update(categoryId, { year: null, month: null });
+      onCategoryUpdated(updated);
+      setRows((prev) =>
+        prev.map((r) => (r.categoryId === categoryId ? { ...r, isOneMonth: false } : r)),
+      );
+    } catch {
+      toast.error(t.updateCategoryFailed);
+    } finally {
+      setPromotingId(null);
     }
   };
 
@@ -556,14 +582,30 @@ export function PlanningPage({
                 />
 
                 {row.isOneMonth && (
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteOneMonth(row.categoryId)}
-                    className="text-muted-foreground hover:text-destructive transition-colors flex-shrink-0"
-                    aria-label={t.delete}
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handlePromote(row.categoryId)}
+                      disabled={promotingId === row.categoryId}
+                      className="text-muted-foreground hover:text-primary transition-colors flex-shrink-0 disabled:opacity-40"
+                      aria-label={t.makeRepeating}
+                      title={t.makeRepeating}
+                    >
+                      {promotingId === row.categoryId ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Repeat className="w-4 h-4" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteOneMonth(row.categoryId)}
+                      className="text-muted-foreground hover:text-destructive transition-colors flex-shrink-0"
+                      aria-label={t.delete}
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </>
                 )}
               </div>
             ))}
@@ -573,13 +615,7 @@ export function PlanningPage({
           {showAddForm ? (
             <div className="border-t border-border px-5 py-4 bg-muted/10 space-y-3">
               <div className="flex items-center gap-3">
-                <input
-                  type="text"
-                  value={newIcon}
-                  onChange={(e) => setNewIcon(Array.from(e.target.value).slice(-1).join('') || '🏷️')}
-                  className="w-12 text-center text-xl border border-border rounded px-1 py-1 bg-background"
-                  placeholder="🏷️"
-                />
+                <IconPicker value={newIcon} onChange={setNewIcon} ariaLabel={t.chooseIcon} />
                 <input
                   type="text"
                   value={newName}
@@ -596,6 +632,15 @@ export function PlanningPage({
                   className="w-24 border border-border rounded px-2 py-1.5 text-sm bg-background text-foreground text-right"
                 />
               </div>
+
+              {/* Repeat monthly toggle */}
+              <label className="flex items-center gap-2.5 cursor-pointer select-none my-4">
+                <Switch checked={newRepeat} onCheckedChange={setNewRepeat} />
+                <span className="flex items-center gap-1.5 text-sm text-foreground">
+                  <Repeat className="w-3.5 h-3.5 text-muted-foreground" />
+                  {t.repeatMonthly}
+                </span>
+              </label>
               <div className="flex items-center gap-2">
                 {COLOR_OPTIONS.map((c) => (
                   <button
@@ -626,7 +671,7 @@ export function PlanningPage({
                 className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
                 <Plus className="w-4 h-4" />
-                {t.addOneMonthCategory}
+                {t.addCategory}
               </button>
             </div>
           )}
