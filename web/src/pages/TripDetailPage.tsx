@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { UserButton } from "@clerk/clerk-react";
-import { ArrowLeft, Loader2, Plus, X, Check, Pencil, Menu } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, X, Check, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../components/ui/sheet";
+import { SiteHeader } from "../components/SiteHeader";
+import { useAppSettings } from "../hooks/useAppSettings";
 import { EditTripDialog } from "../components/EditTripDialog";
 import { tripsApi } from "../lib/api-client";
 import type { TripDetail, TripPlannedItem, Trip } from "../lib/api-client";
@@ -47,11 +47,11 @@ export default function TripDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { rateToUAH } = useExchangeRates();
+  const { language, toggleLanguage, isDarkMode, toggleTheme, t } = useAppSettings();
   const [trip, setTrip] = useState<TripDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAllTx, setShowAllTx] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [newItemText, setNewItemText] = useState("");
   const [addingItem, setAddingItem] = useState(false);
   const [togglingItem, setTogglingItem] = useState<string | null>(null);
@@ -142,33 +142,14 @@ export default function TripDetailPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-4 py-3 sm:px-6 lg:px-8">
-          <div className="hidden md:flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <img src="/favicon.png" alt="Moneta" className="w-8 h-8 coin-logo cursor-pointer" onClick={() => navigate("/")} />
-              <h1 className="font-semibold text-foreground">Moneta</h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={() => navigate("/")}>Dashboard</Button>
-              <Button variant="outline" onClick={() => navigate("/")}>Expenses</Button>
-              <Button variant="default" onClick={() => navigate("/trips")}>Trips</Button>
-              <UserButton afterSignOutUrl="/sign-in" />
-            </div>
-          </div>
-          <div className="flex md:hidden items-center justify-between">
-            <div className="flex items-center gap-2">
-              <img src="/favicon.png" alt="Moneta" className="w-7 h-7 coin-logo cursor-pointer" onClick={() => navigate("/")} />
-              <span className="font-semibold text-sm text-foreground">Moneta</span>
-            </div>
-            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setMobileMenuOpen(true)}>
-              <Menu className="w-4 h-4" />
-              <span className="sr-only">Open menu</span>
-            </Button>
-          </div>
-        </div>
-      </header>
+      <SiteHeader
+        t={t}
+        language={language}
+        isDarkMode={isDarkMode}
+        onToggleLanguage={toggleLanguage}
+        onToggleTheme={toggleTheme}
+        activeView="trips"
+      />
 
       <EditTripDialog
         open={editDialogOpen}
@@ -176,28 +157,6 @@ export default function TripDetailPage() {
         trip={trip}
         onSaved={handleTripSaved}
       />
-
-      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        <SheetContent side="right" className="w-72 flex flex-col">
-          <SheetHeader>
-            <SheetTitle>Menu</SheetTitle>
-          </SheetHeader>
-          <div className="flex flex-col gap-4 mt-4 px-2 flex-1">
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Navigation</span>
-              <div className="flex flex-col gap-0.5">
-                <Button variant="ghost" className="w-full justify-start" onClick={() => { navigate("/"); setMobileMenuOpen(false); }}>Dashboard</Button>
-                <Button variant="ghost" className="w-full justify-start" onClick={() => { navigate("/"); setMobileMenuOpen(false); }}>Expenses</Button>
-                <Button variant="default" className="w-full justify-start" onClick={() => { navigate("/trips"); setMobileMenuOpen(false); }}>Trips</Button>
-              </div>
-            </div>
-            <div className="mt-auto pt-4 border-t border-border flex items-center gap-3">
-              <UserButton afterSignOutUrl="/sign-in" />
-              <span className="text-sm text-foreground">Account</span>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
 
       <main className="max-w-6xl mx-auto px-4 py-6 sm:px-6 lg:px-8 space-y-6">
         {/* Back + title row */}

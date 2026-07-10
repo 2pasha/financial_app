@@ -1,18 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
-import { UserButton } from "@clerk/clerk-react";
-import { useNavigate, useLocation } from "react-router-dom";
 import { CategoryCard } from "./components/CategoryCard";
 import { AddCategoryDialog } from "./components/AddCategoryDialog";
 import { EditCategoryDialog } from "./components/EditCategoryDialog";
 import { PlanningPage } from "./pages/PlanningPage";
+import { SiteHeader } from "./components/SiteHeader";
+import { useAppSettings } from "./hooks/useAppSettings";
 import { Button } from "./components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./components/ui/alert-dialog";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./components/ui/sheet";
-import { Plus, Moon, Sun, Languages, Loader2, CalendarRange, Menu } from "lucide-react";
-import { type Language, getTranslation } from "./lib/translations";
+import { Plus, Loader2, CalendarRange } from "lucide-react";
+import { type Language } from "./lib/translations";
 import { toast } from "sonner";
-import { IncomeDialog } from "./components/IncomeDialog";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
 import ExpensesPage from "./pages/ExpensesPage";
 import { CategoryTransactionsModal } from "./components/CategoryTransactionsModal";
 import { categoriesApi, incomeApi, budgetPlansApi } from "./lib/api-client";
@@ -80,33 +77,13 @@ function periodEquals(a: Period, b: Period): boolean {
 }
 
 export default function App() {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const { language, toggleLanguage, isDarkMode, toggleTheme, t } = useAppSettings();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [categoryToEdit, setCategoryToEdit] = useState<Category | null>(null);
   const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
 
-  const [language, setLanguage] = useState<Language>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('language');
-
-      return (saved as Language) || 'en';
-    }
-
-    return 'en';
-  });
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('theme');
-
-      return saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-
-    return false;
-  });
-  const t = getTranslation(language);
   const [currency, setCurrency] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('currency') || '₴';
@@ -137,7 +114,6 @@ export default function App() {
     now.toISOString().slice(0, 10),
   );
 
-  const [incomeDialogOpen, setIncomeDialogOpen] = useState(false);
   const [incomeItems, setIncomeItems] = useState<IncomeItem[]>([]);
   const [incomeLoading, setIncomeLoading] = useState(true);
 
@@ -156,7 +132,6 @@ export default function App() {
     return 'dashboard';
   });
 
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const mergedCategories = categories.map((cat) => {
     if (period.kind !== 'month' || !budgetPlan) {
@@ -277,16 +252,6 @@ export default function App() {
   }, [period.kind === 'month' ? period.year : 0, period.kind === 'month' ? period.month : 0, period.kind]);
 
   useEffect(() => {
-    const root = document.documentElement;
-    if (isDarkMode) {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-    localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
-  }, [isDarkMode]);
-
-  useEffect(() => {
     localStorage.setItem('currency', currency);
   }, [currency]);
 
@@ -297,14 +262,6 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('period', JSON.stringify(period));
   }, [period]);
-
-  const toggleTheme = () => setIsDarkMode(!isDarkMode);
-
-  const toggleLanguage = () => {
-    const newLang = language === 'en' ? 'uk' : 'en';
-    setLanguage(newLang);
-    localStorage.setItem('language', newLang);
-  };
 
   const formatAmount = (value: number) => {
     try {
@@ -479,173 +436,15 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-4 py-3 sm:px-6 lg:px-8">
-          {/* Desktop header */}
-          <div className="hidden md:flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <img src="/favicon.png" alt="Moneta" className="w-8 h-8 coin-logo cursor-pointer" />
-              <h1>{t.appTitle}</h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant={view === 'dashboard' && !location.pathname.startsWith('/trips') ? 'default' : 'outline'} onClick={() => setView('dashboard')}>Dashboard</Button>
-              <Button variant={view === 'plan' && !location.pathname.startsWith('/trips') ? 'default' : 'outline'} onClick={openPlanView}>{t.planning}</Button>
-              <Button variant={view === 'expenses' && !location.pathname.startsWith('/trips') ? 'default' : 'outline'} onClick={() => setView('expenses')}>Expenses</Button>
-              <Button variant={location.pathname.startsWith('/trips') ? 'default' : 'outline'} onClick={() => navigate('/trips')}>Trips</Button>
-              <Select value={currency} onValueChange={setCurrency}>
-                <SelectTrigger className="w-[120px]">
-                  <SelectValue placeholder={t.currency} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem value="USD">USD</SelectItem>
-                    <SelectItem value="EUR">EUR</SelectItem>
-                    <SelectItem value="UAH">UAH</SelectItem>
-                    <SelectItem value="GBP">GBP</SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <Button variant="outline" onClick={() => setIncomeDialogOpen(true)}>
-                {incomeLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : t.manageIncomes}
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={toggleLanguage}
-                className="rounded-full"
-              >
-                <Languages className="w-5 h-5" />
-                <span className="sr-only">{language === 'en' ? 'EN' : 'UK'}</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={toggleTheme}
-                className="rounded-full"
-              >
-                {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-              </Button>
-              <UserButton afterSignOutUrl="/sign-in" />
-            </div>
-          </div>
-
-          {/* Mobile header */}
-          <div className="flex md:hidden items-center justify-between">
-            <div className="flex items-center gap-2">
-              <img src="/favicon.png" alt="Moneta" className="w-7 h-7 coin-logo" />
-              <span className="font-semibold text-sm text-foreground">{t.appTitle}</span>
-            </div>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setMobileMenuOpen(true)}
-            >
-              <Menu className="w-4 h-4" />
-              <span className="sr-only">Open menu</span>
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      {/* Mobile menu sheet */}
-      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        <SheetContent side="right" className="w-72 flex flex-col">
-          <SheetHeader>
-            <SheetTitle>Menu</SheetTitle>
-          </SheetHeader>
-          <div className="flex flex-col gap-4 mt-4 px-2 flex-1">
-            {/* Navigation */}
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Navigation</span>
-              <div className="flex flex-col gap-0.5">
-                <Button
-                  variant={view === 'dashboard' && !location.pathname.startsWith('/trips') ? 'default' : 'ghost'}
-                  className="w-full justify-start"
-                  onClick={() => { setView('dashboard'); if (location.pathname.startsWith('/trips')) navigate('/'); setMobileMenuOpen(false); }}
-                >
-                  Dashboard
-                </Button>
-                <Button
-                  variant={view === 'plan' && !location.pathname.startsWith('/trips') ? 'default' : 'ghost'}
-                  className="w-full justify-start"
-                  onClick={() => { openPlanView(); if (location.pathname.startsWith('/trips')) navigate('/'); setMobileMenuOpen(false); }}
-                >
-                  {t.planning}
-                </Button>
-                <Button
-                  variant={view === 'expenses' && !location.pathname.startsWith('/trips') ? 'default' : 'ghost'}
-                  className="w-full justify-start"
-                  onClick={() => { setView('expenses'); if (location.pathname.startsWith('/trips')) navigate('/'); setMobileMenuOpen(false); }}
-                >
-                  Expenses
-                </Button>
-                <Button
-                  variant={location.pathname.startsWith('/trips') ? 'default' : 'ghost'}
-                  className="w-full justify-start"
-                  onClick={() => { navigate('/trips'); setMobileMenuOpen(false); }}
-                >
-                  Trips
-                </Button>
-              </div>
-            </div>
-
-            {/* Settings */}
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Settings</span>
-              <Select value={currency} onValueChange={setCurrency}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={t.currency} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem value="USD">USD</SelectItem>
-                    <SelectItem value="EUR">EUR</SelectItem>
-                    <SelectItem value="UAH">UAH</SelectItem>
-                    <SelectItem value="GBP">GBP</SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-2"
-              onClick={() => { setIncomeDialogOpen(true); setMobileMenuOpen(false); }}
-            >
-              {incomeLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-              {t.manageIncomes}
-            </Button>
-
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={toggleLanguage}
-                className="rounded-full flex-1 h-9"
-              >
-                <Languages className="w-4 h-4" />
-                <span className="ml-1.5 text-sm">{language === 'en' ? 'EN' : 'UK'}</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={toggleTheme}
-                className="rounded-full flex-1 h-9"
-              >
-                {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-                <span className="ml-1.5 text-sm">{isDarkMode ? 'Light' : 'Dark'}</span>
-              </Button>
-            </div>
-
-            {/* Account */}
-            <div className="mt-auto pt-4 border-t border-border flex items-center gap-3">
-              <UserButton afterSignOutUrl="/sign-in" />
-              <span className="text-sm text-foreground">Account</span>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+      <SiteHeader
+        t={t}
+        language={language}
+        isDarkMode={isDarkMode}
+        onToggleLanguage={toggleLanguage}
+        onToggleTheme={toggleTheme}
+        activeView={view}
+        onViewChange={(v) => (v === 'plan' ? openPlanView() : setView(v))}
+      />
 
       <main className="max-w-6xl mx-auto px-4 py-4 sm:py-6 sm:px-6 lg:px-8 pb-28">
         {view === 'expenses' ? (
@@ -897,18 +696,6 @@ export default function App() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <IncomeDialog
-        open={incomeDialogOpen}
-        onOpenChange={setIncomeDialogOpen}
-        items={incomeItems}
-        year={period.kind === 'month' ? period.year : currentMonthPeriod.year}
-        month={period.kind === 'month' ? period.month : currentMonthPeriod.month}
-        onAdd={handleAddIncome}
-        onUpdate={handleUpdateIncome}
-        onRemove={handleRemoveIncome}
-        translations={t}
-      />
 
       {selectedCategory && (
         <CategoryTransactionsModal
