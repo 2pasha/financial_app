@@ -82,6 +82,13 @@ export const translations = {
     add: 'Add',
     deleteCategoryFailed: 'Failed to delete category',
     createCategoryFailed: 'Failed to create category',
+    // Planning view
+    planning: 'Plan',
+    leftToAllocate: 'Left to allocate',
+    overAllocatedBy: 'Over-allocated by',
+    allocated: 'Allocated',
+    allocateSection: 'Allocate',
+    noIncomeYet: 'No income added yet',
     excludeFromDashboard: 'Exclude from dashboard',
     excludeFromDashboardHint: 'Transactions in this category will not count toward actual spent',
   },
@@ -166,6 +173,13 @@ export const translations = {
     add: 'Додати',
     deleteCategoryFailed: 'Не вдалося видалити категорію',
     createCategoryFailed: 'Не вдалося створити категорію',
+    // Planning view
+    planning: 'Планування',
+    leftToAllocate: 'Залишилось розподілити',
+    overAllocatedBy: 'Перевищення розподілу на',
+    allocated: 'Розподілено',
+    allocateSection: 'Розподіл',
+    noIncomeYet: 'Дохід ще не додано',
     excludeFromDashboard: 'Виключити з дашборду',
     excludeFromDashboardHint: 'Транзакції цієї категорії не враховуватимуться в загальних витратах',
   }

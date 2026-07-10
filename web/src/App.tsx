@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { CategoryCard } from "./components/CategoryCard";
 import { AddCategoryDialog } from "./components/AddCategoryDialog";
 import { EditCategoryDialog } from "./components/EditCategoryDialog";
-import { BudgetPlanPanel } from "./components/BudgetPlanPanel";
+import { PlanningPage } from "./pages/PlanningPage";
 import { Button } from "./components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./components/ui/sheet";
@@ -137,8 +137,6 @@ export default function App() {
     now.toISOString().slice(0, 10),
   );
 
-  const [planOpen, setPlanOpen] = useState(false);
-
   const [incomeDialogOpen, setIncomeDialogOpen] = useState(false);
   const [incomeItems, setIncomeItems] = useState<IncomeItem[]>([]);
   const [incomeLoading, setIncomeLoading] = useState(true);
@@ -150,9 +148,9 @@ export default function App() {
   // Budget plan for the currently viewed month (drives dashboard display)
   const [budgetPlan, setBudgetPlan] = useState<BudgetPlan | null>(null);
 
-  const [view, setView] = useState<'dashboard' | 'expenses'>(() => {
+  const [view, setView] = useState<'dashboard' | 'expenses' | 'plan'>(() => {
     if (typeof window !== 'undefined') {
-      return (localStorage.getItem('view') as 'dashboard' | 'expenses') || 'dashboard';
+      return (localStorage.getItem('view') as 'dashboard' | 'expenses' | 'plan') || 'dashboard';
     }
 
     return 'dashboard';
@@ -430,7 +428,16 @@ export default function App() {
 
   const handlePeriodChange = (newPeriod: Period) => {
     setPeriod(newPeriod);
-    setPlanOpen(false);
+  };
+
+  // Planning is month-scoped; opening it from a custom period snaps to the current month.
+  const planYear = period.kind === 'month' ? period.year : currentMonthPeriod.year;
+  const planMonth = period.kind === 'month' ? period.month : currentMonthPeriod.month;
+  const openPlanView = () => {
+    if (period.kind !== 'month') {
+      setPeriod(currentMonthPeriod);
+    }
+    setView('plan');
   };
 
   const handlePlanSaved = (plan: BudgetPlan) => {
@@ -481,8 +488,9 @@ export default function App() {
               <h1>{t.appTitle}</h1>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant={view === 'dashboard' ? 'default' : 'outline'} onClick={() => setView('dashboard')}>Dashboard</Button>
-              <Button variant={view === 'expenses' ? 'default' : 'outline'} onClick={() => setView('expenses')}>Expenses</Button>
+              <Button variant={view === 'dashboard' && !location.pathname.startsWith('/trips') ? 'default' : 'outline'} onClick={() => setView('dashboard')}>Dashboard</Button>
+              <Button variant={view === 'plan' && !location.pathname.startsWith('/trips') ? 'default' : 'outline'} onClick={openPlanView}>{t.planning}</Button>
+              <Button variant={view === 'expenses' && !location.pathname.startsWith('/trips') ? 'default' : 'outline'} onClick={() => setView('expenses')}>Expenses</Button>
               <Button variant={location.pathname.startsWith('/trips') ? 'default' : 'outline'} onClick={() => navigate('/trips')}>Trips</Button>
               <Select value={currency} onValueChange={setCurrency}>
                 <SelectTrigger className="w-[120px]">
@@ -557,6 +565,13 @@ export default function App() {
                   onClick={() => { setView('dashboard'); if (location.pathname.startsWith('/trips')) navigate('/'); setMobileMenuOpen(false); }}
                 >
                   Dashboard
+                </Button>
+                <Button
+                  variant={view === 'plan' && !location.pathname.startsWith('/trips') ? 'default' : 'ghost'}
+                  className="w-full justify-start"
+                  onClick={() => { openPlanView(); if (location.pathname.startsWith('/trips')) navigate('/'); setMobileMenuOpen(false); }}
+                >
+                  {t.planning}
                 </Button>
                 <Button
                   variant={view === 'expenses' && !location.pathname.startsWith('/trips') ? 'default' : 'ghost'}
@@ -635,6 +650,32 @@ export default function App() {
       <main className="max-w-6xl mx-auto px-4 py-4 sm:py-6 sm:px-6 lg:px-8 pb-28">
         {view === 'expenses' ? (
           <ExpensesPage />
+        ) : view === 'plan' ? (
+          <PlanningPage
+            year={planYear}
+            month={planMonth}
+            monthLabel={formatMonthLabel({ kind: 'month', year: planYear, month: planMonth }, language)}
+            months={getLastNMonths(6).map((mp) => ({
+              year: mp.year,
+              month: mp.month,
+              label: formatMonthLabel(mp, language),
+            }))}
+            onSelectMonth={(y, m) => handlePeriodChange({ kind: 'month', year: y, month: m })}
+            categories={categories}
+            incomeItems={incomeItems}
+            incomeLoading={incomeLoading}
+            existingPlan={budgetPlan}
+            safeToSpend={safeToSpend}
+            formatAmount={formatAmount}
+            onAddIncome={handleAddIncome}
+            onUpdateIncome={handleUpdateIncome}
+            onRemoveIncome={handleRemoveIncome}
+            onCategoryCreated={(cat) => setCategories((prev) => [...prev, cat])}
+            onCategoryDeleted={(id) => setCategories((prev) => prev.filter((c) => c.id !== id))}
+            onPlanSaved={handlePlanSaved}
+            onPlanDeleted={handlePlanDeleted}
+            translations={t as unknown as Record<string, string>}
+          />
         ) : (
           <>
             {/* Balance Card */}
@@ -744,32 +785,15 @@ export default function App() {
               <h2 className="text-foreground text-base sm:text-xl">{t.categories}</h2>
               {isMonthPeriod && (
                 <Button
-                  variant={planOpen ? 'default' : 'outline'}
+                  variant="outline"
                   size="sm"
-                  onClick={() => setPlanOpen((prev) => !prev)}
+                  onClick={openPlanView}
                   className="shrink-0 text-xs sm:text-sm"
                 >
                   {t.planBudget}
                 </Button>
               )}
             </div>
-
-            {/* Budget Plan Panel */}
-            {planOpen && isMonthPeriod && period.kind === 'month' && (
-              <BudgetPlanPanel
-                year={period.year}
-                month={period.month}
-                monthLabel={formatMonthLabel(period, language)}
-                categories={categories}
-                existingPlan={budgetPlan}
-                onSaved={handlePlanSaved}
-                onDeleted={handlePlanDeleted}
-                onClose={() => setPlanOpen(false)}
-                onCategoryCreated={(cat) => setCategories((prev) => [...prev, cat])}
-                onCategoryDeleted={(id) => setCategories((prev) => prev.filter((c) => c.id !== id))}
-                translations={t}
-              />
-            )}
 
             {/* Categories Grid */}
             {categoriesLoading ? (
