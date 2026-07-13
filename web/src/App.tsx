@@ -7,7 +7,7 @@ import { SiteHeader } from "./components/SiteHeader";
 import { useAppSettings } from "./hooks/useAppSettings";
 import { Button } from "./components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./components/ui/alert-dialog";
-import { Plus, Loader2, CalendarRange } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import { type Language } from "./lib/translations";
 import { toast } from "sonner";
 import ExpensesPage from "./pages/ExpensesPage";
@@ -16,8 +16,7 @@ import { categoriesApi, incomeApi, budgetPlansApi } from "./lib/api-client";
 import type { Category, IncomeItem, BudgetPlan } from "./lib/api-client";
 
 type MonthPeriod = { kind: 'month'; year: number; month: number };
-type CustomPeriod = { kind: 'custom' };
-type Period = MonthPeriod | CustomPeriod;
+type Period = MonthPeriod;
 
 function getStartOfMonth(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), 1);
@@ -27,11 +26,7 @@ function getEndOfMonth(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
 }
 
-function getPeriodRange(period: Period, customFrom: string, customTo: string): { from: string; to: string } {
-  if (period.kind === 'custom') {
-    return { from: customFrom, to: customTo };
-  }
-
+function getPeriodRange(period: Period): { from: string; to: string } {
   const date = new Date(period.year, period.month - 1, 1);
 
   return {
@@ -51,6 +46,20 @@ function getLastNMonths(n: number): MonthPeriod[] {
 
   for (let i = 0; i < n; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({ kind: 'month', year: d.getFullYear(), month: d.getMonth() + 1 });
+  }
+
+  return months;
+}
+
+// Planning allows a few months ahead as well as past months.
+// Ordered chronologically descending: future → current → past.
+function getPlanningMonths(future = 3, past = 5): MonthPeriod[] {
+  const now = new Date();
+  const months: MonthPeriod[] = [];
+
+  for (let i = future; i >= -past; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
     months.push({ kind: 'month', year: d.getFullYear(), month: d.getMonth() + 1 });
   }
 
@@ -100,19 +109,17 @@ export default function App() {
       const saved = localStorage.getItem('period');
       if (saved) {
         try {
-          return JSON.parse(saved) as Period;
+          const parsed = JSON.parse(saved) as { kind?: string; year?: number; month?: number };
+          // Guard against periods persisted before the custom range was removed.
+          if (parsed.kind === 'month' && typeof parsed.year === 'number' && typeof parsed.month === 'number') {
+            return { kind: 'month', year: parsed.year, month: parsed.month };
+          }
         } catch {}
       }
     }
 
     return currentMonthPeriod;
   });
-  const [customFrom, setCustomFrom] = useState<string>(
-    getStartOfMonth(now).toISOString().slice(0, 10),
-  );
-  const [customTo, setCustomTo] = useState<string>(
-    now.toISOString().slice(0, 10),
-  );
 
   const [incomeItems, setIncomeItems] = useState<IncomeItem[]>([]);
   const [incomeLoading, setIncomeLoading] = useState(true);
@@ -134,7 +141,7 @@ export default function App() {
 
 
   const mergedCategories = categories.map((cat) => {
-    if (period.kind !== 'month' || !budgetPlan) {
+    if (!budgetPlan) {
       return cat;
     }
 
@@ -144,8 +151,7 @@ export default function App() {
   });
 
   // Split categories when a plan exists for the viewed month
-  const isMonthPeriod = period.kind === 'month';
-  const showSplit = isMonthPeriod && budgetPlan !== null;
+  const showSplit = budgetPlan !== null;
 
   const plannedCategoryIds = budgetPlan
     ? new Set(budgetPlan.items.map((i) => i.categoryId))
@@ -154,7 +160,7 @@ export default function App() {
   // A one-month category for the current viewed month is implicitly "planned"
   // even before the user hits Save for the first time.
   const isImplicitlyPlanned = (cat: { year: number | null; month: number | null }) =>
-    period.kind === 'month' && cat.year === period.year && cat.month === period.month;
+    cat.year === period.year && cat.month === period.month;
 
   const plannedCategories = plannedCategoryIds
     ? mergedCategories.filter((c) => plannedCategoryIds.has(c.id) || isImplicitlyPlanned(c))
@@ -178,7 +184,6 @@ export default function App() {
 
   const heroNow = new Date();
   const isCurrentMonth =
-    period.kind === 'month' &&
     period.year === heroNow.getFullYear() &&
     period.month === heroNow.getMonth() + 1;
   const daysInMonth = new Date(heroNow.getFullYear(), heroNow.getMonth() + 1, 0).getDate();
@@ -195,38 +200,33 @@ export default function App() {
           ? 'bg-amber-500'
           : 'bg-red-400';
 
-  const dateRange = getPeriodRange(period, customFrom, customTo);
+  const dateRange = getPeriodRange(period);
 
   const fetchCategories = useCallback(async () => {
     setCategoriesLoading(true);
 
     try {
-      const calendarParams = period.kind === 'month'
-        ? { calendarYear: period.year, calendarMonth: period.month }
-        : {};
-      const data = await categoriesApi.getAll({ ...dateRange, ...calendarParams });
+      const data = await categoriesApi.getAll({
+        ...dateRange,
+        calendarYear: period.year,
+        calendarMonth: period.month,
+      });
       setCategories(data);
     } catch {
       toast.error('Failed to load categories');
     } finally {
       setCategoriesLoading(false);
     }
-  }, [dateRange.from, dateRange.to, period.kind === 'month' ? period.year : 0, period.kind === 'month' ? period.month : 0, period.kind]);
+  }, [dateRange.from, dateRange.to, period.year, period.month]);
 
   const fetchBudgetPlan = useCallback(async () => {
-    if (period.kind !== 'month') {
-      setBudgetPlan(null);
-
-      return;
-    }
-
     try {
       const plan = await budgetPlansApi.getForMonth(period.year, period.month);
       setBudgetPlan(plan);
     } catch {
       setBudgetPlan(null);
     }
-  }, [period.kind === 'month' ? period.year : 0, period.kind === 'month' ? period.month : 0, period.kind]);
+  }, [period.year, period.month]);
 
   useEffect(() => {
     fetchCategories();
@@ -237,19 +237,12 @@ export default function App() {
   }, [fetchBudgetPlan]);
 
   useEffect(() => {
-    if (period.kind !== 'month') {
-      setIncomeItems([]);
-      setIncomeLoading(false);
-
-      return;
-    }
-
     setIncomeLoading(true);
     incomeApi.getAll({ year: period.year, month: period.month })
       .then(setIncomeItems)
       .catch(() => toast.error('Failed to load income'))
       .finally(() => setIncomeLoading(false));
-  }, [period.kind === 'month' ? period.year : 0, period.kind === 'month' ? period.month : 0, period.kind]);
+  }, [period.year, period.month]);
 
   useEffect(() => {
     localStorage.setItem('currency', currency);
@@ -339,7 +332,7 @@ export default function App() {
 
       // When a budget plan is active and this category has a plan line item, sync the
       // plan budget too so the card immediately reflects the new amount.
-      if (budgetPlan && period.kind === 'month') {
+      if (budgetPlan) {
         const inPlan = budgetPlan.items.some((i) => i.categoryId === updatedCategory.id);
         if (inPlan) {
           const updatedItems = budgetPlan.items.map((item) => ({
@@ -387,13 +380,9 @@ export default function App() {
     setPeriod(newPeriod);
   };
 
-  // Planning is month-scoped; opening it from a custom period snaps to the current month.
-  const planYear = period.kind === 'month' ? period.year : currentMonthPeriod.year;
-  const planMonth = period.kind === 'month' ? period.month : currentMonthPeriod.month;
+  const planYear = period.year;
+  const planMonth = period.month;
   const openPlanView = () => {
-    if (period.kind !== 'month') {
-      setPeriod(currentMonthPeriod);
-    }
     setView('plan');
   };
 
@@ -454,7 +443,7 @@ export default function App() {
             year={planYear}
             month={planMonth}
             monthLabel={formatMonthLabel({ kind: 'month', year: planYear, month: planMonth }, language)}
-            months={getLastNMonths(6).map((mp) => ({
+            months={getPlanningMonths().map((mp) => ({
               year: mp.year,
               month: mp.month,
               label: formatMonthLabel(mp, language),
@@ -551,48 +540,20 @@ export default function App() {
                     {formatMonthLabel(mp, language)}
                   </Button>
                 ))}
-                <Button
-                  variant={period.kind === 'custom' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => handlePeriodChange({ kind: 'custom' })}
-                  className="shrink-0 text-xs sm:text-sm"
-                >
-                  <CalendarRange className="w-3.5 h-3.5 mr-1.5" />
-                  {t.custom}
-                </Button>
               </div>
-              {period.kind === 'custom' && (
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mt-2">
-                  <input
-                    type="date"
-                    value={customFrom}
-                    onChange={(e) => setCustomFrom(e.target.value)}
-                    className="w-full sm:w-auto border border-border rounded px-2 py-1.5 text-sm bg-background text-foreground"
-                  />
-                  <span className="text-muted-foreground text-sm hidden sm:inline">—</span>
-                  <input
-                    type="date"
-                    value={customTo}
-                    onChange={(e) => setCustomTo(e.target.value)}
-                    className="w-full sm:w-auto border border-border rounded px-2 py-1.5 text-sm bg-background text-foreground"
-                  />
-                </div>
-              )}
             </div>
 
             {/* Categories Section Header */}
             <div className="mb-4 flex items-center justify-between gap-2">
               <h2 className="text-foreground text-base sm:text-xl">{t.categories}</h2>
-              {isMonthPeriod && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={openPlanView}
-                  className="shrink-0 text-xs sm:text-sm"
-                >
-                  {t.planBudget}
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={openPlanView}
+                className="shrink-0 text-xs sm:text-sm"
+              >
+                {t.planBudget}
+              </Button>
             </div>
 
             {/* Categories Grid */}
