@@ -7,11 +7,12 @@ import { SiteHeader } from "./components/SiteHeader";
 import { useAppSettings } from "./hooks/useAppSettings";
 import { Button } from "./components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./components/ui/alert-dialog";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, Sparkles } from "lucide-react";
 import { type Language } from "./lib/translations";
 import { toast } from "sonner";
 import ExpensesPage from "./pages/ExpensesPage";
 import { CategoryTransactionsModal } from "./components/CategoryTransactionsModal";
+import { AiAnalysisDialog } from "./components/AiAnalysisDialog";
 import { categoriesApi, incomeApi, budgetPlansApi } from "./lib/api-client";
 import type { Category, IncomeItem, BudgetPlan } from "./lib/api-client";
 
@@ -88,6 +89,7 @@ function periodEquals(a: Period, b: Period): boolean {
 export default function App() {
   const { language, toggleLanguage, isDarkMode, toggleTheme, t } = useAppSettings();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [categoryToEdit, setCategoryToEdit] = useState<Category | null>(null);
@@ -546,14 +548,25 @@ export default function App() {
             {/* Categories Section Header */}
             <div className="mb-4 flex items-center justify-between gap-2">
               <h2 className="text-foreground text-base sm:text-xl">{t.categories}</h2>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={openPlanView}
-                className="shrink-0 text-xs sm:text-sm"
-              >
-                {t.planBudget}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setAiDialogOpen(true)}
+                  className="shrink-0 text-xs sm:text-sm"
+                >
+                  <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                  {t.analyzeWithAi}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={openPlanView}
+                  className="shrink-0 text-xs sm:text-sm"
+                >
+                  {t.planBudget}
+                </Button>
+              </div>
             </div>
 
             {/* Categories Grid */}
@@ -625,6 +638,16 @@ export default function App() {
       >
         <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
       </Button>
+
+      <AiAnalysisDialog
+        open={aiDialogOpen}
+        onOpenChange={setAiDialogOpen}
+        period={{ year: period.year, month: period.month }}
+        language={language}
+        currency={currency}
+        monthLabel={(year, month) => formatMonthLabel({ kind: 'month', year, month }, language)}
+        translations={t}
+      />
 
       <AddCategoryDialog
         open={dialogOpen}

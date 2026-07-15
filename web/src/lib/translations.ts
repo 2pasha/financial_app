@@ -95,6 +95,20 @@ export const translations = {
     updateCategoryFailed: 'Failed to update category',
     excludeFromDashboard: 'Exclude from dashboard',
     excludeFromDashboardHint: 'Transactions in this category will not count toward actual spent',
+    // AI analysis export
+    analyzeWithAi: 'Analyze with AI',
+    aiDialogTitle: 'Analyze with AI',
+    aiDialogDescription: 'Copy your financial snapshot and paste it into any AI chat (ChatGPT, Claude, Gemini) to get analysis and advice.',
+    aiMonthsToInclude: 'Months to include',
+    aiIncludeIncome: 'Include income',
+    aiCopy: 'Copy',
+    aiCopied: 'Copied! Paste it into your AI chat',
+    aiCopyFailed: 'Failed to copy',
+    aiOpenIn: 'Open in',
+    aiTooLongForLink: 'Too much data for a direct link — use Copy instead',
+    aiLoadFailed: 'Failed to load data for AI analysis',
+    aiGeminiBanner: 'Prompt copied! Gemini doesn\'t support pre-filled links, so after it opens, paste the prompt (⌘V / Ctrl+V) into the message box.',
+    aiOpenGemini: 'Open Gemini',
   },
   uk: {
     appTitle: 'Облік Бюджету',
@@ -190,6 +204,20 @@ export const translations = {
     updateCategoryFailed: 'Не вдалося оновити категорію',
     excludeFromDashboard: 'Виключити з дашборду',
     excludeFromDashboardHint: 'Транзакції цієї категорії не враховуватимуться в загальних витратах',
+    // AI analysis export
+    analyzeWithAi: 'AI-аналіз',
+    aiDialogTitle: 'Аналіз фінансів з AI',
+    aiDialogDescription: 'Скопіюйте свій фінансовий звіт і вставте його в будь-який AI-чат (ChatGPT, Claude, Gemini), щоб отримати аналіз та поради.',
+    aiMonthsToInclude: 'Місяці для експорту',
+    aiIncludeIncome: 'Включити доходи',
+    aiCopy: 'Копіювати',
+    aiCopied: 'Скопійовано! Вставте у ваш AI-чат',
+    aiCopyFailed: 'Не вдалося скопіювати',
+    aiOpenIn: 'Відкрити в',
+    aiTooLongForLink: 'Забагато даних для прямого посилання — скористайтеся кнопкою «Копіювати»',
+    aiLoadFailed: 'Не вдалося завантажити дані для AI-аналізу',
+    aiGeminiBanner: 'Промпт скопійовано! Gemini не підтримує попередньо заповнені посилання, тому після відкриття вставте промпт (⌘V / Ctrl+V) у поле повідомлення.',
+    aiOpenGemini: 'Відкрити Gemini',
   }
 };
 
