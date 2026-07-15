@@ -629,16 +629,6 @@ export default function App() {
         )}
       </main>
 
-      {/* Floating Add Button */}
-      <Button
-        onClick={() => setDialogOpen(true)}
-        className="fixed bottom-6 right-4 sm:right-6 rounded-full w-12 h-12 sm:w-14 sm:h-14 shadow-lg hover:shadow-xl transition-shadow z-30"
-        style={{ bottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))' }}
-        size="icon"
-      >
-        <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
-      </Button>
-
       <AiAnalysisDialog
         open={aiDialogOpen}
         onOpenChange={setAiDialogOpen}
