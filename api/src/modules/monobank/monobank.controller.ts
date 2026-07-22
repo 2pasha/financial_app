@@ -77,11 +77,21 @@ export class MonobankController {
   @Post('sync')
   @UseGuards(ClerkAuthGuard)
   @HttpCode(HttpStatus.ACCEPTED)
-  async syncTransactions(@CurrentUser() user: CurrentUserData) {
+  async syncTransactions(
+    @CurrentUser() user: CurrentUserData,
+    @Query('days') days?: string,
+  ) {
     const jobId = crypto.randomUUID();
 
+    // Default to the full 90-day history; the initial onboarding sync passes a
+    // smaller window (e.g. 31 days) so the first run finishes quickly.
+    const parsed = days ? parseInt(days, 10) : NaN;
+    const daysBack = Number.isFinite(parsed)
+      ? Math.min(Math.max(parsed, 1), 365)
+      : 90;
+
     this.syncJobStore.create(jobId);
-    void this.monobankService.syncTransactionsBackground(user.clerkId, jobId);
+    void this.monobankService.syncTransactionsBackground(user.clerkId, jobId, daysBack);
 
     return { jobId };
   }

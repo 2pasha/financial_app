@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { monobankApi, categoriesApi, transactionsApi, tripsApi } from "../lib/api-client";
 import { useExchangeRates } from "../hooks/useExchangeRates";
-import type { Category, Transaction, Trip } from "../lib/api-client";
+import type { Category, Transaction, Trip, SyncJob } from "../lib/api-client";
 import { AddTokenModal } from "../components/monobank/AddTokenModal";
 import { SortableTableHead } from "../components/monobank/SortableTableHead";
 import { MultiSelectFilter } from "../components/monobank/MultiSelectFilter";
@@ -12,6 +12,7 @@ import { CreateTransactionDialog } from "../components/CreateTransactionDialog";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Progress } from "../components/ui/progress";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
@@ -110,6 +111,9 @@ function formatCardType(accountType: string, accountId: string): string {
 
 const UAH_CODE = 980;
 
+// Persisted so a page reload can reconnect to an in-flight background sync.
+const SYNC_JOB_KEY = 'monobankSyncJobId';
+
 export default function ExpensesPage() {
   const { rateToUAH } = useExchangeRates();
   const [tokenStatus, setTokenStatus] = useState<{
@@ -122,6 +126,7 @@ export default function ExpensesPage() {
   const [showTokenModal, setShowTokenModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [syncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<SyncJob | null>(null);
   const [refetching, setRefetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [txns, setTxns] = useState<MonoTxn[]>([]);
@@ -166,6 +171,15 @@ export default function ExpensesPage() {
     checkStatus();
   }, []);
 
+  // Reconnect to an in-flight sync after a page reload (the job runs server-side).
+  useEffect(() => {
+    const storedJobId = localStorage.getItem(SYNC_JOB_KEY);
+    if (storedJobId) {
+      void pollSyncJob(storedJobId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const checkStatus = async () => {
     setLoading(true);
     try {
@@ -196,21 +210,61 @@ export default function ExpensesPage() {
     }
   };
 
+  // Polls a background sync job to completion, driving the progress UI. Used both
+  // right after saving a token and when reconnecting to a job after a page reload.
+  const pollSyncJob = async (jobId: string) => {
+    setIsSyncing(true);
+
+    try {
+      let job: SyncJob;
+      do {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        job = await monobankApi.getSyncStatus(jobId);
+        setSyncProgress(job);
+      } while (job.status === 'pending' || job.status === 'running');
+
+      if (job.status === 'completed') {
+        toast.success(`Synced ${job.transactionsCount} transactions!`);
+        await checkStatus();
+      } else {
+        const message = job.error || 'Sync failed';
+        toast.error(message);
+        setError(message);
+      }
+    } catch (err: any) {
+      // A 404 means the job is no longer tracked (e.g. the API restarted mid-sync).
+      // Just refresh with whatever landed rather than showing a scary error.
+      if (err?.response?.status === 404) {
+        await checkStatus();
+      } else {
+        setError(err?.message ?? 'Lost track of the sync job');
+      }
+    } finally {
+      setIsSyncing(false);
+      setSyncProgress(null);
+      localStorage.removeItem(SYNC_JOB_KEY);
+    }
+  };
+
   const handleTokenSaved = async () => {
     setShowTokenModal(false);
     setIsSyncing(true);
-    
+    setError(null);
+
     try {
-      toast.info('Starting initial sync...', { duration: 2000 });
-      const result = await monobankApi.syncTransactions();
-      toast.success(`Synced ${result.transactionsCount} transactions!`);
-      
-      await checkStatus();
+      toast.info('Starting initial sync…', { duration: 2000 });
+      // Initial onboarding sync: last 31 days only, so the first run needs ~one
+      // request per account instead of the full 3-month history (much faster).
+      // POST /monobank/sync returns a jobId immediately; the real work runs in a
+      // background job we then poll. Persist the jobId so a reload can reconnect.
+      const { jobId } = await monobankApi.syncTransactions(31);
+      localStorage.setItem(SYNC_JOB_KEY, jobId);
+      await pollSyncJob(jobId);
     } catch (err: any) {
       toast.error('Sync failed: ' + err.message);
       setError(err.message);
-    } finally {
       setIsSyncing(false);
+      localStorage.removeItem(SYNC_JOB_KEY);
     }
   };
 
@@ -565,12 +619,26 @@ export default function ExpensesPage() {
     return (
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-col items-center justify-center py-12">
-            <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Syncing Your Transactions</h3>
+          <div className="flex flex-col items-center justify-center gap-4 py-12">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <h3 className="text-lg font-semibold">Syncing Your Transactions</h3>
             <p className="text-muted-foreground text-center max-w-md">
-              This may take several minutes due to Monobank API rate limits.
-              Please don't close this page.
+              {syncProgress?.message ||
+                "This may take several minutes due to Monobank API rate limits. Please don't close this page."}
+            </p>
+            {syncProgress && syncProgress.totalAccounts > 0 && (
+              <div className="w-full max-w-md space-y-1">
+                <Progress
+                  value={(syncProgress.currentAccount / syncProgress.totalAccounts) * 100}
+                />
+                <p className="text-xs text-muted-foreground text-center">
+                  {syncProgress.currentAccount} of {syncProgress.totalAccounts} accounts
+                  {syncProgress.transactionsCount > 0 && ` · ${syncProgress.transactionsCount} transactions`}
+                </p>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground text-center max-w-md">
+              Monobank limits requests to one per minute, so this runs in the background — you can safely leave and come back.
             </p>
           </div>
         </CardContent>
