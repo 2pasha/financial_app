@@ -41,7 +41,7 @@ export const translations = {
     placeholderSpent: 'e.g., 234',
   },
   uk: {
-    appTitle: 'Облік Бюджету',
+    appTitle: 'Монета',
     totalBalance: 'Загальний Баланс',
     budget: 'Бюджет',
     spent: 'Витрачено',
