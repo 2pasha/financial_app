@@ -351,7 +351,7 @@ export class MonobankService {
   /**
    * Fire-and-forget sync that reports progress to SyncJobStore
    */
-  async syncTransactionsBackground(clerkId: string, jobId: string): Promise<void> {
+  async syncTransactionsBackground(clerkId: string, jobId: string, daysBack = 90): Promise<void> {
     try {
       const user = await this.prisma.user.findUnique({
         where: { clerkId },
@@ -406,8 +406,8 @@ export class MonobankService {
       const otherCategoryId = otherCategory?.id ?? categories[0]?.id ?? '';
 
       const now = Math.floor(Date.now() / 1000);
-      const threeMonthsAgo = now - 90 * 24 * 60 * 60;
-      const dateRanges = this.splitIntoChunks(threeMonthsAgo, now, 31);
+      const windowStart = now - daysBack * 24 * 60 * 60;
+      const dateRanges = this.splitIntoChunks(windowStart, now, 31);
 
       let totalTransactions = 0;
 

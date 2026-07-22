@@ -173,8 +173,12 @@ export const monobankApi = {
     return response.data;
   },
 
-  async syncTransactions(): Promise<{ jobId: string }> {
-    const response = await apiClient.post<{ jobId: string }>('/monobank/sync');
+  async syncTransactions(days?: number): Promise<{ jobId: string }> {
+    // Pass `undefined` (not `null`) as the body: a bare `null` gets serialized
+    // into the request body and rejected by the server's strict JSON parser.
+    const response = await apiClient.post<{ jobId: string }>('/monobank/sync', undefined, {
+      params: days ? { days } : undefined,
+    });
 
     return response.data;
   },
