@@ -114,7 +114,17 @@ const UAH_CODE = 980;
 // Persisted so a page reload can reconnect to an in-flight background sync.
 const SYNC_JOB_KEY = 'monobankSyncJobId';
 
-export default function ExpensesPage() {
+interface ExpensesPageProps {
+  /** When true, open the New Transaction dialog once on mount (welcome-flow "Add manually"). */
+  autoOpenCreate?: boolean;
+  /** Called after the auto-open signal is consumed so the parent can reset it. */
+  onAutoOpenCreateConsumed?: () => void;
+}
+
+export default function ExpensesPage({
+  autoOpenCreate = false,
+  onAutoOpenCreateConsumed,
+}: ExpensesPageProps = {}) {
   const { rateToUAH } = useExchangeRates();
   const [tokenStatus, setTokenStatus] = useState<{
     hasToken: boolean;
@@ -272,6 +282,16 @@ export default function ExpensesPage() {
   const [selectedTx, setSelectedTx] = useState<MonoTxn | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+
+  // Honor the welcome-flow "Add manually" signal exactly once.
+  const autoOpenHandled = useRef(false);
+  useEffect(() => {
+    if (autoOpenCreate && !autoOpenHandled.current) {
+      autoOpenHandled.current = true;
+      setCreateDialogOpen(true);
+      onAutoOpenCreateConsumed?.();
+    }
+  }, [autoOpenCreate, onAutoOpenCreateConsumed]);
 
   // Inline category editing state
   // categoryCache stores category lists keyed by "YYYY-M" (month of the transaction)
