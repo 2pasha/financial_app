@@ -41,6 +41,7 @@ interface AiAnalysisDialogProps {
     aiLoadFailed: string;
     aiGeminiBanner: string;
     aiOpenGemini: string;
+    aiScopeDisclosure: string;
   };
 }
 
@@ -214,6 +215,8 @@ export function AiAnalysisDialog({
               {t.aiIncludeIncome}
             </Label>
           </div>
+
+          <p className="text-xs text-muted-foreground">{t.aiScopeDisclosure}</p>
 
           {loading && !promptText ? (
             <div className="flex justify-center py-10">

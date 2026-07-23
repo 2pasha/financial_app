@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { UserButton } from "@clerk/clerk-react";
-import { Moon, Sun, Languages, Menu } from "lucide-react";
+import { Moon, Sun, Languages, Menu, HelpCircle } from "lucide-react";
 import { Button } from "./ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet";
 import { type Language, getTranslation } from "../lib/translations";
@@ -22,6 +22,11 @@ interface SiteHeaderProps {
    * navigation. When absent (trip pages), selecting a view routes back to `/`.
    */
   onViewChange?: (v: NavView) => void;
+  /**
+   * Re-triggers the welcome flow. Only the dashboard passes this, so the "?"
+   * button renders there and not on trip/monobank pages.
+   */
+  onShowWelcome?: () => void;
 }
 
 export function SiteHeader({
@@ -32,6 +37,7 @@ export function SiteHeader({
   onToggleTheme,
   activeView,
   onViewChange,
+  onShowWelcome,
 }: SiteHeaderProps) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -84,6 +90,17 @@ export function SiteHeader({
                   {item.label}
                 </Button>
               ))}
+              {onShowWelcome && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={onShowWelcome}
+                  className="rounded-full"
+                  aria-label="Help"
+                >
+                  <HelpCircle className="w-5 h-5" />
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="icon"
@@ -152,6 +169,20 @@ export function SiteHeader({
                 ))}
               </div>
             </div>
+
+            {onShowWelcome && (
+              <Button
+                variant="outline"
+                className="w-full justify-start h-9"
+                onClick={() => {
+                  onShowWelcome();
+                  setMobileMenuOpen(false);
+                }}
+              >
+                <HelpCircle className="w-4 h-4" />
+                <span className="ml-1.5 text-sm">Show welcome tour</span>
+              </Button>
+            )}
 
             <div className="flex gap-2">
               <Button

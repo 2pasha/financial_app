@@ -6,10 +6,12 @@ import { Label } from "./ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Badge } from "./ui/badge";
-import { Loader2, Trash2 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
+import { Loader2, Trash2, Info } from "lucide-react";
 import { toast } from "sonner";
 import { transactionsApi, categoriesApi } from "../lib/api-client";
 import type { Transaction, Category } from "../lib/api-client";
+import { useAppSettings } from "../hooks/useAppSettings";
 
 interface TransactionDrawerProps {
   transaction: Transaction | null;
@@ -44,6 +46,7 @@ export function TransactionDrawer({
   onUpdate,
   onDelete,
 }: TransactionDrawerProps) {
+  const { t } = useAppSettings();
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState("");
@@ -164,7 +167,21 @@ export function TransactionDrawer({
 
                 {transaction.mcc && (
                   <div className="space-y-1">
-                    <Label className="text-muted-foreground text-xs">MCC</Label>
+                    <div className="flex items-center gap-1.5">
+                      <Label className="text-muted-foreground text-xs">MCC</Label>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            className="text-muted-foreground hover:text-foreground transition-colors"
+                            aria-label={t.mccTooltip}
+                          >
+                            <Info className="w-3.5 h-3.5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">{t.mccTooltip}</TooltipContent>
+                      </Tooltip>
+                    </div>
                     <p className="text-sm">{transaction.mcc}</p>
                   </div>
                 )}

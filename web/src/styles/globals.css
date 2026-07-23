@@ -206,6 +206,28 @@ html {
   animation: coin-spin 0.8s ease-in-out;
 }
 
+/* Welcome-flow step transition: fade + slight slide as each step mounts */
+@keyframes welcome-step-in {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.welcome-step-enter {
+  animation: welcome-step-in 280ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome-step-enter {
+    animation: none;
+  }
+}
+
 /* Hide scrollbars while keeping scroll behaviour */
 .no-scrollbar {
   scrollbar-width: none;

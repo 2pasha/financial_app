@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
+import { useUser } from "@clerk/clerk-react";
 import { CategoryCard } from "./components/CategoryCard";
 import { AddCategoryDialog } from "./components/AddCategoryDialog";
+import { WelcomeFlow } from "./components/WelcomeFlow";
 import { EditCategoryDialog } from "./components/EditCategoryDialog";
 import { PlanningPage } from "./pages/PlanningPage";
 import { SiteHeader } from "./components/SiteHeader";
@@ -88,6 +90,31 @@ function periodEquals(a: Period, b: Period): boolean {
 
 export default function App() {
   const { language, toggleLanguage, isDarkMode, toggleTheme, t } = useAppSettings();
+  const { user, isLoaded } = useUser();
+
+  // One-time welcome flow. `welcomeDismissed` hides it instantly without waiting on the
+  // Clerk metadata round-trip; `welcomeManualOpen` re-triggers it from the header "?".
+  const [welcomeDismissed, setWelcomeDismissed] = useState(false);
+  const [welcomeManualOpen, setWelcomeManualOpen] = useState(false);
+  const onboardingCompleted = user?.unsafeMetadata?.onboardingCompleted === true;
+  const showWelcome =
+    (isLoaded && !!user && !onboardingCompleted && !welcomeDismissed) || welcomeManualOpen;
+
+  const completeOnboarding = async () => {
+    setWelcomeDismissed(true);
+    setWelcomeManualOpen(false);
+    try {
+      await user?.update({
+        unsafeMetadata: { ...user.unsafeMetadata, onboardingCompleted: true },
+      });
+    } catch {
+      // Non-fatal: the local dismissal already hid the flow for this session.
+    }
+  };
+
+  // One-shot signal to auto-open the New Transaction dialog after "Add manually".
+  const [autoOpenCreate, setAutoOpenCreate] = useState(false);
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -435,11 +462,15 @@ export default function App() {
         onToggleTheme={toggleTheme}
         activeView={view}
         onViewChange={(v) => (v === 'plan' ? openPlanView() : setView(v))}
+        onShowWelcome={() => setWelcomeManualOpen(true)}
       />
 
       <main className="max-w-6xl mx-auto px-4 py-4 sm:py-6 sm:px-6 lg:px-8 pb-28">
         {view === 'expenses' ? (
-          <ExpensesPage />
+          <ExpensesPage
+            autoOpenCreate={autoOpenCreate}
+            onAutoOpenCreateConsumed={() => setAutoOpenCreate(false)}
+          />
         ) : view === 'plan' ? (
           <PlanningPage
             year={planYear}
@@ -578,7 +609,8 @@ export default function App() {
               <>
                 {categories.length === 0 ? (
                   <div className="text-center py-12">
-                    <p className="text-muted-foreground mb-4">{t.noCategoriesYet}</p>
+                    <p className="text-muted-foreground mb-1">{t.noCategoriesYet}</p>
+                    <p className="text-muted-foreground text-sm mb-4 max-w-md mx-auto">{t.dashboardEmptyHint}</p>
                     <Button onClick={() => setDialogOpen(true)}>
                       <Plus className="w-4 h-4 mr-2" />
                       {t.addFirstCategory}
@@ -628,6 +660,21 @@ export default function App() {
           </>
         )}
       </main>
+
+      <WelcomeFlow
+        open={showWelcome}
+        onComplete={completeOnboarding}
+        onConnectMonobank={() => {
+          // Expenses auto-opens the token modal for a user with no token yet
+          // (ExpensesPage.checkStatus), so switching the view is enough.
+          setView('expenses');
+        }}
+        onAddManually={() => {
+          setView('expenses');
+          setAutoOpenCreate(true);
+        }}
+        onAddCategory={() => setDialogOpen(true)}
+      />
 
       <AiAnalysisDialog
         open={aiDialogOpen}
