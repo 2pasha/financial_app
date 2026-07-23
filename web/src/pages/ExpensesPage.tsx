@@ -17,8 +17,17 @@ import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
-import { Loader2, RefreshCw, AlertCircle, DollarSign, ChevronLeft, ChevronRight, Webhook, Plus } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu";
+import { Loader2, RefreshCw, AlertCircle, DollarSign, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Webhook, Plus, MoreVertical } from "lucide-react";
 import { toast } from "sonner";
+import { useAppSettings } from "../hooks/useAppSettings";
 
 type MonoTxn = Transaction;
 
@@ -121,10 +130,65 @@ interface ExpensesPageProps {
   onAutoOpenCreateConsumed?: () => void;
 }
 
+/** Collapsible "How to use Expenses" help panel — mirrors the TripsTip pattern.
+ *  Collapsed by default, always accessible (shown in both empty and populated states). */
+function ExpensesTip() {
+  const { t } = useAppSettings();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="rounded-xl border border-border bg-card mb-4 overflow-hidden">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-muted/40 transition-colors"
+      >
+        <span className="text-sm font-medium text-foreground flex items-center gap-2">
+          <span>💡</span> {t.expensesTipTitle}
+        </span>
+        {open ? (
+          <ChevronUp className="w-4 h-4 text-muted-foreground" />
+        ) : (
+          <ChevronDown className="w-4 h-4 text-muted-foreground" />
+        )}
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 space-y-4 text-sm text-muted-foreground border-t border-border pt-3">
+          <p>{t.expensesTipIntro}</p>
+
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-foreground">
+              {t.expensesTipAddTitle}
+            </p>
+            <ul className="space-y-1 list-none">
+              <li className="flex gap-2">
+                <span className="text-green-600 shrink-0">+</span>
+                {t.expensesTipSync}
+              </li>
+              <li className="flex gap-2">
+                <span className="text-green-600 shrink-0">+</span>
+                {t.expensesTipManual}
+              </li>
+            </ul>
+          </div>
+
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-foreground">
+              {t.expensesTipCategoryTitle}
+            </p>
+            <p>{t.expensesTipCategory}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ExpensesPage({
   autoOpenCreate = false,
   onAutoOpenCreateConsumed,
 }: ExpensesPageProps = {}) {
+  const { t } = useAppSettings();
   const { rateToUAH } = useExchangeRates();
   const [tokenStatus, setTokenStatus] = useState<{
     hasToken: boolean;
@@ -670,6 +734,7 @@ export default function ExpensesPage({
     <>
       <AddTokenModal
         open={showTokenModal}
+        onOpenChange={setShowTokenModal}
         onSuccess={handleTokenSaved}
       />
 
@@ -688,6 +753,7 @@ export default function ExpensesPage({
       />
 
       <div>
+        <ExpensesTip />
         <Card>
           <CardHeader className="pb-3">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -703,79 +769,85 @@ export default function ExpensesPage({
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                {/* Primary action — this is what users come to this page to do */}
                 <Button
                   onClick={() => setCreateDialogOpen(true)}
                   size="sm"
                   className="gap-2"
                 >
                   <Plus className="h-4 w-4" />
-                  <span className="hidden sm:inline">New Transaction</span>
-                  <span className="sm:hidden">New</span>
+                  <span className="hidden sm:inline">{t.newTransaction}</span>
+                  <span className="sm:hidden">{t.newTransactionShort}</span>
                 </Button>
-                {webhookStatus === 'running' ? (
-                  <Badge
-                    variant="outline"
-                    className="py-2 gap-1.5 border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-400"
-                  >
-                    <span className="h-2 w-2 rounded-full bg-green-500" />
-                    <span className="hidden sm:inline">Webhook running</span>
-                    <span className="sm:hidden">Running</span>
-                  </Badge>
-                ) : webhookStatus === 'stopped' ? (
-                  <div className="flex items-center gap-2">
-                    <Badge variant="destructive" className="gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-current" />
-                      <span className="hidden sm:inline">Webhook stopped</span>
-                      <span className="sm:hidden">Stopped</span>
-                    </Badge>
+
+                {/* Technical Monobank actions live in an overflow menu so the page
+                    stays focused on transactions. A dot on the trigger surfaces the
+                    only state that needs attention (sync stopped). */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
                     <Button
-                      onClick={handleConnectWebhook}
-                      disabled={webhookConnecting}
                       size="sm"
                       variant="outline"
-                      className="gap-2"
+                      className="relative gap-1 px-2"
+                      aria-label={t.monobankOptions}
                     >
-                      {webhookConnecting ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Webhook className="h-4 w-4" />
+                      <MoreVertical className="h-4 w-4" />
+                      {webhookStatus === 'stopped' && (
+                        <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />
                       )}
-                      <span className="hidden sm:inline">Reconnect</span>
-                      <span className="sm:hidden">Reconnect</span>
                     </Button>
-                  </div>
-                ) : (
-                  <Button
-                    onClick={handleConnectWebhook}
-                    disabled={webhookConnecting || !tokenStatus?.hasToken}
-                    size="sm"
-                    variant="outline"
-                    className="gap-2"
-                  >
-                    {webhookConnecting ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel className="flex items-center gap-2 font-normal text-xs text-muted-foreground">
+                      <span
+                        className={`h-2 w-2 rounded-full ${
+                          webhookStatus === 'running'
+                            ? 'bg-green-500'
+                            : webhookStatus === 'stopped'
+                              ? 'bg-destructive'
+                              : 'bg-muted-foreground/40'
+                        }`}
+                      />
+                      {webhookStatus === 'running'
+                        ? t.monobankConnected
+                        : webhookStatus === 'stopped'
+                          ? t.syncStopped
+                          : t.notConnected}
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+
+                    {!tokenStatus?.hasToken ? (
+                      <DropdownMenuItem onClick={() => setShowTokenModal(true)}>
+                        <Webhook className="h-4 w-4" />
+                        {t.connectMonobank}
+                      </DropdownMenuItem>
                     ) : (
-                      <Webhook className="h-4 w-4" />
+                      <>
+                        {webhookStatus !== 'running' && (
+                          <DropdownMenuItem
+                            onClick={handleConnectWebhook}
+                            disabled={webhookConnecting}
+                          >
+                            {webhookConnecting ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Webhook className="h-4 w-4" />
+                            )}
+                            {webhookStatus === 'stopped' ? t.reconnectMonobank : t.connectMonobank}
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem onClick={handleRefetch} disabled={refetching}>
+                          {refetching ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4" />
+                          )}
+                          {t.refetchNew}
+                        </DropdownMenuItem>
+                      </>
                     )}
-                    <span className="hidden sm:inline">Connect Webhook</span>
-                    <span className="sm:hidden">Webhook</span>
-                  </Button>
-                )}
-                <Button
-                  onClick={handleRefetch}
-                  disabled={refetching || !tokenStatus?.hasToken}
-                  size="sm"
-                  variant="outline"
-                  className="gap-2 py-2"
-                >
-                  {refetching ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4" />
-                  )}
-                  <span className="hidden sm:inline">Refetch New</span>
-                  <span className="sm:hidden">Refetch</span>
-                </Button>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           </CardHeader>
@@ -790,8 +862,8 @@ export default function ExpensesPage({
             {txns.length === 0 ? (
               <div className="text-center py-12">
                 <DollarSign className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">
-                  No transactions yet. Sync your Monobank account to see expenses.
+                <p className="text-muted-foreground max-w-md mx-auto">
+                  {t.expensesEmptyBody}
                 </p>
               </div>
             ) : (

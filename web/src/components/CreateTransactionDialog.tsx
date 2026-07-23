@@ -8,6 +8,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { transactionsApi, categoriesApi } from "../lib/api-client";
 import type { Transaction, Category } from "../lib/api-client";
+import { useAppSettings } from "../hooks/useAppSettings";
 
 interface CreateTransactionDialogProps {
   open: boolean;
@@ -34,6 +35,7 @@ export function CreateTransactionDialog({
   onOpenChange,
   onCreate,
 }: CreateTransactionDialogProps) {
+  const { t } = useAppSettings();
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(nowLocalISO());
@@ -211,6 +213,7 @@ export function CreateTransactionDialog({
                 </SelectContent>
               </Select>
             )}
+            <p className="text-muted-foreground text-xs">{t.txnCategoryHint}</p>
           </div>
         </div>
 

@@ -523,7 +523,11 @@ export function PlanningPage({
 
           {/* Category rows */}
           <div className="divide-y divide-border">
-            {rows.map((row) => (
+            {rows.length === 0 ? (
+              <div className="text-center py-12 px-5">
+                <p className="text-muted-foreground text-sm max-w-md mx-auto">{t.planEmptyHint}</p>
+              </div>
+            ) : rows.map((row) => (
               <div
                 key={row.categoryId}
                 className={`flex items-center gap-3 sm:gap-4 px-5 py-3 transition-colors ${

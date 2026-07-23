@@ -609,7 +609,8 @@ export default function App() {
               <>
                 {categories.length === 0 ? (
                   <div className="text-center py-12">
-                    <p className="text-muted-foreground mb-4">{t.noCategoriesYet}</p>
+                    <p className="text-muted-foreground mb-1">{t.noCategoriesYet}</p>
+                    <p className="text-muted-foreground text-sm mb-4 max-w-md mx-auto">{t.dashboardEmptyHint}</p>
                     <Button onClick={() => setDialogOpen(true)}>
                       <Plus className="w-4 h-4 mr-2" />
                       {t.addFirstCategory}
