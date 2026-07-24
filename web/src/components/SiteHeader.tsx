@@ -48,7 +48,7 @@ export function SiteHeader({
       onViewChange(v);
     } else {
       localStorage.setItem('view', v);
-      navigate('/');
+      navigate('/app');
     }
     setMobileMenuOpen(false);
   };
@@ -76,7 +76,7 @@ export function SiteHeader({
                 src="/favicon.png"
                 alt="Moneta"
                 className="w-8 h-8 coin-logo cursor-pointer"
-                onClick={() => selectView('dashboard')}
+                onClick={() => navigate('/')}
               />
               <h1>{t.appTitle}</h1>
             </div>
@@ -129,7 +129,7 @@ export function SiteHeader({
                 src="/favicon.png"
                 alt="Moneta"
                 className="w-7 h-7 coin-logo cursor-pointer"
-                onClick={() => selectView('dashboard')}
+                onClick={() => navigate('/')}
               />
               <span className="font-semibold text-sm text-foreground">{t.appTitle}</span>
             </div>
