@@ -6,6 +6,7 @@ import {
   SignUp,
 } from '@clerk/clerk-react';
 import App from './App';
+import LandingPage from './pages/LandingPage';
 import MonobankSetupPage from './pages/monobank/MonobankSetupPage';
 import MonobankSyncPage from './pages/monobank/MonobankSyncPage';
 import TripsPage from './pages/TripsPage';
@@ -35,6 +36,21 @@ export default function AppWithAuth() {
           }
         />
 
+        {/* Public landing at "/" for signed-out visitors; the app for signed-in ones */}
+        <Route
+          path="/"
+          element={
+            <>
+              <SignedOut>
+                <LandingPage />
+              </SignedOut>
+              <SignedIn>
+                <App />
+              </SignedIn>
+            </>
+          }
+        />
+
         {/* Protected routes */}
         <Route
           path="/*"
@@ -45,7 +61,6 @@ export default function AppWithAuth() {
               </SignedOut>
               <SignedIn>
                 <Routes>
-                  <Route path="/" element={<App />} />
                   <Route path="/trips" element={<TripsPage />} />
                   <Route path="/trips/:id" element={<TripDetailPage />} />
                   <Route path="/monobank/setup" element={<MonobankSetupPage />} />
