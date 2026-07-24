@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { SignedIn, SignedOut, UserButton } from "@clerk/clerk-react";
 import { CheckCircle2, LayoutGrid, Plane } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
@@ -71,17 +72,25 @@ export default function LandingPage() {
       {/* 1. Nav */}
       <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur">
         <nav className="max-w-6xl mx-auto px-4 py-3 sm:px-6 lg:px-8 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2" aria-label="Moneta home">
             <img src="/favicon.png" alt="Moneta" className="w-8 h-8 coin-logo" />
             <span className="text-lg font-semibold text-foreground">Moneta</span>
-          </div>
+          </Link>
           <div className="flex items-center gap-2 sm:gap-3">
-            <Button asChild variant="outline">
-              <Link to="/sign-in">Sign in</Link>
-            </Button>
-            <Button asChild>
-              <Link to="/sign-up">Sign up free</Link>
-            </Button>
+            <SignedOut>
+              <Button asChild variant="outline">
+                <Link to="/sign-in">Sign in</Link>
+              </Button>
+              <Button asChild>
+                <Link to="/sign-up">Sign up free</Link>
+              </Button>
+            </SignedOut>
+            <SignedIn>
+              <Button asChild variant="outline">
+                <Link to="/app">Back to app</Link>
+              </Button>
+              <UserButton afterSignOutUrl="/" />
+            </SignedIn>
           </div>
         </nav>
       </header>

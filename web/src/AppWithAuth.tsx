@@ -23,7 +23,7 @@ export default function AppWithAuth() {
           path="/sign-in/*"
           element={
             <div className="min-h-screen flex items-center justify-center bg-background">
-              <SignIn routing="path" path="/sign-in" />
+              <SignIn routing="path" path="/sign-in" forceRedirectUrl="/app" />
             </div>
           }
         />
@@ -31,27 +31,15 @@ export default function AppWithAuth() {
           path="/sign-up/*"
           element={
             <div className="min-h-screen flex items-center justify-center bg-background">
-              <SignUp routing="path" path="/sign-up" />
+              <SignUp routing="path" path="/sign-up" forceRedirectUrl="/app" />
             </div>
           }
         />
 
-        {/* Public landing at "/" for signed-out visitors; the app for signed-in ones */}
-        <Route
-          path="/"
-          element={
-            <>
-              <SignedOut>
-                <LandingPage />
-              </SignedOut>
-              <SignedIn>
-                <App />
-              </SignedIn>
-            </>
-          }
-        />
+        {/* Public marketing landing at "/" for everyone; its header adapts to auth state */}
+        <Route path="/" element={<LandingPage />} />
 
-        {/* Protected routes */}
+        {/* Protected routes (the app lives at /app) */}
         <Route
           path="/*"
           element={
@@ -61,6 +49,7 @@ export default function AppWithAuth() {
               </SignedOut>
               <SignedIn>
                 <Routes>
+                  <Route path="/app" element={<App />} />
                   <Route path="/trips" element={<TripsPage />} />
                   <Route path="/trips/:id" element={<TripDetailPage />} />
                   <Route path="/monobank/setup" element={<MonobankSetupPage />} />
