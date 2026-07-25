@@ -1,9 +1,14 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // We sit behind Render's edge proxy — trust one hop so the throttler keys by
+  // the real client IP (req.ip) rather than the proxy's address.
+  app.set('trust proxy', 1);
 
   // Enable validation globally
   app.useGlobalPipes(

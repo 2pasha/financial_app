@@ -12,6 +12,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { MonobankService } from './monobank.service';
 import { SyncJobStore } from './sync-job.store';
 import { SaveTokenDto } from './dto/save-token.dto';
@@ -30,6 +31,9 @@ export class MonobankController {
     private readonly syncJobStore: SyncJobStore,
   ) {}
 
+  // Public & unauthenticated (Monobank calls this directly), so it's keyed by
+  // IP. Generous but real ceiling as defense-in-depth.
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Post('webhook')
   @HttpCode(HttpStatus.OK)
   async handleWebhook(@Body() payload: MonobankWebhookPayload) {
@@ -46,6 +50,8 @@ export class MonobankController {
     return this.monobankService.setupWebhook(user.clerkId);
   }
 
+  // Connects/rotates the encrypted bank token.
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('token')
   @UseGuards(ClerkAuthGuard)
   async saveToken(
@@ -74,6 +80,9 @@ export class MonobankController {
     return this.monobankService.getWebhookStatus(user.clerkId);
   }
 
+  // Hits Monobank's live API with the user's decrypted token — the most
+  // expensive/sensitive call in the app. Tight limit.
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('sync')
   @UseGuards(ClerkAuthGuard)
   @HttpCode(HttpStatus.ACCEPTED)
@@ -108,6 +117,8 @@ export class MonobankController {
     return job;
   }
 
+  // Also hits Monobank's live API on the user's behalf. Tight limit.
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('sync/incremental')
   @UseGuards(ClerkAuthGuard)
   async syncIncrementalTransactions(@CurrentUser() user: CurrentUserData) {
