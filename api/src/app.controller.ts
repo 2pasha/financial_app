@@ -1,6 +1,10 @@
 import { Controller, Get } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { AppService } from './app.service';
 
+// Render polls /health frequently for its own health checks; throttling it risks
+// Render marking a healthy deployment as down. Exempt both routes entirely.
+@SkipThrottle()
 @Controller()
 export class AppController {
   constructor(private readonly appService: AppService) {}
