@@ -322,15 +322,19 @@ A single centered column: `max-w-6xl` (72rem / 1152px) with 16px gutters, openin
 24px at ≥640px and 32px at ≥1024px. There is no persistent sidebar.
 
 Inside the product app the column sits within **the frame**: four 10px fixed bands
-(`--frame-width`), one per viewport edge, filled with `--frame`. Navigation lives in a
-fixed header that hangs off the top band — offset `top: 10px` so it meets the band
-edge-to-edge, filled with the same `--frame`, square-topped, with a 32px bottom radius.
-Two 50px inverted-corner SVG shoulders flank it, filling the concave joint where band
-meets header so the two read as one continuous shape rather than a bar floating near a
-border. Header is `z-40` (so dialogs cover it); the bands are `z-60` and
-`pointer-events: none`, so the border stays unbroken over an open modal without
-catching clicks. The marketing landing page is unframed and keeps its own sticky
-header on `bg-background/80` with a backdrop blur.
+(`--frame-width`), one per viewport edge, filled with `--frame`, with four 50px
+inverted-corner fillets rounding the joints where those bands meet — so the content area
+reads as a bezel rather than a hard rectangle. Navigation lives in a fixed header that
+hangs off the top band — offset `top: 10px` so it meets the band edge-to-edge, filled
+with the same `--frame`, square-topped, with a 32px bottom radius. Two more fillets of
+the same shape flank it as shoulders, filling the concave joint where band meets header
+so the two read as one continuous shape rather than a bar floating near a border.
+
+Every fillet is inset or offset one pixel into the surface it continues, so no hairline
+seam can open up at fractional device pixel ratios. Header is `z-40` (so dialogs cover
+it); bands and corners are `z-60` and `pointer-events: none`, so the border stays
+unbroken over an open modal without catching clicks. The marketing landing page is
+unframed and keeps its own sticky header on `bg-background/80` with a backdrop blur.
 
 Breakpoints are Tailwind defaults: 640 / 768 / 1024 / 1280 / 1536px. **1024px is the
 one structural break in the app shell** — above it the frame is drawn, the header is
@@ -353,8 +357,8 @@ scroll is never a layout tool except for the month-period selector, which uses
 has no sidebar, no split view, and no persistent panel; adding one would change what
 kind of tool this is.
 
-**The Inverted Frame Rule.** The frame — the four edge bands and the header that hangs
-off them — is the only surface in the system that inverts. It is always the tonal
+**The Inverted Frame Rule.** The frame — the four edge bands, their corner fillets, and
+the header that hangs off them — is the only surface in the system that inverts. It is always the tonal
 opposite of the page it wraps: dark ink chrome on the light theme, near-white chrome on
 the dark theme. That inversion is the whole idea, so it must hold in both themes; a
 frame that matches its page is a bug, not a quieter variant.
@@ -412,9 +416,10 @@ the thing it wraps: 6px on chips and small inline elements, 8px on buttons and i
 that reads as a control or a meter rather than a container.
 
 `--radius-frame` (32px) sits deliberately outside that scale and is **shell-only**: the
-app header's bottom corners and the 50px inverted shoulders that continue them. It is
-not available to content — a card at 32px would read as a different system. Content
-stops at 14px.
+app header's bottom corners. Alongside it the shell uses one 50px inverted-corner shape,
+reused six times — four rounding the frame's inner corners, two as the header's
+shoulders. Both are chrome geometry and are not available to content — a card at 32px
+would read as a different system. Content stops at 14px.
 
 Borders are 1px and always the hairline token; the system has no 2px borders, no
 dashed strokes, and no double rules. Category icon tiles are the one place a colored

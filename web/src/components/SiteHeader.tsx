@@ -4,6 +4,7 @@ import { UserButton } from "@clerk/clerk-react";
 import { Moon, Sun, Languages, Menu, HelpCircle } from "lucide-react";
 import { Button } from "./ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet";
+import { FrameCornerSvg } from "./SiteFrame";
 import { cn } from "./ui/utils";
 import { type Language, getTranslation } from "../lib/translations";
 
@@ -44,27 +45,21 @@ const iconButton = cn(
 
 /**
  * Fills the concave junction where the top frame band meets the header's side,
- * turning a hard T-joint into a smooth shoulder. Only meaningful at `lg` and up,
- * where the frame exists and the header is inset from the viewport edges.
+ * turning a hard T-joint into a smooth shoulder. The same shape the frame uses for
+ * its inner corners, just rotated into a different joint. Only meaningful at `lg`
+ * and up, where the frame exists and the header is inset from the viewport edges.
+ *
+ * Offset 49px rather than 50px so it overlaps the header by a pixel — same colour,
+ * so no hairline seam can open up between shoulder and header.
  */
 function FrameShoulder({ side }: { side: 'left' | 'right' }) {
   return (
-    <svg
+    <FrameCornerSvg
       className={cn(
         "hidden lg:block absolute top-0 text-frame pointer-events-none",
         side === 'left' ? "-left-[49px] rotate-180" : "-right-[49px] rotate-90",
       )}
-      width="50"
-      height="50"
-      viewBox="0 0 50 50"
-      fill="none"
-      aria-hidden="true"
-    >
-      <path
-        d="M5.50871e-06 0C-0.00788227 37.3001 8.99616 50.0116 50 50H5.50871e-06V0Z"
-        fill="currentColor"
-      />
-    </svg>
+    />
   );
 }
 
