@@ -338,8 +338,10 @@ unframed and keeps its own sticky header on `bg-background/80` with a backdrop b
 
 Breakpoints are Tailwind defaults: 640 / 768 / 1024 / 1280 / 1536px. **1024px is the
 one structural break in the app shell** — above it the frame is drawn, the header is
-inset and centered (`max-w-4xl`, opening to `max-w-6xl` at ≥1280px so it never slides
-under the side bands), and the inline nav and icon controls show. Below it the frame is
+inset and centered (`max-w-4xl`, opening to `max-w-5xl` at ≥1280px so it never slides
+under the side bands), and the inline nav and icon controls show. The header is
+deliberately narrower than the `max-w-6xl` content column, so at ≥1280px content runs
+wider than the header — the header reads as a pill, not as a lid on the column. Below it the frame is
 dropped entirely, the header goes full-bleed and square-topped, and the whole right
 cluster collapses into a right-side Sheet (288px) with the logo dropping from 32px to
 28px. The landing page still breaks at 768px. Content grids are two-column at `md` and
