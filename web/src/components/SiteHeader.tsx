@@ -126,22 +126,25 @@ export function SiteHeader({
        * square-topped below `lg`, where the frame is dropped.
        *
        * `lg:overflow-visible` is required — the shoulders sit outside the box.
-       * The max-width step-down (896px at lg, 1024px at xl — matching the
-       * reference) keeps the header clear of the side bands so it never clips its
-       * own shoulders. Worst case is the bottom of each step: at exactly 1024px
-       * the shoulder's outer edge lands 5px inside the band, and at 1280px it has
-       * 69px to spare. The header is intentionally narrower than the content
-       * column (max-w-6xl), so content runs wider than the header at xl.
+       *
+       * Width matches the dashboard's `<main>`: same `max-w-6xl` cap and the same
+       * `lg:px-8` gutter, so header edges and card edges line up. `max-w-6xl`
+       * alone is not enough — below 1152px it stops binding and `w-full` would
+       * take the header edge-to-edge, sliding it under the side bands and pushing
+       * its shoulders off-screen. Holding a 64px inset per side instead keeps a
+       * constant 5px of band clearance for the shoulders, and 1280 - 128 = 1152
+       * exactly, so the inset hands off to the max-w-6xl cap with no jump. From
+       * 1280px up the header and main are identical boxes.
        */}
       <header
         className={cn(
           "fixed top-0 left-0 right-0 z-40 w-full overflow-hidden",
           "bg-frame rounded-b-frame shadow-[0_18px_40px_-12px_rgb(0_0_0/0.35)]",
           "lg:top-2.5 lg:left-1/2 lg:right-auto lg:-translate-x-1/2",
-          "lg:max-w-4xl xl:max-w-5xl lg:overflow-visible",
+          "lg:w-[calc(100%_-_128px)] lg:max-w-6xl lg:overflow-visible",
         )}
       >
-        <div className="h-16 lg:h-20 px-4 sm:px-6">
+        <div className="h-16 lg:h-20 px-4 sm:px-6 lg:px-8">
           {/* Desktop header */}
           <div className="hidden lg:flex h-full items-center justify-between gap-6">
             <div className="flex items-center gap-2">
