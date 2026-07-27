@@ -127,21 +127,18 @@ export function SiteHeader({
        *
        * `lg:overflow-visible` is required — the shoulders sit outside the box.
        *
-       * Width matches the dashboard's `<main>`: same `max-w-6xl` cap and the same
-       * `lg:px-8` gutter, so header edges and card edges line up. `max-w-6xl`
-       * alone is not enough — below 1152px it stops binding and `w-full` would
-       * take the header edge-to-edge, sliding it under the side bands and pushing
-       * its shoulders off-screen. Holding a 64px inset per side instead keeps a
-       * constant 5px of band clearance for the shoulders, and 1280 - 128 = 1152
-       * exactly, so the inset hands off to the max-w-6xl cap with no jump. From
-       * 1280px up the header and main are identical boxes.
+       * Capped at 48rem (768px), so the header is deliberately much narrower than
+       * the max-w-6xl content column and reads as a pill floating over it. Because
+       * the cap is below the 1024px `lg` breakpoint it always binds, which means no
+       * width guard is needed: the header is inset at least 128px per side, leaving
+       * the shoulders 69px of band clearance at worst.
        */}
       <header
         className={cn(
           "fixed top-0 left-0 right-0 z-40 w-full overflow-hidden",
           "bg-frame rounded-b-frame shadow-[0_18px_40px_-12px_rgb(0_0_0/0.35)]",
           "lg:top-2.5 lg:left-1/2 lg:right-auto lg:-translate-x-1/2",
-          "lg:w-[calc(100%_-_128px)] lg:max-w-6xl lg:overflow-visible",
+          "lg:max-w-3xl lg:overflow-visible",
         )}
       >
         <div className="h-16 lg:h-20 px-4 sm:px-6 lg:px-8">
