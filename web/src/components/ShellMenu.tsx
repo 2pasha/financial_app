@@ -4,13 +4,17 @@ import { UserButton } from "@clerk/clerk-react";
 import { Moon, Sun, Languages, HelpCircle } from "lucide-react";
 import { cn } from "./ui/utils";
 import { focusRingOnFrame, focusRingOnPage, iconButtonOnFrame } from "./chrome";
+import { type ActiveView, type NavItem } from "./shellNav";
 import { type Language } from "../lib/translations";
 
-type NavView = 'dashboard' | 'plan' | 'expenses';
-type ActiveView = NavView | 'trips';
-
-/** Collapsed and expanded widths of the floating pill container, in px. */
-const COLLAPSED_W = 128;
+/**
+ * Collapsed and expanded widths of the floating pill container, in px. The
+ * collapsed width is exported because the pill is absolutely positioned, so
+ * anything else laid out in the mobile header row has to reserve its footprint by
+ * hand — LandingHeader does exactly that for its CTA.
+ */
+export const SHELL_MENU_COLLAPSED_W = 128;
+const COLLAPSED_W = SHELL_MENU_COLLAPSED_W;
 const EXPANDED_W = 296;
 /** Panel content width: EXPANDED_W minus the container's `p-2` on both sides. */
 const PANEL_W = 280;
@@ -107,8 +111,8 @@ interface MenuRowsProps {
   isDarkMode: boolean;
   onToggleLanguage: () => void;
   onToggleTheme: () => void;
-  activeView: ActiveView;
-  navItems: { key: ActiveView; label: string; onClick: () => void }[];
+  activeView: ActiveView | null;
+  navItems: NavItem[];
   onShowWelcome?: () => void;
   showNav: boolean;
   onClose: () => void;
@@ -244,12 +248,13 @@ interface ShellMenuProps {
   isDarkMode: boolean;
   onToggleLanguage: () => void;
   onToggleTheme: () => void;
-  activeView: ActiveView;
+  /** `null` where no nav item can be active — the marketing header's panel. */
+  activeView: ActiveView | null;
   /**
-   * Defined once in SiteHeader, where `selectView`/`goTrips` live, so the label
-   * translation and the navigation behaviour stay in one place.
+   * Built by `useShellNav`, so the label translation and the navigation behaviour
+   * stay in one place across both headers.
    */
-  navItems: { key: ActiveView; label: string; onClick: () => void }[];
+  navItems: NavItem[];
   onShowWelcome?: () => void;
   /**
    * `floating` (mobile): trigger and panel share one container that animates from
