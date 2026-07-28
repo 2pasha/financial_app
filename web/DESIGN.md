@@ -348,10 +348,13 @@ That width is close-fitting: the desktop cluster (wordmark, four nav pills, thre
 controls, avatar) leaves roughly 10–16px spare, in English and Ukrainian alike. A fifth
 nav item or a longer wordmark will overflow it. The reference's own answer at narrow
 widths is to drop the wordmark and tighten nav padding to `px-3`; do that rather than
-widening the header. Below the break the frame is
-dropped entirely, the header goes full-bleed and square-topped, and the whole right
-cluster collapses into a right-side Sheet (288px) with the logo dropping from 32px to
-28px. The landing page still breaks at 768px. Content grids are two-column at `md` and
+widening the header. Below the break there is **no header bar at all**: the element goes
+transparent and only two things float over the page — a 52px circular logo badge on the
+left and the expanding menu pill on the right — while content scrolls beneath them. An
+80px spacer keeps content clear of that row at rest. Because the strip is transparent and
+full-width, it is `pointer-events-none` with only those two children set to `auto`;
+otherwise it would swallow taps on the content underneath it.
+The landing page still breaks at 768px. Content grids are two-column at `md` and
 single-column below; the landing page's alternating copy/screenshot sections collapse
 to stacked with 48px gaps.
 
@@ -371,6 +374,14 @@ the header that hangs off them — is the only surface in the system that invert
 opposite of the page it wraps: dark ink chrome on the light theme, near-white chrome on
 the dark theme. That inversion is the whole idea, so it must hold in both themes; a
 frame that matches its page is a bug, not a quieter variant.
+
+**One carve-out: the mobile menu's expanded panel.** The pill that triggers it is chrome
+and takes `--frame`, but the card it expands into is `bg-background` — a *page* surface
+that happens to sit inside the frame's stacking context. Page tokens are therefore correct
+inside the panel: `text-foreground`, `bg-border`, and `ring-ring` for focus. This is why
+there are two focus treatments in `components/chrome.ts` — `focusRingOnFrame` rings in
+`--frame-foreground`, which on the panel's white card would be an invisible white ring.
+Pick by the surface the control sits on, not by which component it lives in.
 
 Because the frame is inverted, **the only colour tokens permitted inside it are
 `--frame` and `--frame-foreground`** (plus alpha steps of the latter — `/70` for an
@@ -425,7 +436,8 @@ the thing it wraps: 6px on chips and small inline elements, 8px on buttons and i
 that reads as a control or a meter rather than a container.
 
 `--radius-frame` (32px) sits deliberately outside that scale and is **shell-only**: the
-app header's bottom corners. Alongside it the shell uses one 50px inverted-corner shape,
+app header's bottom corners. The mobile menu container's 28px is the same kind of
+shell-only value, sized to wrap a 52px pill with 8px of padding. Alongside it the shell uses one 50px inverted-corner shape,
 reused six times — four rounding the frame's inner corners, two as the header's
 shoulders. Both are chrome geometry and are not available to content — a card at 32px
 would read as a different system. Content stops at 14px.
@@ -488,10 +500,14 @@ the header shows location without an underline or indicator. Icon controls are 3
 circles at `/80`, sharing that hover wash. The header renders its own spacer element to
 reserve its height, so page shells need no top padding of their own.
 
-Below 1024px the frame is dropped, the header goes full-bleed and square-topped, and the
-whole right cluster collapses into a 288px right Sheet with the nav stacked as
-full-width ghost buttons under an uppercase "Navigation" label, and the account row
-pinned to the bottom above a hairline. The Sheet is page-themed, not frame-themed.
+Below 1024px there is no bar. A 52px circular logo badge (`border-border` on
+`bg-background`, so it stays legible over whatever scrolls under it) sits on the left, and
+the **menu pill** on the right: a `--frame`-filled 52px pill reading "Menu" behind a
+two-bar icon, which expands in place — 128px → 296px wide, with a `bg-background` card
+fading in behind it and a panel unrolling to auto height. Inside the panel: an eyebrow,
+the four nav items at 24px, a hairline, a Settings group of small rows carrying the
+current language and theme, and an account row. It closes on Escape (returning focus to
+the trigger), on outside click, and on navigating. There is no drawer.
 
 The landing page is unframed and keeps its own sticky header on `bg-background/80` with
 a backdrop blur and a hairline bottom border.
@@ -515,9 +531,16 @@ has no visible affordance until you approach it.
 
 ### Motion
 
-Three gestures only, all short and all respecting `prefers-reduced-motion`:
+All motion respects `prefers-reduced-motion`. Most of it is CSS; the one exception is the
+mobile menu, which uses **`framer-motion`** — the project's only animation dependency,
+added for it specifically. It gates every transition on `useReducedMotion()`.
 
 - **State transitions** (`transition-all`, 200ms): hover, focus, and the menu reveal.
+- **Mobile menu expand** (450ms, plus a 45ms-per-row stagger on a `stiffness: 420 /
+  damping: 42` spring): the pill's width and shadow, the card's fade, and the panel's
+  height. **This is a named exception to the 300ms cap below** — it is the one gesture
+  allowed to run long, because the whole effect is the pill unfolding into a card and
+  clipping that short makes it read as a jump. Nothing else may borrow the exemption.
 - **Welcome step entry** (280ms, `cubic-bezier(0.16, 1, 0.3, 1)`): 16px slide from the
   right plus fade, as each onboarding step mounts.
 - **Scroll reveal** (700ms ease-out): landing sections fade up 16px once, via
@@ -566,4 +589,5 @@ costs nothing.
 - **Don't** add a webfont without deciding it deliberately. The system currently loads
   none, and that gives correct Cyrillic rendering and zero layout shift for free.
 - **Don't** lengthen motion past 300ms for state changes, or animate anything without
-  a `prefers-reduced-motion` escape.
+  a `prefers-reduced-motion` escape. The mobile menu's 450ms expand is the single
+  documented exception; it is not a precedent.
