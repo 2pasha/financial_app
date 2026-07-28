@@ -39,6 +39,17 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /**
+   * Shell chrome (the page frame and the floating app header). This is the only
+   * surface in the system that inverts: the frame is always the tonal opposite
+   * of the page it frames, so a light page gets dark chrome. Nothing inside the
+   * frame may use the page tokens (--primary, --border, --accent, ...) — they
+   * track the page and would collide. Use only these two.
+   */
+  --frame: #030213;
+  --frame-foreground: #ffffff;
+  --frame-width: 10px;
 }
 
 .dark {
@@ -76,6 +87,11 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.269 0 0);
   --sidebar-ring: oklch(0.439 0 0);
+
+  /* Shell chrome inverts: a dark page gets light chrome. --frame-width is
+     theme-independent and deliberately not repeated here. */
+  --frame: oklch(0.985 0 0);
+  --frame-foreground: #030213;
 }
 
 @theme inline {
@@ -109,6 +125,10 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --color-frame: var(--frame);
+  --color-frame-foreground: var(--frame-foreground);
+  /* Shell-only curve, deliberately outside the 6/8/10/14 content scale. */
+  --radius-frame: 2rem;
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -236,4 +256,98 @@ html {
 
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/**
+ * Page frame: four fixed bands the floating app header hangs from. The header
+ * sits at top: var(--frame-width) and is filled with the same --frame colour, so
+ * band and header touch edge-to-edge and read as one continuous shape.
+ *
+ * z-index 60 puts the bands above Radix overlays (z-50) so the border is never
+ * broken; they are pointer-events: none, so they stay inert. The header itself
+ * stays at z-40 so dialogs and sheets still cover it.
+ */
+.site-frame {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  display: block;
+  background-color: var(--frame);
+}
+
+.site-frame--top {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--frame-width);
+}
+
+.site-frame--bottom {
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--frame-width);
+}
+
+.site-frame--left {
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: var(--frame-width);
+}
+
+.site-frame--right {
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: var(--frame-width);
+}
+
+/**
+ * Inner corners: four inverted fillets rounding the joints where the bands meet,
+ * so the content area reads as a bezel rather than a hard rectangle. Same shape
+ * as the header's shoulders, rotated into each corner.
+ *
+ * Inset one pixel less than the band width so each fillet's tip overlaps the two
+ * bands it continues. Same colour, so the overlap is invisible, and no hairline
+ * seam can open up at fractional device pixel ratios.
+ */
+.site-corner {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  display: block;
+  color: var(--frame);
+}
+
+.site-corner--top-left {
+  top: calc(var(--frame-width) - 1px);
+  left: calc(var(--frame-width) - 1px);
+  transform: rotate(90deg);
+}
+
+.site-corner--top-right {
+  top: calc(var(--frame-width) - 1px);
+  right: calc(var(--frame-width) - 1px);
+  transform: rotate(180deg);
+}
+
+.site-corner--bottom-left {
+  bottom: calc(var(--frame-width) - 1px);
+  left: calc(var(--frame-width) - 1px);
+  transform: rotate(0deg);
+}
+
+.site-corner--bottom-right {
+  bottom: calc(var(--frame-width) - 1px);
+  right: calc(var(--frame-width) - 1px);
+  transform: rotate(270deg);
+}
+
+/* Below lg the frame is dropped and the header goes full-bleed instead. */
+@media (max-width: 1023px) {
+  .site-frame,
+  .site-corner {
+    display: none;
+  }
 }

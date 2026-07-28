@@ -1,13 +1,51 @@
-import { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { UserButton } from "@clerk/clerk-react";
-import { Moon, Sun, Languages, Menu, HelpCircle } from "lucide-react";
-import { Button } from "./ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet";
+import { useNavigate } from "react-router-dom";
+import { FrameCornerSvg } from "./SiteFrame";
+import { ShellMenu } from "./ShellMenu";
+import { focusRingOnFrame, focusRingOnPage } from "./chrome";
+import { cn } from "./ui/utils";
 import { type Language, getTranslation } from "../lib/translations";
 
 type NavView = 'dashboard' | 'plan' | 'expenses';
 type ActiveView = NavView | 'trips';
+
+/**
+ * The desktop header is chrome on an inverted surface: it is filled with
+ * `--frame`, which is always the tonal opposite of the page. That rules out the
+ * shared `Button` variants — `variant="default"` is `bg-primary`, and `--primary`
+ * tracks the *page*, so it collides with the header in both themes. Everything
+ * in here is built from `--frame` / `--frame-foreground` and nothing else.
+ *
+ * Below `lg` there is no bar at all: the logo badge and the menu float over the
+ * page. See ShellMenu for the one surface that is exempt from the rule above — its
+ * panel is page-coloured, so page tokens are correct inside it.
+ */
+const navItem = cn(
+  "h-9 px-4 rounded-full text-sm font-medium whitespace-nowrap transition-colors",
+  focusRingOnFrame,
+);
+const navItemActive = "bg-frame-foreground text-frame";
+const navItemIdle =
+  "text-frame-foreground/70 hover:text-frame-foreground hover:bg-frame-foreground/10";
+
+/**
+ * Fills the concave junction where the top frame band meets the header's side,
+ * turning a hard T-joint into a smooth shoulder. The same shape the frame uses for
+ * its inner corners, just rotated into a different joint. Only meaningful at `lg`
+ * and up, where the frame exists and the header is inset from the viewport edges.
+ *
+ * Offset 49px rather than 50px so it overlaps the header by a pixel — same colour,
+ * so no hairline seam can open up between shoulder and header.
+ */
+function FrameShoulder({ side }: { side: 'left' | 'right' }) {
+  return (
+    <FrameCornerSvg
+      className={cn(
+        "hidden lg:block absolute top-0 text-frame pointer-events-none",
+        side === 'left' ? "-left-[49px] rotate-180" : "-right-[49px] rotate-90",
+      )}
+    />
+  );
+}
 
 interface SiteHeaderProps {
   t: ReturnType<typeof getTranslation>;
@@ -40,8 +78,6 @@ export function SiteHeader({
   onShowWelcome,
 }: SiteHeaderProps) {
   const navigate = useNavigate();
-  const location = useLocation();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const selectView = (v: NavView) => {
     if (onViewChange) {
@@ -50,12 +86,10 @@ export function SiteHeader({
       localStorage.setItem('view', v);
       navigate('/app');
     }
-    setMobileMenuOpen(false);
   };
 
   const goTrips = () => {
     navigate('/trips');
-    setMobileMenuOpen(false);
   };
 
   const navItems: { key: ActiveView; label: string; onClick: () => void }[] = [
@@ -67,10 +101,49 @@ export function SiteHeader({
 
   return (
     <>
-      <header className="border-b border-border bg-card sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-4 py-3 sm:px-6 lg:px-8">
-          {/* Desktop header */}
-          <div className="hidden md:flex items-center justify-between">
+      {/*
+       * Two different headers share this element.
+       *
+       * Below `lg` there is no bar: the element is transparent and only the logo
+       * badge and the menu pill are visible, floating over content that scrolls
+       * beneath. `pointer-events-none` here with `pointer-events-auto` on those two
+       * children is what stops the transparent strip swallowing taps on the content
+       * underneath — the reference leaves the whole strip live, which would put a
+       * dead zone across the top of every screen.
+       *
+       * At `lg` it becomes the frame-coloured pill hanging off the top band:
+       * `lg:top-2.5` is 10px and must stay equal to --frame-width so band and header
+       * meet with no seam, and `lg:overflow-visible` is required because the
+       * shoulders sit outside the box. No `overflow-hidden` at any width — the menu
+       * panel renders inside this element at both breakpoints and would be clipped.
+       *
+       * Capped at 48rem (768px), deliberately much narrower than the max-w-6xl
+       * content column so it reads as a pill floating over it. Because the cap is
+       * below the 1024px breakpoint it always binds, so no width guard is needed:
+       * the header is inset at least 128px per side, leaving the shoulders 69px of
+       * band clearance at worst.
+       */}
+      <header
+        className={cn(
+          "pointer-events-none fixed top-0 left-0 right-0 z-40 w-full",
+          "lg:pointer-events-auto lg:bg-frame lg:rounded-b-frame",
+          "lg:shadow-[0_18px_40px_-12px_rgb(0_0_0/0.35)]",
+          "lg:top-2.5 lg:left-1/2 lg:right-auto lg:-translate-x-1/2",
+          "lg:max-w-3xl lg:overflow-visible",
+        )}
+      >
+        <div className="h-20 px-5 sm:px-6 lg:px-8">
+          {/*
+           * Desktop: three things only — logo, nav, menu. Language, theme, the
+           * welcome tour and the account row all live in the menu panel now.
+           *
+           * The nav is absolutely centred rather than laid out between the logo and
+           * the menu, so it is centred on the header itself and does not drift as
+           * Ukrainian labels change the logo/menu clusters' widths. Inner width at
+           * `lg` is 704px and the nav is ~391px, which leaves ~55px to the logo and
+           * ~121px to the trigger — no overlap in either language.
+           */}
+          <div className="relative hidden lg:flex h-full items-center justify-between gap-6">
             <div className="flex items-center gap-2">
               <img
                 src="/favicon.png"
@@ -78,141 +151,77 @@ export function SiteHeader({
                 className="w-8 h-8 coin-logo cursor-pointer"
                 onClick={() => navigate('/')}
               />
-              <h1>{t.appTitle}</h1>
+              <h1 className="text-lg font-semibold text-frame-foreground">{t.appTitle}</h1>
             </div>
-            <div className="flex items-center gap-2">
+
+            <nav className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1">
               {navItems.map((item) => (
-                <Button
+                <button
                   key={item.key}
-                  variant={activeView === item.key ? 'default' : 'outline'}
+                  type="button"
                   onClick={item.onClick}
+                  aria-current={activeView === item.key ? 'page' : undefined}
+                  className={cn(navItem, activeView === item.key ? navItemActive : navItemIdle)}
                 >
                   {item.label}
-                </Button>
+                </button>
               ))}
-              {onShowWelcome && (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={onShowWelcome}
-                  className="rounded-full"
-                  aria-label="Help"
-                >
-                  <HelpCircle className="w-5 h-5" />
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={onToggleLanguage}
-                className="rounded-full"
-              >
-                <Languages className="w-5 h-5" />
-                <span className="sr-only">{language === 'en' ? 'EN' : 'UK'}</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={onToggleTheme}
-                className="rounded-full"
-              >
-                {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-              </Button>
-              <UserButton afterSignOutUrl="/sign-in" />
-            </div>
+            </nav>
+
+            <ShellMenu
+              variant="bar"
+              showNav={false}
+              language={language}
+              isDarkMode={isDarkMode}
+              onToggleLanguage={onToggleLanguage}
+              onToggleTheme={onToggleTheme}
+              activeView={activeView}
+              navItems={navItems}
+              onShowWelcome={onShowWelcome}
+            />
           </div>
 
-          {/* Mobile header */}
-          <div className="flex md:hidden items-center justify-between">
-            <div className="flex items-center gap-2">
-              <img
-                src="/favicon.png"
-                alt="Moneta"
-                className="w-7 h-7 coin-logo cursor-pointer"
-                onClick={() => navigate('/')}
-              />
-              <span className="font-semibold text-sm text-foreground">{t.appTitle}</span>
-            </div>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setMobileMenuOpen(true)}
+          {/*
+           * Mobile: logo badge only on the left, expanding menu pill on the right.
+           * The badge needs its own solid background and border — unlike the desktop
+           * header there is no bar behind it, so it has to hold its own against
+           * whatever content scrolls underneath.
+           */}
+          <div className="flex lg:hidden h-full items-center">
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              aria-label="Moneta home"
+              className={cn(
+                "pointer-events-auto grid size-13 place-items-center rounded-full border border-border bg-background",
+                focusRingOnPage,
+              )}
             >
-              <Menu className="w-4 h-4" />
-              <span className="sr-only">Open menu</span>
-            </Button>
+              <img src="/favicon.png" alt="" className="w-7 h-7 coin-logo" />
+            </button>
+            <ShellMenu
+              language={language}
+              isDarkMode={isDarkMode}
+              onToggleLanguage={onToggleLanguage}
+              onToggleTheme={onToggleTheme}
+              activeView={activeView}
+              navItems={navItems}
+              onShowWelcome={onShowWelcome}
+            />
           </div>
         </div>
+
+        <FrameShoulder side="left" />
+        <FrameShoulder side="right" />
       </header>
 
-      {/* Mobile menu sheet */}
-      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        <SheetContent side="right" className="w-72 flex flex-col">
-          <SheetHeader>
-            <SheetTitle>Menu</SheetTitle>
-          </SheetHeader>
-          <div className="flex flex-col gap-4 mt-4 px-2 flex-1">
-            {/* Navigation */}
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Navigation</span>
-              <div className="flex flex-col gap-0.5">
-                {navItems.map((item) => (
-                  <Button
-                    key={item.key}
-                    variant={activeView === item.key ? 'default' : 'ghost'}
-                    className="w-full justify-start"
-                    onClick={item.onClick}
-                  >
-                    {item.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
+      {/*
+       * Reserves the fixed header's space so no page shell needs a padding
+       * change. Must track the header: 80px for the floating mobile row, and
+       * 10px offset + 80px bar at lg.
+       */}
+      <div aria-hidden="true" className="h-20 lg:h-[90px]" />
 
-            {onShowWelcome && (
-              <Button
-                variant="outline"
-                className="w-full justify-start h-9"
-                onClick={() => {
-                  onShowWelcome();
-                  setMobileMenuOpen(false);
-                }}
-              >
-                <HelpCircle className="w-4 h-4" />
-                <span className="ml-1.5 text-sm">Show welcome tour</span>
-              </Button>
-            )}
-
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={onToggleLanguage}
-                className="rounded-full flex-1 h-9"
-              >
-                <Languages className="w-4 h-4" />
-                <span className="ml-1.5 text-sm">{language === 'en' ? 'EN' : 'UK'}</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={onToggleTheme}
-                className="rounded-full flex-1 h-9"
-              >
-                {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-                <span className="ml-1.5 text-sm">{isDarkMode ? 'Light' : 'Dark'}</span>
-              </Button>
-            </div>
-
-            {/* Account */}
-            <div className="mt-auto pt-4 border-t border-border flex items-center gap-3">
-              <UserButton afterSignOutUrl="/sign-in" />
-              <span className="text-sm text-foreground">Account</span>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
     </>
   );
 }
