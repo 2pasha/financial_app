@@ -1,8 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import { UserButton } from "@clerk/clerk-react";
-import { Moon, Sun, Languages, HelpCircle } from "lucide-react";
 import { FrameCornerSvg } from "./SiteFrame";
-import { MobileMenu } from "./MobileMenu";
+import { ShellMenu } from "./ShellMenu";
 import { focusRingOnFrame, focusRingOnPage } from "./chrome";
 import { cn } from "./ui/utils";
 import { type Language, getTranslation } from "../lib/translations";
@@ -17,8 +15,9 @@ type ActiveView = NavView | 'trips';
  * tracks the *page*, so it collides with the header in both themes. Everything
  * in here is built from `--frame` / `--frame-foreground` and nothing else.
  *
- * Below `lg` there is no bar at all: the logo badge and `MobileMenu` float over
- * the page. See MobileMenu for the one surface that is exempt from the rule above.
+ * Below `lg` there is no bar at all: the logo badge and the menu float over the
+ * page. See ShellMenu for the one surface that is exempt from the rule above — its
+ * panel is page-coloured, so page tokens are correct inside it.
  */
 const navItem = cn(
   "h-9 px-4 rounded-full text-sm font-medium whitespace-nowrap transition-colors",
@@ -27,12 +26,6 @@ const navItem = cn(
 const navItemActive = "bg-frame-foreground text-frame";
 const navItemIdle =
   "text-frame-foreground/70 hover:text-frame-foreground hover:bg-frame-foreground/10";
-
-const iconButton = cn(
-  "size-9 shrink-0 rounded-full grid place-items-center transition-colors",
-  "text-frame-foreground/80 hover:text-frame-foreground hover:bg-frame-foreground/10",
-  focusRingOnFrame,
-);
 
 /**
  * Fills the concave junction where the top frame band meets the header's side,
@@ -121,8 +114,8 @@ export function SiteHeader({
        * At `lg` it becomes the frame-coloured pill hanging off the top band:
        * `lg:top-2.5` is 10px and must stay equal to --frame-width so band and header
        * meet with no seam, and `lg:overflow-visible` is required because the
-       * shoulders sit outside the box. No `overflow-hidden` at any width — it would
-       * clip the mobile menu's expanding panel, which renders inside this element.
+       * shoulders sit outside the box. No `overflow-hidden` at any width — the menu
+       * panel renders inside this element at both breakpoints and would be clipped.
        *
        * Capped at 48rem (768px), deliberately much narrower than the max-w-6xl
        * content column so it reads as a pill floating over it. Because the cap is
@@ -140,8 +133,17 @@ export function SiteHeader({
         )}
       >
         <div className="h-20 px-5 sm:px-6 lg:px-8">
-          {/* Desktop header */}
-          <div className="hidden lg:flex h-full items-center justify-between gap-6">
+          {/*
+           * Desktop: three things only — logo, nav, menu. Language, theme, the
+           * welcome tour and the account row all live in the menu panel now.
+           *
+           * The nav is absolutely centred rather than laid out between the logo and
+           * the menu, so it is centred on the header itself and does not drift as
+           * Ukrainian labels change the logo/menu clusters' widths. Inner width at
+           * `lg` is 704px and the nav is ~391px, which leaves ~55px to the logo and
+           * ~121px to the trigger — no overlap in either language.
+           */}
+          <div className="relative hidden lg:flex h-full items-center justify-between gap-6">
             <div className="flex items-center gap-2">
               <img
                 src="/favicon.png"
@@ -151,54 +153,32 @@ export function SiteHeader({
               />
               <h1 className="text-lg font-semibold text-frame-foreground">{t.appTitle}</h1>
             </div>
-            <div className="flex items-center gap-1">
-              <nav className="flex items-center gap-1">
-                {navItems.map((item) => (
-                  <button
-                    key={item.key}
-                    type="button"
-                    onClick={item.onClick}
-                    aria-current={activeView === item.key ? 'page' : undefined}
-                    className={cn(
-                      navItem,
-                      activeView === item.key ? navItemActive : navItemIdle,
-                    )}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </nav>
-              {onShowWelcome && (
+
+            <nav className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1">
+              {navItems.map((item) => (
                 <button
+                  key={item.key}
                   type="button"
-                  onClick={onShowWelcome}
-                  className={cn(iconButton, "ml-2")}
-                  aria-label="Help"
+                  onClick={item.onClick}
+                  aria-current={activeView === item.key ? 'page' : undefined}
+                  className={cn(navItem, activeView === item.key ? navItemActive : navItemIdle)}
                 >
-                  <HelpCircle className="w-5 h-5" />
+                  {item.label}
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={onToggleLanguage}
-                className={cn(iconButton, !onShowWelcome && "ml-2")}
-                aria-label="Change language"
-              >
-                <Languages className="w-5 h-5" />
-                <span className="sr-only">{language === 'en' ? 'EN' : 'UK'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={onToggleTheme}
-                className={iconButton}
-                aria-label={isDarkMode ? 'Switch to light theme' : 'Switch to dark theme'}
-              >
-                {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-              </button>
-              <div className="ml-2 flex items-center">
-                <UserButton afterSignOutUrl="/sign-in" />
-              </div>
-            </div>
+              ))}
+            </nav>
+
+            <ShellMenu
+              variant="bar"
+              showNav={false}
+              language={language}
+              isDarkMode={isDarkMode}
+              onToggleLanguage={onToggleLanguage}
+              onToggleTheme={onToggleTheme}
+              activeView={activeView}
+              navItems={navItems}
+              onShowWelcome={onShowWelcome}
+            />
           </div>
 
           {/*
@@ -219,7 +199,7 @@ export function SiteHeader({
             >
               <img src="/favicon.png" alt="" className="w-7 h-7 coin-logo" />
             </button>
-            <MobileMenu
+            <ShellMenu
               language={language}
               isDarkMode={isDarkMode}
               onToggleLanguage={onToggleLanguage}

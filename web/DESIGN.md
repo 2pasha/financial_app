@@ -375,8 +375,8 @@ opposite of the page it wraps: dark ink chrome on the light theme, near-white ch
 the dark theme. That inversion is the whole idea, so it must hold in both themes; a
 frame that matches its page is a bug, not a quieter variant.
 
-**One carve-out: the mobile menu's expanded panel.** The pill that triggers it is chrome
-and takes `--frame`, but the card it expands into is `bg-background` — a *page* surface
+**One carve-out: the shell menu's expanded panel**, in both of its variants. The trigger is
+chrome and takes `--frame`, but the card it opens into is `bg-background` — a *page* surface
 that happens to sit inside the frame's stacking context. Page tokens are therefore correct
 inside the panel: `text-foreground`, `bg-border`, and `ring-ring` for focus. This is why
 there are two focus treatments in `components/chrome.ts` — `focusRingOnFrame` rings in
@@ -492,13 +492,20 @@ larger than the information inside it.
 ### Navigation
 
 In the product app: a fixed 80px header hanging off the top frame band, filled with
-`--frame` (see The Inverted Frame Rule). Logo (32px, `.coin-logo`) plus wordmark at
-18px/600 on the left; nav items, help, language, theme, and Clerk's UserButton on the
-right. Nav items are 36px pills — the active one filled `bg-frame-foreground` with
-`text-frame`, inactive `text-frame-foreground/70` with a `/10` hover wash — which is how
-the header shows location without an underline or indicator. Icon controls are 36px
-circles at `/80`, sharing that hover wash. The header renders its own spacer element to
-reserve its height, so page shells need no top padding of their own.
+`--frame` (see The Inverted Frame Rule). It carries **three things and no more** — logo
+(32px, `.coin-logo`) plus wordmark at 18px/600 on the left, the nav, and a single 36px
+icon-button menu trigger on the right. Language, theme, the welcome tour and the account
+row all live inside the menu; the bar is not where controls accumulate.
+
+The nav is **absolutely centred on the header**, not laid out in the space left between
+the logo and the trigger. That keeps it fixed as the clusters either side change width —
+Ukrainian labels make the nav 391px against English's 337px, and in both cases it stays
+dead centre with ~121px of clearance to the trigger. Nav items are 36px pills — the
+active one filled `bg-frame-foreground` with `text-frame`, inactive
+`text-frame-foreground/70` with a `/10` hover wash — which is how the header shows
+location without an underline or indicator. The trigger shares that `/80` + `/10`
+vocabulary via `iconButtonOnFrame`. The header renders its own spacer element to reserve
+its height, so page shells need no top padding of their own.
 
 Below 1024px there is no bar. A 52px circular logo badge (`border-border` on
 `bg-background`, so it stays legible over whatever scrolls under it) sits on the left, and
@@ -508,6 +515,18 @@ fading in behind it and a panel unrolling to auto height. Inside the panel: an e
 the four nav items at 24px, a hairline, a Settings group of small rows carrying the
 current language and theme, and an account row. It closes on Escape (returning focus to
 the trigger), on outside click, and on navigating. There is no drawer.
+
+**One menu, two geometries** (`ShellMenu`, `variant="floating" | "bar"`). The rows and all
+of the behaviour are shared; only the container differs, and the difference is forced
+rather than stylistic. On mobile there is no bar, so the container can wrap the trigger
+and grow into a card over the page. On desktop that same geometry would punch a
+page-coloured card into the frame bar's right end, and would leave the trigger with no
+colour that works in both states — white vanishes on the card, ink vanishes on the bar. So
+the `bar` variant keeps the trigger on the frame and drops the panel below the bar
+instead, 8px clear of it, right-aligned to the trigger. Its wrapper must be `h-full`: with
+`top-full` measured against the 36px trigger rather than the 80px row, the panel lands
+*inside* the bar. The desktop panel also omits the Navigation group, since the nav is
+already in the bar.
 
 The landing page is unframed and keeps its own sticky header on `bg-background/80` with
 a backdrop blur and a hairline bottom border.
