@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "../components/ui/button";
 import { Switch } from "../components/ui/switch";
 import { IconPicker } from "../components/IconPicker";
+import { HeroSurface } from "../components/HeroSurface";
 import { Loader2, Trash2, X, Plus, Repeat } from "lucide-react";
 import { toast } from "sonner";
 import { budgetPlansApi, categoriesApi } from "../lib/api-client";
@@ -352,7 +353,7 @@ export function PlanningPage({
       </div>
 
       {/* Summary bar */}
-      <div className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-xl p-4 sm:p-6 shadow-lg">
+      <HeroSurface className="p-4 sm:p-6">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div>
             <p className="opacity-75 text-xs sm:text-sm">{t.incomesTotal}</p>
@@ -389,7 +390,7 @@ export function PlanningPage({
             </div>
           </div>
         )}
-      </div>
+      </HeroSurface>
 
       {/* Two columns */}
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-4 sm:gap-6">

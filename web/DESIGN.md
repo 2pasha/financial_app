@@ -215,7 +215,19 @@ user's category hues, a green→amber→red severity scale, and a single destruc
 - **Ledger Ink** (#030213): the ink the book is written in. Near-black with a faint
   blue-violet cast that keeps it from reading as pure grey. Carries primary buttons,
   the active nav item, selection fills, and — with **Ledger Ink Lift** (#232350) — the
-  315° gradient on the Plan hero card and the landing page's navy panels.
+  315° gradient on the landing page's navy panels.
+- **Aurora** (#15111d base → #6d5e92 mid → #cfc3e8 glow): the two hero cards — the
+  dashboard Balance Card and the Plan summary bar — are the one exception to the
+  Earned Color Rule below. They carry a slow lavender aurora rendered by a shader
+  (`HeroSurface.tsx`) rather than a flat fill: a band of light that hugs the top edge
+  through the left half, dives across the middle, and blooms against the right, over
+  a purple-black base and under visible film grain. It drifts on a ~45s cycle and
+  inverts to near-white with a pale lavender wash in dark theme. Note the three
+  stops — the ramp passes through a distinctly more saturated mauve at the midpoint,
+  and collapsing it to two reads visibly greyer. The exception is bounded to those
+  two surfaces and the colour is deliberately not a token, so it cannot spread.
+  Motion is below the notice threshold by design and stops entirely under
+  `prefers-reduced-motion`.
 
 ### Secondary
 

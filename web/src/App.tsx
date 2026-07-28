@@ -6,6 +6,7 @@ import { WelcomeFlow } from "./components/WelcomeFlow";
 import { EditCategoryDialog } from "./components/EditCategoryDialog";
 import { PlanningPage } from "./pages/PlanningPage";
 import { SiteHeader } from "./components/SiteHeader";
+import { HeroSurface } from "./components/HeroSurface";
 import { useAppSettings } from "./hooks/useAppSettings";
 import { Button } from "./components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./components/ui/alert-dialog";
@@ -501,7 +502,7 @@ export default function App() {
         ) : (
           <>
             {/* Balance Card */}
-            <div className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-xl p-4 sm:p-8 mb-4 sm:mb-6 shadow-lg">
+            <HeroSurface className="p-4 sm:p-8 mb-4 sm:mb-6">
               <p className="opacity-90 mb-1 text-sm sm:text-base">{isOverBudget ? t.overBudgetBy : t.safeToSpend}</p>
               <h2 className={`text-3xl sm:text-5xl mb-3 sm:mb-4 font-bold ${isOverBudget ? 'text-red-300' : ''}`}>
                 {formatAmount(isOverBudget ? overageAmount : safeToSpend)}
@@ -557,7 +558,7 @@ export default function App() {
                   </div>
                 )}
               </div>
-            </div>
+            </HeroSurface>
 
             {/* Period Selector */}
             <div className="mb-4">
