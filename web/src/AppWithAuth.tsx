@@ -11,6 +11,7 @@ import MonobankSetupPage from './pages/monobank/MonobankSetupPage';
 import MonobankSyncPage from './pages/monobank/MonobankSyncPage';
 import TripsPage from './pages/TripsPage';
 import TripDetailPage from './pages/TripDetailPage';
+import { SiteFrame } from './components/SiteFrame';
 import { Toaster } from './components/ui/sonner';
 
 export default function AppWithAuth() {
@@ -48,6 +49,9 @@ export default function AppWithAuth() {
                 <Navigate to="/sign-in" replace />
               </SignedOut>
               <SignedIn>
+                {/* Mounted here, not at the router root, so the marketing
+                    landing page and the Clerk screens stay unframed. */}
+                <SiteFrame />
                 <Routes>
                   <Route path="/app" element={<App />} />
                   <Route path="/trips" element={<TripsPage />} />

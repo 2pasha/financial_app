@@ -12,6 +12,10 @@ colors:
   muted-ink: "#717182"
   field-fill: "#f3f3f5"
   hairline: "rgba(0, 0, 0, 0.1)"
+  frame: "#030213"
+  frame-dark: "oklch(0.985 0 0)"
+  frame-foreground: "#ffffff"
+  frame-foreground-dark: "#030213"
   switch-track: "#cbced4"
   focus-ring: "oklch(0.708 0 0)"
   destructive: "#d4183d"
@@ -315,16 +319,44 @@ legibility to caps than English does.
 ## Layout
 
 A single centered column: `max-w-6xl` (72rem / 1152px) with 16px gutters, opening to
-24px at ≥640px and 32px at ≥1024px. There is no persistent sidebar; navigation lives
-in a sticky top header (`z-40`) that sits on `bg-card` with a hairline bottom border,
-and on the landing page on `bg-background/80` with a backdrop blur.
+24px at ≥640px and 32px at ≥1024px. There is no persistent sidebar.
 
-Breakpoints are Tailwind defaults: 640 / 768 / 1024 / 1280 / 1536px. **768px is the
-one structural break** — above it the header shows inline nav buttons and icon
-controls; below it the entire nav collapses into a right-side Sheet (288px) and the
-logo drops from 32px to 28px. Content grids are two-column at `md` and single-column
-below; the landing page's alternating copy/screenshot sections collapse to stacked
-with 48px gaps.
+Inside the product app the column sits within **the frame**: four 10px fixed bands
+(`--frame-width`), one per viewport edge, filled with `--frame`, with four 50px
+inverted-corner fillets rounding the joints where those bands meet — so the content area
+reads as a bezel rather than a hard rectangle. Navigation lives in a fixed header that
+hangs off the top band — offset `top: 10px` so it meets the band edge-to-edge, filled
+with the same `--frame`, square-topped, with a 32px bottom radius. Two more fillets of
+the same shape flank it as shoulders, filling the concave joint where band meets header
+so the two read as one continuous shape rather than a bar floating near a border.
+
+Every fillet is inset or offset one pixel into the surface it continues, so no hairline
+seam can open up at fractional device pixel ratios. Header is `z-40` (so dialogs cover
+it); bands and corners are `z-60` and `pointer-events: none`, so the border stays
+unbroken over an open modal without catching clicks. The marketing landing page is
+unframed and keeps its own sticky header on `bg-background/80` with a backdrop blur.
+
+Breakpoints are Tailwind defaults: 640 / 768 / 1024 / 1280 / 1536px. **1024px is the
+one structural break in the app shell** — above it the frame is drawn, the header is
+inset and centered, and the inline nav and icon controls show. The header is capped at
+**48rem (768px)**, deliberately far narrower than the `max-w-6xl` content column, so it
+reads as a pill floating over the page rather than a lid on the column. Because that cap
+sits below the 1024px breakpoint it always binds, which leaves the header inset at least
+128px per side and its shoulders 69px clear of the bands — no width guard needed.
+
+That width is close-fitting: the desktop cluster (wordmark, four nav pills, three icon
+controls, avatar) leaves roughly 10–16px spare, in English and Ukrainian alike. A fifth
+nav item or a longer wordmark will overflow it. The reference's own answer at narrow
+widths is to drop the wordmark and tighten nav padding to `px-3`; do that rather than
+widening the header. Below the break there is **no header bar at all**: the element goes
+transparent and only two things float over the page — a 52px circular logo badge on the
+left and the expanding menu pill on the right — while content scrolls beneath them. An
+80px spacer keeps content clear of that row at rest. Because the strip is transparent and
+full-width, it is `pointer-events-none` with only those two children set to `auto`;
+otherwise it would swallow taps on the content underneath it.
+The landing page still breaks at 768px. Content grids are two-column at `md` and
+single-column below; the landing page's alternating copy/screenshot sections collapse
+to stacked with 48px gaps.
 
 Vertical rhythm runs on 8px multiples, using 12px inside compact cards, 16px between
 siblings, 24px inside standard cards, and 64–96px between landing sections. Horizontal
@@ -336,6 +368,31 @@ scroll is never a layout tool except for the month-period selector, which uses
 **The One Column Rule.** Every screen is one centered column at one max width. Moneta
 has no sidebar, no split view, and no persistent panel; adding one would change what
 kind of tool this is.
+
+**The Inverted Frame Rule.** The frame — the four edge bands, their corner fillets, and
+the header that hangs off them — is the only surface in the system that inverts. It is always the tonal
+opposite of the page it wraps: dark ink chrome on the light theme, near-white chrome on
+the dark theme. That inversion is the whole idea, so it must hold in both themes; a
+frame that matches its page is a bug, not a quieter variant.
+
+**One carve-out: the shell menu's expanded panel**, in both of its variants. The trigger is
+chrome and takes `--frame`, but the card it opens into is `bg-background` — a *page* surface
+that happens to sit inside the frame's stacking context. Page tokens are therefore correct
+inside the panel: `text-foreground`, `bg-border`, and `ring-ring` for focus. This is why
+there are two focus treatments in `components/chrome.ts` — `focusRingOnFrame` rings in
+`--frame-foreground`, which on the panel's white card would be an invisible white ring.
+Pick by the surface the control sits on, not by which component it lives in.
+
+Because the frame is inverted, **the only colour tokens permitted inside it are
+`--frame` and `--frame-foreground`** (plus alpha steps of the latter — `/70` for an
+inactive nav item, `/80` for an icon control, `/10` for its hover wash). Every other
+token in this system — `--primary`, `--background`, `--border`, `--accent` — tracks the
+*page*, so reaching for one inside the frame collides with it. `--primary` is the
+tempting mistake: it inverts between themes too, but in the opposite direction, so an
+active nav item styled with it disappears in **both** themes. This is why the header
+does not use the shared `Button` variants and styles its controls directly. The mobile
+Sheet is the exception and stays page-themed: it renders through a portal on
+`document.body`, outside the frame entirely.
 
 ## Elevation & Depth
 
@@ -363,6 +420,13 @@ temporarily above the page* (dialog, sheet, dropdown, the Plan hero). Nothing el
 **The Flat-At-Rest Rule.** A surface earns a shadow by being touched or by floating
 above the page. A card sitting in a grid has neither claim: it gets a hairline.
 
+The app header is the one resting shadow in the system (`0 18px 40px -12px rgb(0 0 0 /
+0.35)`), claimed under the "floating above the page" half of that rule — it is fixed
+chrome that page content scrolls beneath, so it is genuinely above rather than in the
+layout. The shadow stays black in both themes: it does the separating work on the light
+theme, and on the dark theme the near-white frame already separates itself by contrast,
+where the shadow is a near-no-op. Nothing else in the shell gets one.
+
 ## Shapes
 
 One radius family, gently curved and consistently applied, stepping with the size of
@@ -370,6 +434,13 @@ the thing it wraps: 6px on chips and small inline elements, 8px on buttons and i
 10px on compact cards and icon tiles, 14px on standard cards and dialogs. Pills
 (`9999px`) are reserved for icon buttons, progress tracks, and count chips — anything
 that reads as a control or a meter rather than a container.
+
+`--radius-frame` (32px) sits deliberately outside that scale and is **shell-only**: the
+app header's bottom corners. The mobile menu container's 28px is the same kind of
+shell-only value, sized to wrap a 52px pill with 8px of padding. Alongside it the shell uses one 50px inverted-corner shape,
+reused six times — four rounding the frame's inner corners, two as the header's
+shoulders. Both are chrome geometry and are not available to content — a card at 32px
+would read as a different system. Content stops at 14px.
 
 Borders are 1px and always the hairline token; the system has no 2px borders, no
 dashed strokes, and no double rules. Category icon tiles are the one place a colored
@@ -420,12 +491,45 @@ larger than the information inside it.
 
 ### Navigation
 
-Sticky top header on `bg-card` with a hairline bottom border. Logo (32px, `.coin-logo`)
-plus wordmark at 24px/500 on the left; nav buttons, help, language, theme, and Clerk's
-UserButton on the right. Active item is a primary button, inactive are outline. Below
-768px the whole right cluster collapses into a 288px right Sheet with the nav stacked
-as full-width ghost buttons under an uppercase "Navigation" label, and the account row
-pinned to the bottom above a hairline.
+In the product app: a fixed 80px header hanging off the top frame band, filled with
+`--frame` (see The Inverted Frame Rule). It carries **three things and no more** — logo
+(32px, `.coin-logo`) plus wordmark at 18px/600 on the left, the nav, and a single 36px
+icon-button menu trigger on the right. Language, theme, the welcome tour and the account
+row all live inside the menu; the bar is not where controls accumulate.
+
+The nav is **absolutely centred on the header**, not laid out in the space left between
+the logo and the trigger. That keeps it fixed as the clusters either side change width —
+Ukrainian labels make the nav 391px against English's 337px, and in both cases it stays
+dead centre with ~121px of clearance to the trigger. Nav items are 36px pills — the
+active one filled `bg-frame-foreground` with `text-frame`, inactive
+`text-frame-foreground/70` with a `/10` hover wash — which is how the header shows
+location without an underline or indicator. The trigger shares that `/80` + `/10`
+vocabulary via `iconButtonOnFrame`. The header renders its own spacer element to reserve
+its height, so page shells need no top padding of their own.
+
+Below 1024px there is no bar. A 52px circular logo badge (`border-border` on
+`bg-background`, so it stays legible over whatever scrolls under it) sits on the left, and
+the **menu pill** on the right: a `--frame`-filled 52px pill reading "Menu" behind a
+two-bar icon, which expands in place — 128px → 296px wide, with a `bg-background` card
+fading in behind it and a panel unrolling to auto height. Inside the panel: an eyebrow,
+the four nav items at 24px, a hairline, a Settings group of small rows carrying the
+current language and theme, and an account row. It closes on Escape (returning focus to
+the trigger), on outside click, and on navigating. There is no drawer.
+
+**One menu, two geometries** (`ShellMenu`, `variant="floating" | "bar"`). The rows and all
+of the behaviour are shared; only the container differs, and the difference is forced
+rather than stylistic. On mobile there is no bar, so the container can wrap the trigger
+and grow into a card over the page. On desktop that same geometry would punch a
+page-coloured card into the frame bar's right end, and would leave the trigger with no
+colour that works in both states — white vanishes on the card, ink vanishes on the bar. So
+the `bar` variant keeps the trigger on the frame and drops the panel below the bar
+instead, 8px clear of it, right-aligned to the trigger. Its wrapper must be `h-full`: with
+`top-full` measured against the 36px trigger rather than the 80px row, the panel lands
+*inside* the bar. The desktop panel also omits the Navigation group, since the nav is
+already in the bar.
+
+The landing page is unframed and keeps its own sticky header on `bg-background/80` with
+a backdrop blur and a hairline bottom border.
 
 ### Category Card (signature component)
 
@@ -446,9 +550,16 @@ has no visible affordance until you approach it.
 
 ### Motion
 
-Three gestures only, all short and all respecting `prefers-reduced-motion`:
+All motion respects `prefers-reduced-motion`. Most of it is CSS; the one exception is the
+mobile menu, which uses **`framer-motion`** — the project's only animation dependency,
+added for it specifically. It gates every transition on `useReducedMotion()`.
 
 - **State transitions** (`transition-all`, 200ms): hover, focus, and the menu reveal.
+- **Mobile menu expand** (450ms, plus a 45ms-per-row stagger on a `stiffness: 420 /
+  damping: 42` spring): the pill's width and shadow, the card's fade, and the panel's
+  height. **This is a named exception to the 300ms cap below** — it is the one gesture
+  allowed to run long, because the whole effect is the pill unfolding into a card and
+  clipping that short makes it read as a jump. Nothing else may borrow the exemption.
 - **Welcome step entry** (280ms, `cubic-bezier(0.16, 1, 0.3, 1)`): 16px slide from the
   right plus fade, as each onboarding step mounts.
 - **Scroll reveal** (700ms ease-out): landing sections fade up 16px once, via
@@ -485,7 +596,11 @@ costs nothing.
 - **Don't** use a severity red for a destructive action, or #d4183d for over-budget.
   They are different messages.
 - **Don't** introduce a second radius family or a 2px/dashed border. One curve, one
-  weight, stepped 6 → 8 → 10 → 14px, plus pills for controls and meters.
+  weight, stepped 6 → 8 → 10 → 14px, plus pills for controls and meters. `--radius-frame`
+  (32px) is shell-only and not an invitation to round content further.
+- **Don't** use a page token (`--primary`, `--background`, `--border`, `--accent`) inside
+  the frame or the app header. They track the page, and the frame is its inverse, so they
+  collide in one theme or both. Only `--frame` and `--frame-foreground` belong there.
 - **Don't** add a sidebar, split view, or persistent panel. One centered column at
   `max-w-6xl` is the layout.
 - **Don't** set buttons, headings, nav items, or category names in uppercase —
@@ -493,4 +608,5 @@ costs nothing.
 - **Don't** add a webfont without deciding it deliberately. The system currently loads
   none, and that gives correct Cyrillic rendering and zero layout shift for free.
 - **Don't** lengthen motion past 300ms for state changes, or animate anything without
-  a `prefers-reduced-motion` escape.
+  a `prefers-reduced-motion` escape. The mobile menu's 450ms expand is the single
+  documented exception; it is not a precedent.
