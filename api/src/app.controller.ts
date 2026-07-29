@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, NotFoundException } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { AppService } from './app.service';
 
@@ -24,7 +24,11 @@ export class AppController {
 
   @Get('debug-sentry')
   debugSentry() {
+    if (process.env.NODE_ENV === 'production') {
+      throw new NotFoundException();
+    }
     throw new Error('My first backend Sentry error!');
   }
 }
+
 
