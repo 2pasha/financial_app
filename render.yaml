@@ -11,7 +11,10 @@ services:
         sync: false
       - key: ALLOWED_ORIGINS
         sync: false
+      - key: SENTRY_DSN
+        sync: false
       - key: PORT
         value: "3000"
       - key: NODE_ENV
         value: production
+
