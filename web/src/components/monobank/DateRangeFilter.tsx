@@ -3,6 +3,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Calendar } from "lucide-react";
+import { type getTranslation } from "../../lib/translations";
 
 export interface DateRangeValue {
   from: string | null;
@@ -12,9 +13,10 @@ export interface DateRangeValue {
 interface DateRangeFilterProps {
   filter: DateRangeValue;
   onChange: (filter: DateRangeValue) => void;
+  t: ReturnType<typeof getTranslation>;
 }
 
-export function DateRangeFilter({ filter, onChange }: DateRangeFilterProps) {
+export function DateRangeFilter({ filter, onChange, t }: DateRangeFilterProps) {
   const [open, setOpen] = useState(false);
 
   const handleFromChange = (value: string) => {
@@ -51,14 +53,14 @@ export function DateRangeFilter({ filter, onChange }: DateRangeFilterProps) {
               {filter.from ? formatDisplayDate(filter.from) : '...'} - {filter.to ? formatDisplayDate(filter.to) : '...'}
             </span>
           ) : (
-            <span className="text-muted-foreground">Filter date...</span>
+            <span className="text-muted-foreground">{t.filterDate}</span>
           )}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[280px]" align="start">
         <div className="space-y-3">
           <div className="space-y-2">
-            <label className="text-sm font-medium">From Date</label>
+            <label className="text-sm font-medium">{t.fromDate}</label>
             <Input
               type="date"
               value={filter.from || ''}
@@ -68,7 +70,7 @@ export function DateRangeFilter({ filter, onChange }: DateRangeFilterProps) {
           </div>
           
           <div className="space-y-2">
-            <label className="text-sm font-medium">To Date</label>
+            <label className="text-sm font-medium">{t.toDate}</label>
             <Input
               type="date"
               value={filter.to || ''}
@@ -84,7 +86,7 @@ export function DateRangeFilter({ filter, onChange }: DateRangeFilterProps) {
               onClick={handleClear}
               className="flex-1"
             >
-              Clear
+              {t.clear}
             </Button>
           </div>
         </div>

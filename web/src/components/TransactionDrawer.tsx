@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { transactionsApi, categoriesApi } from "../lib/api-client";
 import type { Transaction, Category } from "../lib/api-client";
 import { useAppSettings } from "../hooks/useAppSettings";
+import { tf } from "../lib/translations";
 
 interface TransactionDrawerProps {
   transaction: Transaction | null;
@@ -78,7 +79,7 @@ export function TransactionDrawer({
       calendarMonth: d.getMonth() + 1,
     })
       .then(setCategories)
-      .catch(() => toast.error('Failed to load categories'))
+      .catch(() => toast.error(t.loadCategoriesFailed))
       .finally(() => setCategoriesLoading(false));
   }, [transaction?.id]);
 
@@ -103,9 +104,9 @@ export function TransactionDrawer({
       });
       onUpdate(updated);
       setIsDirty(false);
-      toast.success("Transaction updated");
+      toast.success(t.transactionUpdated);
     } catch {
-      toast.error("Failed to update transaction");
+      toast.error(t.updateTransactionFailed);
     } finally {
       setIsSaving(false);
     }
@@ -121,9 +122,9 @@ export function TransactionDrawer({
       await transactionsApi.delete(transaction.id);
       onDelete(transaction.id);
       onOpenChange(false);
-      toast.success("Transaction deleted");
+      toast.success(t.transactionDeleted);
     } catch {
-      toast.error("Failed to delete transaction");
+      toast.error(t.deleteTransactionFailed);
     } finally {
       setIsDeleting(false);
       setDeleteDialogOpen(false);
@@ -137,9 +138,9 @@ export function TransactionDrawer({
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent className="w-full sm:max-w-md overflow-y-auto">
           <SheetHeader className="pb-2">
-            <SheetTitle>Transaction Details</SheetTitle>
+            <SheetTitle>{t.transactionDetails}</SheetTitle>
             <SheetDescription>
-              {transaction ? transaction.description : "Select a transaction to view details"}
+              {transaction ? transaction.description : t.transactionDetailsHint}
             </SheetDescription>
           </SheetHeader>
 
@@ -148,12 +149,12 @@ export function TransactionDrawer({
               <div className="flex flex-col gap-4 px-4 flex-1">
                 <div className="flex flex-wrap gap-2">
                   <Badge variant="outline">{transaction.account.type}</Badge>
-                  {transaction.hold && <Badge variant="secondary">Hold</Badge>}
-                  {isManual && <Badge variant="secondary">Manual</Badge>}
+                  {transaction.hold && <Badge variant="secondary">{t.txnHold}</Badge>}
+                  {isManual && <Badge variant="secondary">{t.txnManual}</Badge>}
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-muted-foreground text-xs">Amount (raw)</Label>
+                  <Label className="text-muted-foreground text-xs">{t.amountRaw}</Label>
                   <p className="text-sm font-mono">
                     {formatAmountDisplay(transaction.amount, transaction.operationCurrency ?? transaction.currency)}
                   </p>
@@ -187,10 +188,10 @@ export function TransactionDrawer({
                 )}
 
                 <div className="border-t pt-4 space-y-4">
-                  <h3 className="text-sm font-medium">Edit Details</h3>
+                  <h3 className="text-sm font-medium">{t.editDetails}</h3>
 
                   <div className="space-y-2">
-                    <Label htmlFor="tx-description">Description</Label>
+                    <Label htmlFor="tx-description">{t.descriptionLabel}</Label>
                     <Input
                       id="tx-description"
                       value={description}
@@ -200,8 +201,8 @@ export function TransactionDrawer({
 
                   <div className="space-y-2">
                     <Label htmlFor="tx-amount">
-                      Amount ({(transaction.operationCurrency ?? transaction.currency) === 980 ? "UAH" : (transaction.operationCurrency ?? transaction.currency) === 840 ? "USD" : (transaction.operationCurrency ?? transaction.currency) === 978 ? "EUR" : String(transaction.operationCurrency ?? transaction.currency)})
-                      <span className="text-muted-foreground ml-1 text-xs">negative = expense</span>
+                      {t.amountLabel} ({(transaction.operationCurrency ?? transaction.currency) === 980 ? "UAH" : (transaction.operationCurrency ?? transaction.currency) === 840 ? "USD" : (transaction.operationCurrency ?? transaction.currency) === 978 ? "EUR" : String(transaction.operationCurrency ?? transaction.currency)})
+                      <span className="text-muted-foreground ml-1 text-xs">{t.negativeIsExpense}</span>
                     </Label>
                     <Input
                       id="tx-amount"
@@ -212,12 +213,12 @@ export function TransactionDrawer({
                       disabled={!isManual}
                     />
                     {!isManual && (
-                      <p className="text-muted-foreground text-xs">Amount is read-only for Monobank transactions</p>
+                      <p className="text-muted-foreground text-xs">{t.amountReadOnly}</p>
                     )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="tx-date">Date & Time</Label>
+                    <Label htmlFor="tx-date">{t.dateTimeLabel}</Label>
                     <Input
                       id="tx-date"
                       type="datetime-local"
@@ -226,16 +227,16 @@ export function TransactionDrawer({
                       disabled={!isManual}
                     />
                     {!isManual && (
-                      <p className="text-muted-foreground text-xs">Date is read-only for Monobank transactions</p>
+                      <p className="text-muted-foreground text-xs">{t.dateReadOnly}</p>
                     )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="tx-category">Category</Label>
+                    <Label htmlFor="tx-category">{t.categoryLabel}</Label>
                     {categoriesLoading ? (
                       <div className="flex items-center gap-2 text-muted-foreground text-sm py-2">
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        Loading categories…
+                        {t.loadingCategories}
                       </div>
                     ) : (
                       <Select
@@ -243,10 +244,10 @@ export function TransactionDrawer({
                         onValueChange={(v) => handleFieldChange(setCategoryId, v)}
                       >
                         <SelectTrigger id="tx-category">
-                          <SelectValue placeholder="No category" />
+                          <SelectValue placeholder={t.noCategory} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="none">No category</SelectItem>
+                          <SelectItem value="none">{t.noCategory}</SelectItem>
                           {categories.map((cat) => (
                             <SelectItem key={cat.id} value={cat.id}>
                               <span className="flex items-center gap-2">
@@ -271,15 +272,15 @@ export function TransactionDrawer({
                   disabled={isDeleting || isSaving}
                 >
                   <Trash2 className="w-4 h-4" />
-                  Delete
+                  {t.delete}
                 </Button>
                 <div className="flex gap-2 flex-1 justify-end">
                   <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
-                    Cancel
+                    {t.cancel}
                   </Button>
                   <Button onClick={handleSave} disabled={isSaving || !isDirty}>
                     {isSaving && <Loader2 className="mr-2 w-4 h-4 animate-spin" />}
-                    Save
+                    {t.save}
                   </Button>
                 </div>
               </SheetFooter>
@@ -292,20 +293,20 @@ export function TransactionDrawer({
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete Transaction?</AlertDialogTitle>
+              <AlertDialogTitle>{t.deleteTransactionQ}</AlertDialogTitle>
               <AlertDialogDescription>
-                This will permanently delete "{transaction.description}". This action cannot be undone.
+                {tf(t.deleteTransactionConfirm, { description: transaction.description })}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel disabled={isDeleting}>{t.cancel}</AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleDelete}
                 disabled={isDeleting}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 {isDeleting && <Loader2 className="mr-2 w-4 h-4 animate-spin" />}
-                Delete
+                {t.delete}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

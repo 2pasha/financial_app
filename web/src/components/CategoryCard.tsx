@@ -6,6 +6,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { type getTranslation } from "../lib/translations";
 
 interface CategoryCardProps {
   id: string;
@@ -20,16 +21,7 @@ interface CategoryCardProps {
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
   onClick?: (id: string) => void;
-  translations: {
-    remaining: string;
-    used: string;
-    edit: string;
-    delete: string;
-    spent: string;
-    left: string;
-    over: string;
-    noBudgetSet: string;
-  };
+  translations: ReturnType<typeof getTranslation>;
 }
 
 export function CategoryCard({ id, name, spent, net, budget, icon, color, showNet, onEdit, onDelete, onClick, translations }: CategoryCardProps) {

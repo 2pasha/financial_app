@@ -28,6 +28,7 @@ import {
 import { Loader2, RefreshCw, AlertCircle, DollarSign, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Webhook, Plus, MoreVertical } from "lucide-react";
 import { toast } from "sonner";
 import { useAppSettings } from "../hooks/useAppSettings";
+import { tf } from "../lib/translations";
 
 type MonoTxn = Transaction;
 
@@ -298,10 +299,10 @@ export default function ExpensesPage({
       } while (job.status === 'pending' || job.status === 'running');
 
       if (job.status === 'completed') {
-        toast.success(`Synced ${job.transactionsCount} transactions!`);
+        toast.success(tf(t.syncedTransactions, { n: job.transactionsCount }));
         await checkStatus();
       } else {
-        const message = job.error || 'Sync failed';
+        const message = job.error || t.syncFailed;
         toast.error(message);
         setError(message);
       }
@@ -311,7 +312,7 @@ export default function ExpensesPage({
       if (err?.response?.status === 404) {
         await checkStatus();
       } else {
-        setError(err?.message ?? 'Lost track of the sync job');
+        setError(err?.message ?? t.lostSyncJob);
       }
     } finally {
       setIsSyncing(false);
@@ -326,7 +327,7 @@ export default function ExpensesPage({
     setError(null);
 
     try {
-      toast.info('Starting initial sync…', { duration: 2000 });
+      toast.info(t.syncStarting, { duration: 2000 });
       // Initial onboarding sync: last 31 days only, so the first run needs ~one
       // request per account instead of the full 3-month history (much faster).
       // POST /monobank/sync returns a jobId immediately; the real work runs in a
@@ -335,7 +336,7 @@ export default function ExpensesPage({
       localStorage.setItem(SYNC_JOB_KEY, jobId);
       await pollSyncJob(jobId);
     } catch (err: any) {
-      toast.error('Sync failed: ' + err.message);
+      toast.error(tf(t.syncFailedWith, { error: err.message }));
       setError(err.message);
       setIsSyncing(false);
       localStorage.removeItem(SYNC_JOB_KEY);
@@ -420,10 +421,10 @@ export default function ExpensesPage({
 
     try {
       const result = await monobankApi.setupWebhook();
-      toast.success(`Webhook connected: ${result.webhookUrl}`);
+      toast.success(tf(t.webhookConnected, { url: result.webhookUrl }));
       await fetchWebhookStatus();
     } catch (err: any) {
-      toast.error('Failed to connect webhook: ' + err.message);
+      toast.error(tf(t.webhookFailed, { error: err.message }));
     } finally {
       setWebhookConnecting(false);
     }
@@ -434,25 +435,25 @@ export default function ExpensesPage({
     setError(null);
 
     try {
-      toast.info('Fetching new transactions...');
+      toast.info(t.fetchingNew);
       const result = await monobankApi.syncIncremental();
       
       if (result.fallbackTo31Days) {
         // Period exceeded 31 days, fetched last 31 days instead
         toast.success(
-          `Fetched ${result.transactionsCount} transactions from the last 31 days (Monobank API limit)`,
+          tf(t.fetchedTransactions, { n: result.transactionsCount }),
           { duration: 5000 }
         );
       } else if (result.transactionsCount > 0) {
-        toast.success(`Found ${result.transactionsCount} new transactions!`);
+        toast.success(tf(t.foundNewTransactions, { n: result.transactionsCount }));
       } else {
-        toast.info('No new transactions found');
+        toast.info(t.noNewTransactions);
       }
       
       await loadTransactions();
       await checkStatus();
     } catch (err: any) {
-      toast.error('Refetch failed: ' + err.message);
+      toast.error(tf(t.refetchFailedWith, { error: err.message }));
       setError(err.message);
     } finally {
       setRefetching(false);
@@ -575,7 +576,7 @@ export default function ExpensesPage({
     }));
     const hasUncategorized = txns.some(t => !t.categoryId);
     if (hasUncategorized) {
-      options.push({ value: '__uncategorized__', label: '— Uncategorized' });
+      options.push({ value: '__uncategorized__', label: t.uncategorizedOption });
     }
 
     return options;
@@ -666,9 +667,9 @@ export default function ExpensesPage({
         tripId: newTripId === "none" ? null : newTripId,
       });
       handleTransactionUpdate(updated);
-      toast.success("Trip updated");
+      toast.success(t.tripUpdated);
     } catch {
-      toast.error("Failed to update trip");
+      toast.error(t.updateTripFailed);
     } finally {
       setSavingTripForTx(null);
     }
@@ -683,9 +684,9 @@ export default function ExpensesPage({
       });
 
       handleTransactionUpdate(updated);
-      toast.success("Category updated");
+      toast.success(t.categoryUpdated);
     } catch {
-      toast.error("Failed to update category");
+      toast.error(t.updateCategoryFailed);
     } finally {
       setSavingCategoryForTx(null);
     }
@@ -705,10 +706,9 @@ export default function ExpensesPage({
         <CardContent className="pt-6">
           <div className="flex flex-col items-center justify-center gap-4 py-12">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <h3 className="text-lg font-semibold">Syncing Your Transactions</h3>
+            <h3 className="text-lg font-semibold">{t.syncingTitle}</h3>
             <p className="text-muted-foreground text-center max-w-md">
-              {syncProgress?.message ||
-                "This may take several minutes due to Monobank API rate limits. Please don't close this page."}
+              {syncProgress?.message || t.syncingBody}
             </p>
             {syncProgress && syncProgress.totalAccounts > 0 && (
               <div className="w-full max-w-md space-y-1">
@@ -716,13 +716,17 @@ export default function ExpensesPage({
                   value={(syncProgress.currentAccount / syncProgress.totalAccounts) * 100}
                 />
                 <p className="text-xs text-muted-foreground text-center">
-                  {syncProgress.currentAccount} of {syncProgress.totalAccounts} accounts
-                  {syncProgress.transactionsCount > 0 && ` · ${syncProgress.transactionsCount} transactions`}
+                  {tf(t.accountsProgress, {
+                    done: syncProgress.currentAccount,
+                    total: syncProgress.totalAccounts,
+                  })}
+                  {syncProgress.transactionsCount > 0 &&
+                    ` · ${tf(t.transactionsSuffix, { n: syncProgress.transactionsCount })}`}
                 </p>
               </div>
             )}
             <p className="text-xs text-muted-foreground text-center max-w-md">
-              Monobank limits requests to one per minute, so this runs in the background — you can safely leave and come back.
+              {t.syncingNote}
             </p>
           </div>
         </CardContent>
@@ -758,7 +762,7 @@ export default function ExpensesPage({
           <CardHeader className="pb-3">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
-                <CardTitle>Expenses</CardTitle>
+                <CardTitle>{t.navExpenses}</CardTitle>
                 {tokenStatus && (
                   <p className="text-sm text-muted-foreground mt-1">
                     {tokenStatus.transactionCount} transactions
@@ -878,7 +882,7 @@ export default function ExpensesPage({
                       className="gap-2"
                     >
                       <AlertCircle className="h-4 w-4" />
-                      Clear All Filters
+                      {t.clearAllFilters}
                     </Button>
                   </div>
                 )}
@@ -887,7 +891,7 @@ export default function ExpensesPage({
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
                   <Card>
                     <CardContent className="pt-4 sm:pt-6 px-3 sm:px-6">
-                      <div className="text-xs sm:text-sm text-muted-foreground">Total Expenses</div>
+                      <div className="text-xs sm:text-sm text-muted-foreground">{t.totalExpenses}</div>
                       <div className="text-xl sm:text-2xl font-bold text-red-600">
                         {currencySymbolFromCode(980)}
                         {Math.abs(totalExpense / 100).toLocaleString()}
@@ -897,7 +901,7 @@ export default function ExpensesPage({
                   
                   <Card>
                     <CardContent className="pt-4 sm:pt-6 px-3 sm:px-6">
-                      <div className="text-xs sm:text-sm text-muted-foreground">Total Income</div>
+                      <div className="text-xs sm:text-sm text-muted-foreground">{t.incomesTotal}</div>
                       <div className="text-xl sm:text-2xl font-bold text-green-600">
                         {currencySymbolFromCode(980)}
                         {Math.abs(totalIncome / 100).toLocaleString()}
@@ -907,7 +911,7 @@ export default function ExpensesPage({
                   
                   <Card>
                     <CardContent className="pt-4 sm:pt-6 px-3 sm:px-6">
-                      <div className="text-xs sm:text-sm text-muted-foreground">Transactions</div>
+                      <div className="text-xs sm:text-sm text-muted-foreground">{t.transactionsLabel}</div>
                       <div className="text-xl sm:text-2xl font-bold">
                         {filteredTransactions.length}
                       </div>
@@ -916,7 +920,7 @@ export default function ExpensesPage({
                   
                   <Card>
                     <CardContent className="pt-4 sm:pt-6 px-3 sm:px-6">
-                      <div className="text-xs sm:text-sm text-muted-foreground">Categories</div>
+                      <div className="text-xs sm:text-sm text-muted-foreground">{t.categories}</div>
                       <div className="text-xl sm:text-2xl font-bold">
                         {uniqueCategories}
                       </div>
@@ -943,7 +947,7 @@ export default function ExpensesPage({
                           sortDirection={sortDirection}
                           onSort={handleSort}
                         />
-                        <TableHead className="text-xs font-semibold text-muted-foreground">Trip</TableHead>
+                        <TableHead className="text-xs font-semibold text-muted-foreground">{t.tripLabel}</TableHead>
                         <SortableTableHead
                           column="amount"
                           label="Amount"
@@ -971,7 +975,7 @@ export default function ExpensesPage({
                       <TableRow>
                         <TableHead>
                           <Input
-                            placeholder="Filter name..."
+                            placeholder={t.filterNamePlaceholder}
                             value={filters.name}
                             onChange={(e) => setFilters({...filters, name: e.target.value})}
                             className="h-8"
@@ -982,7 +986,8 @@ export default function ExpensesPage({
                             options={categoryOptions}
                             selected={filters.categories}
                             onChange={(categories) => setFilters({...filters, categories})}
-                            placeholder="Filter categories..."
+                            placeholder={t.filterCategoriesPlaceholder}
+                            t={t}
                           />
                         </TableHead>
                         <TableHead />
@@ -990,12 +995,14 @@ export default function ExpensesPage({
                           <AmountFilter
                             filter={filters.amount}
                             onChange={(amount) => setFilters({...filters, amount})}
+                            t={t}
                           />
                         </TableHead>
                         <TableHead>
                           <DateRangeFilter
                             filter={filters.dateRange}
                             onChange={(dateRange) => setFilters({...filters, dateRange})}
+                            t={t}
                           />
                         </TableHead>
                         <TableHead>
@@ -1003,7 +1010,8 @@ export default function ExpensesPage({
                             options={cardOptions}
                             selected={filters.cards}
                             onChange={(cards) => setFilters({...filters, cards})}
-                            placeholder="Filter cards..."
+                            placeholder={t.filterCardsPlaceholder}
+                            t={t}
                           />
                         </TableHead>
                       </TableRow>
@@ -1013,7 +1021,7 @@ export default function ExpensesPage({
                       {paginatedTransactions.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                            No transactions match your filters
+                            {t.noTransactionsMatch}
                           </TableCell>
                         </TableRow>
                       ) : (
@@ -1034,7 +1042,7 @@ export default function ExpensesPage({
                               {savingCategoryForTx === tx.id ? (
                                 <span className="flex items-center gap-1 text-muted-foreground text-xs">
                                   <Loader2 className="w-3 h-3 animate-spin" />
-                                  Saving…
+                                  {t.saving}
                                 </span>
                               ) : (
                                 <Select
@@ -1062,13 +1070,13 @@ export default function ExpensesPage({
                                           {mccName(tx.mcc, mccCatalog)}
                                         </span>
                                       ) : (
-                                        <span className="text-muted-foreground text-xs">— no category</span>
+                                        <span className="text-muted-foreground text-xs">{t.noCategoryDash}</span>
                                       )}
                                     </SelectValue>
                                   </SelectTrigger>
                                   <SelectContent>
                                     <SelectItem value="none">
-                                      <span className="text-muted-foreground">No category</span>
+                                      <span className="text-muted-foreground">{t.noCategory}</span>
                                     </SelectItem>
                                     {(inlineCategoryOptions[monthKey(tx.time)] ?? categories).map((cat) => (
                                       <SelectItem key={cat.id} value={cat.id}>
@@ -1089,7 +1097,7 @@ export default function ExpensesPage({
                               {savingTripForTx === tx.id ? (
                                 <span className="flex items-center gap-1 text-muted-foreground text-xs">
                                   <Loader2 className="w-3 h-3 animate-spin" />
-                                  Saving…
+                                  {t.saving}
                                 </span>
                               ) : (
                                 <Select
@@ -1113,13 +1121,13 @@ export default function ExpensesPage({
                                           </span>
                                         </span>
                                       ) : (
-                                        <span className="text-muted-foreground text-xs">— no trip</span>
+                                        <span className="text-muted-foreground text-xs">{t.noTripDash}</span>
                                       )}
                                     </SelectValue>
                                   </SelectTrigger>
                                   <SelectContent>
                                     <SelectItem value="none">
-                                      <span className="text-muted-foreground">No trip</span>
+                                      <span className="text-muted-foreground">{t.noTrip}</span>
                                     </SelectItem>
                                     {activeTrips.map((trip) => (
                                       <SelectItem key={trip.id} value={trip.id}>
@@ -1191,7 +1199,7 @@ export default function ExpensesPage({
                       disabled={currentPage === 1}
                     >
                       <ChevronLeft className="h-4 w-4 mr-1" />
-                      Previous
+                      {t.previous}
                     </Button>
                     <div className="flex items-center px-3 text-sm whitespace-nowrap">
                       Page {currentPage} of {Math.max(1, Math.ceil(filteredTransactions.length / itemsPerPage))}
@@ -1202,14 +1210,14 @@ export default function ExpensesPage({
                       onClick={() => setCurrentPage(p => p + 1)}
                       disabled={currentPage * itemsPerPage >= filteredTransactions.length}
                     >
-                      Next
+                      {t.next}
                       <ChevronRight className="h-4 w-4 ml-1" />
                     </Button>
                   </div>
                 </div>
 
                 <div className="text-xs text-muted-foreground mt-4">
-                  MCC Source: <a className="underline" href="https://mcc.in.ua/ua/mccs" target="_blank" rel="noreferrer">mcc.in.ua</a>
+                  {t.mccSource} <a className="underline" href="https://mcc.in.ua/ua/mccs" target="_blank" rel="noreferrer">mcc.in.ua</a>
                 </div>
               </>
             )}

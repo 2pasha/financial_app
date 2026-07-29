@@ -16,6 +16,7 @@ import {
   Sector,
   ResponsiveContainer,
 } from "recharts@2.15.2";
+import { type getTranslation } from "../lib/translations";
 
 const UAH = 980;
 const TOP_N = 8;
@@ -38,6 +39,7 @@ const CHART_COLORS = [
 const OTHER_COLOR = "#94a3b8";
 
 interface CategoryTransactionsModalProps {
+  t: ReturnType<typeof getTranslation>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   categoryId: string;
@@ -98,10 +100,12 @@ function CategoryChart({
   data,
   selectedName,
   onSelect,
+  t,
 }: {
   data: { name: string; value: number }[];
   selectedName: string | null;
   onSelect: (name: string | null) => void;
+  t: ReturnType<typeof getTranslation>;
 }) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const total = data.reduce((s, d) => s + d.value, 0);
@@ -165,7 +169,7 @@ function CategoryChart({
       </div>
 
       <p className="text-xs text-muted-foreground/60 text-center">
-        Click a slice or label to see its transactions
+        {t.chartHint}
       </p>
 
       <div className="flex flex-wrap gap-x-3 gap-y-1.5">
@@ -211,16 +215,18 @@ function CategoryChart({
 function NetTotal({
   transactions,
   rateToUAH,
+  t,
 }: {
   transactions: CategoryTransaction[];
   rateToUAH: (code: number) => number | null;
+  t: ReturnType<typeof getTranslation>;
 }) {
   const netUAH = transactions.reduce((sum, tx) => sum + txToUAH(tx, rateToUAH), 0);
   const spent = Math.max(0, -netUAH);
 
   return (
     <div className="flex justify-between items-center pt-3 border-t border-border font-medium">
-      <span className="text-muted-foreground text-sm">Net spent</span>
+      <span className="text-muted-foreground text-sm">{t.netSpent}</span>
       <span className="text-card-foreground">₴{spent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
     </div>
   );
@@ -268,6 +274,7 @@ function TransactionRow({
 }
 
 export function CategoryTransactionsModal({
+  t,
   open,
   onOpenChange,
   categoryId,
@@ -311,7 +318,7 @@ export function CategoryTransactionsModal({
     const top = sorted.slice(0, TOP_N).map(([name, value]) => ({ name, value }));
     const rest = sorted.slice(TOP_N);
     if (rest.length > 0) {
-      top.push({ name: "Other", value: rest.reduce((s, [, v]) => s + v, 0) });
+      top.push({ name: t.otherCategory, value: rest.reduce((s, [, v]) => s + v, 0) });
     }
     return top;
   }, [transactions, rateToUAH]);
@@ -351,7 +358,7 @@ export function CategoryTransactionsModal({
         </div>
       ) : transactions.length === 0 ? (
         <p className="text-center text-muted-foreground py-10 text-sm">
-          No transactions for this period.
+          {t.noTransactionsPeriod}
         </p>
       ) : (
         <div className="flex flex-col">
@@ -370,7 +377,7 @@ export function CategoryTransactionsModal({
         {!loading && transactions.length > 0 && (
           <button
             onClick={() => setShowChart((v) => !v)}
-            title={showChart ? "Hide chart" : "Show chart"}
+            title={showChart ? t.hideChart : t.showChart}
             className={[
               "absolute top-[52px] right-0 translate-x-full",
               "flex items-center justify-center w-9 h-10",
@@ -411,6 +418,7 @@ export function CategoryTransactionsModal({
                     data={chartData}
                     selectedName={selectedSliceName}
                     onSelect={setSelectedSliceName}
+                    t={t}
                   />
                   {selectedSliceName && selectedTransactions.length > 0 && (
                     <div className="mt-4 pt-4 border-t border-border">
@@ -427,7 +435,7 @@ export function CategoryTransactionsModal({
                 </>
               ) : (
                 <p className="text-center text-muted-foreground text-sm py-4">
-                  No expense data to chart.
+                  {t.noChartData}
                 </p>
               )}
             </div>
@@ -439,7 +447,7 @@ export function CategoryTransactionsModal({
         )}
 
         {!loading && transactions.length > 0 && (
-          <NetTotal transactions={transactions} rateToUAH={rateToUAH} />
+          <NetTotal transactions={transactions} rateToUAH={rateToUAH} t={t} />
         )}
       </DialogContent>
     </Dialog>

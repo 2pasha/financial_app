@@ -1,5 +1,20 @@
 import axios from 'axios';
 import type { API } from '@financial-app/common-types';
+import { getTranslation, type Language } from './translations';
+
+/**
+ * Translations for a non-React module.
+ *
+ * The interceptor below runs outside the component tree, so it cannot read the
+ * language through `useAppSettings`. It reads the same `localStorage` key that hook
+ * persists, at throw time rather than at import time — the value is only needed the
+ * moment a request actually fails, by which point any language change has been saved.
+ */
+function currentT() {
+  const saved = typeof window === 'undefined' ? null : localStorage.getItem('language');
+
+  return getTranslation((saved === 'uk' ? 'uk' : 'en') as Language);
+}
 
 const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -27,7 +42,7 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    const message = error.response?.data?.message || error.message || 'An error occurred';
+    const message = error.response?.data?.message || error.message || currentT().genericError;
 
     return Promise.reject(new Error(message));
   }

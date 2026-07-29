@@ -5,7 +5,7 @@ import { Moon, Sun, Languages, HelpCircle } from "lucide-react";
 import { cn } from "./ui/utils";
 import { focusRingOnFrame, focusRingOnPage, iconButtonOnFrame } from "./chrome";
 import { type ActiveView, type NavItem } from "./shellNav";
-import { type Language } from "../lib/translations";
+import { type Language, type getTranslation } from "../lib/translations";
 
 /**
  * Collapsed and expanded widths of the floating pill container, in px. The
@@ -64,20 +64,20 @@ const eyebrow = "text-[11px] font-medium tracking-wider uppercase text-muted-for
  * Two bars sharing one grid cell, so they rotate about a common centre into an X.
  */
 function MenuBars({ open, animate }: { open: boolean; animate: boolean }) {
-  const t = animate ? { duration: 0.3, ease: SOFT_EASE } : { duration: 0.01 };
+  const transition = animate ? { duration: 0.3, ease: SOFT_EASE } : { duration: 0.01 };
   return (
     <span className="relative grid h-4 w-4 place-items-center" aria-hidden="true">
       <motion.span
         className="col-start-1 row-start-1 h-[1.6px] w-[15px] rounded-full bg-current"
         initial={false}
         animate={{ y: open ? 0 : -3, rotate: open ? 45 : 0 }}
-        transition={t}
+        transition={transition}
       />
       <motion.span
         className="col-start-1 row-start-1 h-[1.6px] w-[15px] rounded-full bg-current"
         initial={false}
         animate={{ y: open ? 0 : 3, rotate: open ? -45 : 0 }}
-        transition={t}
+        transition={transition}
       />
     </span>
   );
@@ -87,7 +87,7 @@ function MenuBars({ open, animate }: { open: boolean; animate: boolean }) {
  * Crossfades "Menu" ↔ "Close". Both words occupy the same grid cell inside a
  * 5ch box, so the pill does not jump as the label changes length.
  */
-function MenuLabel({ open, animate }: { open: boolean; animate: boolean }) {
+function MenuLabel({ open, animate, t }: { open: boolean; animate: boolean; t: ReturnType<typeof getTranslation> }) {
   return (
     <span className="relative grid items-center overflow-hidden min-w-[5ch]">
       <AnimatePresence initial={false}>
@@ -99,7 +99,7 @@ function MenuLabel({ open, animate }: { open: boolean; animate: boolean }) {
           exit={{ opacity: 0, y: animate ? -8 : 0 }}
           transition={animate ? { duration: 0.22, ease: SOFT_EASE } : { duration: 0.01 }}
         >
-          {open ? 'Close' : 'Menu'}
+          {open ? t.menuTriggerClose : t.menuTriggerOpen}
         </motion.span>
       </AnimatePresence>
     </span>
@@ -107,6 +107,7 @@ function MenuLabel({ open, animate }: { open: boolean; animate: boolean }) {
 }
 
 interface MenuRowsProps {
+  t: ReturnType<typeof getTranslation>;
   language: Language;
   isDarkMode: boolean;
   onToggleLanguage: () => void;
@@ -131,6 +132,7 @@ interface MenuRowsProps {
  * that skips an index would leave a row stuck at `opacity: 0` forever.
  */
 function MenuRows({
+  t,
   language,
   isDarkMode,
   onToggleLanguage,
@@ -156,7 +158,7 @@ function MenuRows({
         <>
           <div className="flex flex-col gap-2">
             <motion.span custom={next()} variants={rowVariants} className={cn(eyebrow, "mb-1")}>
-              Navigation
+              {t.menuNavigation}
             </motion.span>
             {navItems.map((item) => (
               <motion.button
@@ -193,7 +195,7 @@ function MenuRows({
       {/* Settings */}
       <div className="flex flex-col gap-3">
         <motion.span custom={next()} variants={rowVariants} className={eyebrow}>
-          Settings
+          {t.menuSettings}
         </motion.span>
         <motion.button
           type="button"
@@ -203,7 +205,7 @@ function MenuRows({
           className={secondaryRow}
         >
           <Languages className="w-4 h-4" />
-          Language · {language === 'en' ? 'EN' : 'UK'}
+          {t.menuLanguage} · {language === 'en' ? 'EN' : 'UK'}
         </motion.button>
         <motion.button
           type="button"
@@ -213,7 +215,7 @@ function MenuRows({
           className={secondaryRow}
         >
           {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          {isDarkMode ? 'Theme · Dark' : 'Theme · Light'}
+          {isDarkMode ? t.menuThemeDark : t.menuThemeLight}
         </motion.button>
         {onShowWelcome && (
           <motion.button
@@ -227,7 +229,7 @@ function MenuRows({
             className={secondaryRow}
           >
             <HelpCircle className="w-4 h-4" />
-            Show welcome tour
+            {t.menuShowWelcome}
           </motion.button>
         )}
       </div>
@@ -237,13 +239,14 @@ function MenuRows({
       {/* Account */}
       <motion.div custom={next()} variants={rowVariants} className="flex items-center gap-3">
         <UserButton afterSignOutUrl="/sign-in" />
-        <span className="text-sm text-foreground">Account</span>
+        <span className="text-sm text-foreground">{t.menuAccount}</span>
       </motion.div>
     </>
   );
 }
 
 interface ShellMenuProps {
+  t: ReturnType<typeof getTranslation>;
   language: Language;
   isDarkMode: boolean;
   onToggleLanguage: () => void;
@@ -290,6 +293,7 @@ interface ShellMenuProps {
  * trigger on the frame and drops the panel below it instead.
  */
 export function ShellMenu({
+  t,
   language,
   isDarkMode,
   onToggleLanguage,
@@ -335,6 +339,7 @@ export function ShellMenu({
 
   const rows = (
     <MenuRows
+      t={t}
       language={language}
       isDarkMode={isDarkMode}
       onToggleLanguage={onToggleLanguage}
@@ -350,7 +355,7 @@ export function ShellMenu({
 
   const triggerAria = {
     'aria-expanded': open,
-    'aria-label': open ? 'Close menu' : 'Open menu',
+    'aria-label': open ? t.closeMenu : t.openMenu,
   } as const;
 
   if (variant === 'bar') {
@@ -445,7 +450,7 @@ export function ShellMenu({
             )}
           >
             <MenuBars open={open} animate={animate} />
-            <MenuLabel open={open} animate={animate} />
+            <MenuLabel open={open} animate={animate} t={t} />
           </button>
         </div>
 

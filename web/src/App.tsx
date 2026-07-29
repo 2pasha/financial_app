@@ -243,7 +243,7 @@ export default function App() {
       });
       setCategories(data);
     } catch {
-      toast.error('Failed to load categories');
+      toast.error(t.loadCategoriesFailed);
     } finally {
       setCategoriesLoading(false);
     }
@@ -270,7 +270,7 @@ export default function App() {
     setIncomeLoading(true);
     incomeApi.getAll({ year: period.year, month: period.month })
       .then(setIncomeItems)
-      .catch(() => toast.error('Failed to load income'))
+      .catch(() => toast.error(t.loadIncomeFailed))
       .finally(() => setIncomeLoading(false));
   }, [period.year, period.month]);
 
@@ -299,8 +299,8 @@ export default function App() {
       const created = await incomeApi.create(data);
       setIncomeItems((prev) => [...prev, created]);
     } catch {
-      toast.error('Failed to add income');
-      throw new Error('Failed to add income');
+      toast.error(t.addIncomeFailed);
+      throw new Error(t.addIncomeFailed);
     }
   };
 
@@ -309,8 +309,8 @@ export default function App() {
       const updated = await incomeApi.update(id, data);
       setIncomeItems((prev) => prev.map((it) => (it.id === id ? updated : it)));
     } catch {
-      toast.error('Failed to update income');
-      throw new Error('Failed to update income');
+      toast.error(t.updateIncomeFailed);
+      throw new Error(t.updateIncomeFailed);
     }
   };
 
@@ -319,8 +319,8 @@ export default function App() {
       await incomeApi.delete(id);
       setIncomeItems((prev) => prev.filter((it) => it.id !== id));
     } catch {
-      toast.error('Failed to delete income');
-      throw new Error('Failed to delete income');
+      toast.error(t.deleteIncomeFailed);
+      throw new Error(t.deleteIncomeFailed);
     }
   };
 
@@ -328,9 +328,9 @@ export default function App() {
     try {
       const created = await categoriesApi.create(newCategory);
       setCategories((prev) => [...prev, created]);
-      toast.success('Category added');
+      toast.success(t.categoryAdded);
     } catch {
-      toast.error('Failed to add category');
+      toast.error(t.createCategoryFailed);
     }
   };
 
@@ -378,9 +378,9 @@ export default function App() {
         }
       }
 
-      toast.success('Category updated');
+      toast.success(t.categoryUpdated);
     } catch {
-      toast.error('Failed to update category');
+      toast.error(t.updateCategoryFailed);
     }
   };
 
@@ -397,9 +397,9 @@ export default function App() {
     try {
       await categoriesApi.delete(categoryToDelete);
       setCategories((prev) => prev.filter(cat => cat.id !== categoryToDelete));
-      toast.success('Category deleted');
+      toast.success(t.categoryDeleted);
     } catch {
-      toast.error('Failed to delete category');
+      toast.error(t.deleteCategoryFailed);
     } finally {
       setDeleteDialogOpen(false);
       setCategoryToDelete(null);
@@ -431,7 +431,7 @@ export default function App() {
       setBudgetPlan(null);
       toast.success(t.planDeleted);
     } catch {
-      toast.error('Failed to delete budget plan');
+      toast.error(t.planDeleteFailed);
     }
   };
 
@@ -497,7 +497,7 @@ export default function App() {
             onCategoryUpdated={(cat) => setCategories((prev) => prev.map((c) => (c.id === cat.id ? { ...c, ...cat } : c)))}
             onPlanSaved={handlePlanSaved}
             onPlanDeleted={handlePlanDeleted}
-            translations={t as unknown as Record<string, string>}
+            translations={t}
           />
         ) : (
           <>
@@ -721,6 +721,7 @@ export default function App() {
 
       {selectedCategory && (
         <CategoryTransactionsModal
+          t={t}
           open={!!selectedCategory}
           onOpenChange={(open) => { if (!open) setSelectedCategory(null); }}
           categoryId={selectedCategory.id}

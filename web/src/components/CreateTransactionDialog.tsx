@@ -89,14 +89,14 @@ export function CreateTransactionDialog({
 
   const handleSubmit = async () => {
     if (!description.trim() || !amount) {
-      toast.error("Description and amount are required");
+      toast.error(t.descAmountRequired);
 
       return;
     }
 
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      toast.error("Please enter a valid positive amount");
+      toast.error(t.validPositiveAmount);
 
       return;
     }
@@ -115,9 +115,9 @@ export function CreateTransactionDialog({
       onCreate(tx);
       resetForm();
       onOpenChange(false);
-      toast.success("Transaction created");
+      toast.success(t.transactionCreated);
     } catch {
-      toast.error("Failed to create transaction");
+      toast.error(t.createTransactionFailed);
     } finally {
       setIsSubmitting(false);
     }
@@ -129,12 +129,12 @@ export function CreateTransactionDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>New Transaction</DialogTitle>
+          <DialogTitle>{t.newTransaction}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           <div className="space-y-2">
-            <Label>Type</Label>
+            <Label>{t.typeLabel}</Label>
             <div className="flex gap-2">
               <Button
                 variant={type === "expense" ? "default" : "outline"}
@@ -142,7 +142,7 @@ export function CreateTransactionDialog({
                 onClick={() => setType("expense")}
                 className="flex-1"
               >
-                Expense
+                {t.expenseType}
               </Button>
               <Button
                 variant={type === "income" ? "default" : "outline"}
@@ -150,23 +150,23 @@ export function CreateTransactionDialog({
                 onClick={() => setType("income")}
                 className="flex-1"
               >
-                Income
+                {t.incomeType}
               </Button>
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="create-description">Description</Label>
+            <Label htmlFor="create-description">{t.descriptionLabel}</Label>
             <Input
               id="create-description"
-              placeholder="e.g. Coffee, Salary..."
+              placeholder={t.txnDescPlaceholder}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="create-amount">Amount (UAH)</Label>
+            <Label htmlFor="create-amount">{t.amountUah}</Label>
             <Input
               id="create-amount"
               type="number"
@@ -179,7 +179,7 @@ export function CreateTransactionDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="create-date">Date & Time</Label>
+            <Label htmlFor="create-date">{t.dateTimeLabel}</Label>
             <Input
               id="create-date"
               type="datetime-local"
@@ -189,19 +189,19 @@ export function CreateTransactionDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="create-category">Category (optional)</Label>
+            <Label htmlFor="create-category">{t.categoryOptional}</Label>
             {categoriesLoading ? (
               <div className="flex items-center gap-2 text-muted-foreground text-sm py-2">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Loading categories…
+                {t.loadingCategories}
               </div>
             ) : (
               <Select value={categoryId} onValueChange={setCategoryId}>
                 <SelectTrigger id="create-category">
-                  <SelectValue placeholder="No category" />
+                  <SelectValue placeholder={t.noCategory} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No category</SelectItem>
+                  <SelectItem value="none">{t.noCategory}</SelectItem>
                   {categories.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>
                       <span className="flex items-center gap-2">
@@ -219,11 +219,11 @@ export function CreateTransactionDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
-            Cancel
+            {t.cancel}
           </Button>
           <Button onClick={handleSubmit} disabled={isSubmitting || !isValid}>
             {isSubmitting && <Loader2 className="mr-2 w-4 h-4 animate-spin" />}
-            Create
+            {t.create}
           </Button>
         </DialogFooter>
       </DialogContent>

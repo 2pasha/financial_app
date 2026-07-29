@@ -96,6 +96,7 @@ export function SiteHeader({
         <ShellMenu
           variant="bar"
           showNav={false}
+          t={t}
           language={language}
           isDarkMode={isDarkMode}
           onToggleLanguage={onToggleLanguage}
@@ -116,7 +117,7 @@ export function SiteHeader({
         <button
           type="button"
           onClick={() => navigate('/')}
-          aria-label="Moneta home"
+          aria-label={t.lpHomeAria}
           className={cn(
             "pointer-events-auto grid size-13 place-items-center rounded-full border border-border bg-background",
             focusRingOnPage,
@@ -125,6 +126,7 @@ export function SiteHeader({
           <img src="/favicon.png" alt="" className="w-7 h-7 coin-logo" />
         </button>
         <ShellMenu
+          t={t}
           language={language}
           isDarkMode={isDarkMode}
           onToggleLanguage={onToggleLanguage}

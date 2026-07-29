@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "../components/ui/button";
 import { SiteHeader } from "../components/SiteHeader";
 import { useAppSettings } from "../hooks/useAppSettings";
+import { pluralize, type getTranslation } from "../lib/translations";
 import { AddTripDialog } from "../components/AddTripDialog";
 import { EditTripDialog } from "../components/EditTripDialog";
 import { tripsApi } from "../lib/api-client";
@@ -39,14 +40,14 @@ export default function TripsPage() {
   useEffect(() => {
     tripsApi.getAll()
       .then(setTrips)
-      .catch(() => toast.error("Failed to load trips"))
+      .catch(() => toast.error(t.loadTripsFailed))
       .finally(() => setLoading(false));
   }, []);
 
   const handleTripSaved = (updated: Trip) => {
     setTrips((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
     setEditingTrip(null);
-    toast.success("Trip updated");
+    toast.success(t.tripUpdated);
   };
 
   const handleCreated = async (dto: {
@@ -54,7 +55,7 @@ export default function TripsPage() {
   }) => {
     const created = await tripsApi.create(dto);
     setTrips((prev) => [created, ...prev]);
-    toast.success("Trip created");
+    toast.success(t.tripCreated);
   };
 
   const totalGoal = trips.reduce((s, t) => s + t.goalAmount, 0);
@@ -78,24 +79,24 @@ export default function TripsPage() {
         {/* Page title */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-xl font-bold text-foreground">Trips &amp; Goals</h2>
-            <p className="text-sm text-muted-foreground">{activeCount} active goal{activeCount !== 1 ? "s" : ""}</p>
+            <h2 className="text-xl font-bold text-foreground">{t.tripsTitle}</h2>
+            <p className="text-sm text-muted-foreground">{activeCount} {pluralize(language, activeCount, [t.activeGoalOne, t.activeGoalFew, t.activeGoalMany])}</p>
           </div>
           <Button onClick={() => setAddDialogOpen(true)} className="gap-1">
             <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Create New Trip</span>
+            <span className="hidden sm:inline">{t.createNewTrip}</span>
           </Button>
         </div>
 
         {/* Stat cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <StatCard accent="#0D9488" label="Total Planned" value={formatAmount(totalGoal)} />
-          <StatCard accent="#43A047" label="Total Collected" value={formatAmount(totalCollected)} />
-          <StatCard accent="#E53935" label="Total Spent" value={formatAmount(totalSpent)} />
-          <StatCard accent="#1E88E5" label="Active Trips" value={String(activeCount)} />
+          <StatCard accent="#0D9488" label={t.totalPlanned} value={formatAmount(totalGoal)} />
+          <StatCard accent="#43A047" label={t.totalCollected} value={formatAmount(totalCollected)} />
+          <StatCard accent="#E53935" label={t.totalSpentLabel} value={formatAmount(totalSpent)} />
+          <StatCard accent="#1E88E5" label={t.activeTrips} value={String(activeCount)} />
         </div>
 
-        <TripsTip />
+        <TripsTip t={t} />
 
         {/* Trips table */}
         {loading ? (
@@ -104,22 +105,22 @@ export default function TripsPage() {
           </div>
         ) : trips.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground">
-            <p className="text-lg font-medium mb-2">No trips yet</p>
-            <p className="text-sm mb-4">Create your first trip to start tracking your spending.</p>
+            <p className="text-lg font-medium mb-2">{t.noTripsYet}</p>
+            <p className="text-sm mb-4">{t.noTripsBody}</p>
             <Button onClick={() => setAddDialogOpen(true)}>
-              <Plus className="w-4 h-4 mr-1" /> Create New Trip
+              <Plus className="w-4 h-4 mr-1" /> {t.createNewTrip}
             </Button>
           </div>
         ) : (
           <div className="rounded-xl border border-border bg-card overflow-hidden">
             {/* Table header */}
             <div className="hidden md:grid grid-cols-[1fr_90px_100px_120px_90px_90px] gap-x-4 border-b border-border px-5 py-3">
-              {["Trip Name", "Goal", "Collected", "Progress", "Status", "Target Date"].map((h) => (
+              {[t.tripName, t.tripGoal, t.collected, t.tripProgress, t.tripStatus, t.targetDate].map((h) => (
                 <span key={h} className="text-xs font-semibold text-muted-foreground">{h}</span>
               ))}
             </div>
             {trips.map((trip) => (
-              <TripRow key={trip.id} trip={trip} onClick={() => navigate(`/trips/${trip.id}`)} onEdit={() => setEditingTrip(trip)} />
+              <TripRow key={trip.id} trip={trip} t={t} onClick={() => navigate(`/trips/${trip.id}`)} onEdit={() => setEditingTrip(trip)} />
             ))}
           </div>
         )}
@@ -131,7 +132,7 @@ export default function TripsPage() {
   );
 }
 
-function TripsTip() {
+function TripsTip({ t }: { t: ReturnType<typeof getTranslation> }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -141,7 +142,7 @@ function TripsTip() {
         className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-muted/40 transition-colors"
       >
         <span className="text-sm font-medium text-foreground flex items-center gap-2">
-          <span>💡</span> How to use Trips
+          <span>💡</span> {t.tripsTipTitle}
         </span>
         {open ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
       </button>
@@ -149,34 +150,34 @@ function TripsTip() {
       {open && (
         <div className="px-4 pb-4 space-y-4 text-sm text-muted-foreground border-t border-border pt-3">
           <p>
-            A trip tracks both the money you set aside <strong className="text-foreground">and</strong> the money you actually spend — at the same time.
+            {t.tripsTipIntroA} <strong className="text-foreground">{t.tripsTipIntroAnd}</strong> {t.tripsTipIntroB}
           </p>
 
           <div className="space-y-1.5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-foreground">Tag these as trip transactions ✓</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-foreground">{t.tripsTipTagTitle}</p>
             <ul className="space-y-1 list-none">
-              <li className="flex gap-2"><span className="text-green-600 shrink-0">+</span>Monthly savings transfers to a jar or EUR account — these count as <strong className="text-foreground">Collected</strong></li>
-              <li className="flex gap-2"><span className="text-red-500 shrink-0">−</span>Actual purchases during the trip (flights, hotels, food, transport) — these count as <strong className="text-foreground">Spent</strong></li>
-              <li className="flex gap-2"><span className="text-red-500 shrink-0">−</span>Spending directly from your EUR card or savings card</li>
+              <li className="flex gap-2"><span className="text-green-600 shrink-0">+</span>{t.tripsTipTagSavings} <strong className="text-foreground">{t.collected}</strong></li>
+              <li className="flex gap-2"><span className="text-red-500 shrink-0">−</span>{t.tripsTipTagPurchases} <strong className="text-foreground">{t.totalSpentLabel}</strong></li>
+              <li className="flex gap-2"><span className="text-red-500 shrink-0">−</span>{t.tripsTipTagDirect}</li>
             </ul>
           </div>
 
           <div className="space-y-1.5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-foreground">Don't tag these ✗</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-foreground">{t.tripsTipDontTitle}</p>
             <ul className="space-y-1 list-none">
-              <li className="flex gap-2"><span className="text-muted-foreground shrink-0">−</span>Jar or card withdrawals back to your main account — these are internal transfers and would double-count</li>
-              <li className="flex gap-2"><span className="text-muted-foreground shrink-0">−</span>Top-ups between your own accounts for the same trip money</li>
+              <li className="flex gap-2"><span className="text-muted-foreground shrink-0">−</span>{t.tripsTipDontWithdrawals}</li>
+              <li className="flex gap-2"><span className="text-muted-foreground shrink-0">−</span>{t.tripsTipDontTopups}</li>
             </ul>
           </div>
 
           <div className="space-y-1.5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-foreground">What the numbers mean</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-foreground">{t.tripsTipNumbersTitle}</p>
             <ul className="space-y-1 list-none">
-              <li className="flex gap-2"><span className="font-semibold text-green-600 shrink-0">Collected</span> Money you've put aside for this trip so far</li>
-              <li className="flex gap-2"><span className="font-semibold text-red-500 shrink-0">Spent</span> Money actually used on the trip</li>
-              <li className="flex gap-2"><span className="font-semibold text-blue-600 shrink-0">Available</span> Collected minus Spent — ready to spend</li>
+              <li className="flex gap-2"><span className="font-semibold text-green-600 shrink-0">{t.collected}</span> {t.tripsTipCollected}</li>
+              <li className="flex gap-2"><span className="font-semibold text-red-500 shrink-0">{t.totalSpentLabel}</span> {t.tripsTipSpent}</li>
+              <li className="flex gap-2"><span className="font-semibold text-blue-600 shrink-0">{t.available}</span> {t.tripsTipAvailable}</li>
             </ul>
-            <p className="pt-1">The progress bar shows <span className="text-red-500 font-medium">red</span> for spent and <span className="text-green-600 font-medium">green</span> for available, against your planned budget.</p>
+            <p className="pt-1">{t.tripsTipProgressA} <span className="text-red-500 font-medium">{t.tripsTipProgressRed}</span> {t.tripsTipProgressB} <span className="text-green-600 font-medium">{t.tripsTipProgressGreen}</span> {t.tripsTipProgressC}</p>
           </div>
         </div>
       )}
@@ -194,7 +195,7 @@ function StatCard({ accent, label, value }: { accent: string; label: string; val
   );
 }
 
-function TripRow({ trip, onClick, onEdit }: { trip: Trip; onClick: () => void; onEdit: () => void }) {
+function TripRow({ trip, t, onClick, onEdit }: { trip: Trip; t: ReturnType<typeof getTranslation>; onClick: () => void; onEdit: () => void }) {
   const collectedPct = trip.goalAmount > 0 ? Math.min(100, Math.round((trip.collectedAmount / trip.goalAmount) * 100)) : 0;
   const spentPct = trip.goalAmount > 0 ? Math.min(collectedPct, Math.round((trip.spentAmount / trip.goalAmount) * 100)) : 0;
   const isCompleted = !trip.isActive;
@@ -220,9 +221,9 @@ function TripRow({ trip, onClick, onEdit }: { trip: Trip; onClick: () => void; o
           </div>
           <p className="text-xs text-muted-foreground md:hidden mt-0.5">
             <span style={{ color: "#43A047" }}>{formatAmount(trip.collectedAmount)}</span>
-            {" collected · "}
+            {` ${t.collectedLower} · `}
             <span style={{ color: "#E53935" }}>{formatAmount(trip.spentAmount)}</span>
-            {" spent"}
+            {` ${t.spentLower}`}
             {trip.targetDate && ` · ${formatTargetDate(trip.targetDate)}`}
           </p>
         </div>
@@ -250,11 +251,11 @@ function TripRow({ trip, onClick, onEdit }: { trip: Trip; onClick: () => void; o
           <div className="h-full" style={{ width: `${collectedPct - spentPct}%`, backgroundColor: trip.color }} />
         </div>
         <span>{collectedPct}%</span>
-        <StatusBadge completed={isCompleted} />
+        <StatusBadge completed={isCompleted} t={t} />
       </div>
       {/* Status */}
       <div className="hidden md:flex items-center self-center">
-        <StatusBadge completed={isCompleted} />
+        <StatusBadge completed={isCompleted} t={t} />
       </div>
       {/* Target date */}
       <span className="text-xs text-muted-foreground hidden md:block self-center">
@@ -264,14 +265,14 @@ function TripRow({ trip, onClick, onEdit }: { trip: Trip; onClick: () => void; o
   );
 }
 
-function StatusBadge({ completed }: { completed: boolean }) {
+function StatusBadge({ completed, t }: { completed: boolean; t: ReturnType<typeof getTranslation> }) {
   return completed ? (
     <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full" style={{ backgroundColor: "#E8F5E9", color: "#2E7D32" }}>
-      Completed
+      {t.completedLabel}
     </span>
   ) : (
     <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full" style={{ backgroundColor: "#E3F2FD", color: "#1565C0" }}>
-      Active
+      {t.activeLabel}
     </span>
   );
 }

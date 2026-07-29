@@ -6,6 +6,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { SiteHeader } from "../components/SiteHeader";
 import { useAppSettings } from "../hooks/useAppSettings";
+import { tf } from "../lib/translations";
 import { EditTripDialog } from "../components/EditTripDialog";
 import { tripsApi } from "../lib/api-client";
 import type { TripDetail, TripPlannedItem, Trip } from "../lib/api-client";
@@ -62,7 +63,7 @@ export default function TripDetailPage() {
     if (!id) return;
     tripsApi.getOne(id)
       .then(setTrip)
-      .catch(() => toast.error("Failed to load trip"))
+      .catch(() => toast.error(t.loadTripFailed))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -82,7 +83,7 @@ export default function TripDetailPage() {
       await tripsApi.updateItem(trip.id, item.id, { completed: !item.completed });
     } catch {
       setTrip((prev) => prev ? { ...prev, plannedItems: prev.plannedItems.map((i) => i.id === item.id ? item : i) } : prev);
-      toast.error("Failed to update item");
+      toast.error(t.updateItemFailed);
     } finally {
       setTogglingItem(null);
     }
@@ -96,7 +97,7 @@ export default function TripDetailPage() {
       setTrip((prev) => prev ? { ...prev, plannedItems: [...prev.plannedItems, item] } : prev);
       setNewItemText("");
     } catch {
-      toast.error("Failed to add item");
+      toast.error(t.addItemFailed);
     } finally {
       setAddingItem(false);
     }
@@ -110,7 +111,7 @@ export default function TripDetailPage() {
       await tripsApi.removeItem(trip.id, item.id);
     } catch {
       setTrip((prev) => prev ? { ...prev, plannedItems: [...(prev?.plannedItems ?? []), item] } : prev);
-      toast.error("Failed to delete item");
+      toast.error(t.deleteItemFailed);
     } finally {
       setDeletingItem(null);
     }
@@ -118,7 +119,7 @@ export default function TripDetailPage() {
 
   const handleTripSaved = (updated: Trip) => {
     setTrip((prev) => prev ? { ...prev, ...updated } : prev);
-    toast.success("Trip updated");
+    toast.success(t.tripUpdated);
   };
 
   if (loading) {
@@ -132,8 +133,8 @@ export default function TripDetailPage() {
   if (!trip) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
-        <p className="text-muted-foreground">Trip not found.</p>
-        <Button variant="outline" onClick={() => navigate("/trips")}>Back to Trips</Button>
+        <p className="text-muted-foreground">{t.tripNotFound}</p>
+        <Button variant="outline" onClick={() => navigate("/trips")}>{t.backToTrips}</Button>
       </div>
     );
   }
@@ -183,13 +184,13 @@ export default function TripDetailPage() {
               className="gap-1.5"
             >
               <Pencil className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Edit</span>
+              <span className="hidden sm:inline">{t.edit}</span>
             </Button>
             {isCompleted ? (
-              <span className="text-xs font-semibold px-3 py-1.5 rounded-full" style={{ backgroundColor: "#E8F5E9", color: "#2E7D32" }}>Completed</span>
+              <span className="text-xs font-semibold px-3 py-1.5 rounded-full" style={{ backgroundColor: "#E8F5E9", color: "#2E7D32" }}>{t.completedLabel}</span>
             ) : (
               <span className="text-xs font-semibold px-3 py-1.5 rounded-full" style={{ backgroundColor: collectedPct >= 80 ? "#E8F5E9" : "#E3F2FD", color: collectedPct >= 80 ? "#2E7D32" : "#1565C0" }}>
-                {collectedPct >= 80 ? "On Track" : "Active"}
+                {collectedPct >= 80 ? t.onTrack : t.activeLabel}
               </span>
             )}
           </div>
@@ -199,9 +200,9 @@ export default function TripDetailPage() {
         <div className="bg-card border border-border rounded-xl p-5 space-y-3">
           <div className="flex items-baseline justify-between">
             <span className="text-sm font-semibold text-foreground">
-              {formatAmount(trip.collectedAmount)} collected
+              {tf(t.collectedSuffix, { amount: formatAmount(trip.collectedAmount) })}
             </span>
-            <span className="text-sm text-muted-foreground">of {formatAmount(trip.goalAmount)} planned</span>
+            <span className="text-sm text-muted-foreground">{tf(t.ofPlanned, { amount: formatAmount(trip.goalAmount) })}</span>
           </div>
           {/* Stacked bar: spent (red) + available (trip color) against goal */}
           <div className="w-full h-2.5 rounded-full overflow-hidden flex" style={{ backgroundColor: "#F0F0F0" }}>
@@ -209,23 +210,23 @@ export default function TripDetailPage() {
             <div className="h-full transition-all duration-500" style={{ width: `${collectedPct - spentPct}%`, backgroundColor: "#2E7D32" }} />
           </div>
           <div className="flex items-center justify-between text-xs">
-            <span className="font-medium" style={{ color: "#2E7D32" }}>{collectedPct}% collected</span>
-            <span className="text-muted-foreground">{formatAmount(trip.goalAmount - trip.collectedAmount > 0 ? trip.goalAmount - trip.collectedAmount : 0)} left to collect</span>
+            <span className="font-medium" style={{ color: "#2E7D32" }}>{tf(t.pctCollected, { pct: collectedPct })}</span>
+            <span className="text-muted-foreground">{tf(t.leftToCollect, { amount: formatAmount(trip.goalAmount - trip.collectedAmount > 0 ? trip.goalAmount - trip.collectedAmount : 0) })}</span>
           </div>
         </div>
 
         {/* Stat cards */}
         <div className="grid grid-cols-3 gap-2 md:gap-3">
           <div className="bg-card border border-border rounded-xl p-3 md:p-4 space-y-1">
-            <span className="text-xs font-medium text-muted-foreground leading-tight block">Collected</span>
+            <span className="text-xs font-medium text-muted-foreground leading-tight block">{t.collected}</span>
             <p className="text-sm md:text-lg font-bold leading-tight" style={{ color: "#2E7D32" }}>{formatAmount(trip.collectedAmount)}</p>
           </div>
           <div className="bg-card border border-border rounded-xl p-3 md:p-4 space-y-1">
-            <span className="text-xs font-medium text-muted-foreground leading-tight block">Spent</span>
+            <span className="text-xs font-medium text-muted-foreground leading-tight block">{t.totalSpentLabel}</span>
             <p className="text-sm md:text-lg font-bold leading-tight" style={{ color: "#E53935" }}>{formatAmount(trip.spentAmount)}</p>
           </div>
           <div className="bg-card border border-border rounded-xl p-3 md:p-4 space-y-1">
-            <span className="text-xs font-medium text-muted-foreground leading-tight block">Available</span>
+            <span className="text-xs font-medium text-muted-foreground leading-tight block">{t.available}</span>
             <p className="text-sm md:text-lg font-bold leading-tight" style={{ color: "#1565C0" }}>{formatAmount(available)}</p>
           </div>
         </div>
@@ -233,25 +234,25 @@ export default function TripDetailPage() {
         {/* Recent Transactions */}
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-            <h3 className="text-base font-bold text-foreground">Recent Transactions</h3>
+            <h3 className="text-base font-bold text-foreground">{t.recentTransactions}</h3>
             {trip.transactions.length > 5 && (
               <button
                 onClick={() => setShowAllTx((v) => !v)}
                 className="text-xs font-medium transition-colors"
                 style={{ color: "#1565C0" }}
               >
-                {showAllTx ? "Show Less" : "View All →"}
+                {showAllTx ? t.showLess : t.viewAll}
               </button>
             )}
           </div>
           {/* Column headers — desktop only */}
           <div className="hidden md:grid grid-cols-[1fr_110px_140px] px-5 py-2 border-b border-border">
-            <span className="text-xs font-semibold text-muted-foreground">Description</span>
-            <span className="text-xs font-semibold text-muted-foreground text-right">Date</span>
-            <span className="text-xs font-semibold text-muted-foreground text-right">Amount</span>
+            <span className="text-xs font-semibold text-muted-foreground">{t.descriptionLabel}</span>
+            <span className="text-xs font-semibold text-muted-foreground text-right">{t.dateLabel}</span>
+            <span className="text-xs font-semibold text-muted-foreground text-right">{t.amountLabel}</span>
           </div>
           {displayedTx.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">No transactions assigned to this trip yet.</p>
+            <p className="text-sm text-muted-foreground text-center py-8">{t.noTripTransactions}</p>
           ) : (
             displayedTx.map((tx) => (
               <div key={tx.id} className="border-b border-border last:border-0">
@@ -343,12 +344,12 @@ export default function TripDetailPage() {
         {/* Planned Expenses */}
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-            <h3 className="text-base font-bold text-foreground">Planned Expenses</h3>
+            <h3 className="text-base font-bold text-foreground">{t.plannedExpenses}</h3>
             <button
               onClick={() => { setNewItemText(" "); setTimeout(() => { setNewItemText(""); inputRef.current?.focus(); }, 0); }}
               className="flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted hover:bg-muted/80 px-2.5 py-1.5 rounded-md transition-colors"
             >
-              <Plus className="w-3 h-3" /> Add Item
+              <Plus className="w-3 h-3" /> {t.addItem}
             </button>
           </div>
 
@@ -369,7 +370,7 @@ export default function TripDetailPage() {
               <div className="w-4.5 h-4.5 w-[18px] h-[18px] rounded shrink-0 border-2 border-dashed border-muted-foreground/40" />
               <Input
                 ref={inputRef}
-                placeholder="Add a planned expense…"
+                placeholder={t.addPlannedExpensePlaceholder}
                 value={newItemText}
                 onChange={(e) => setNewItemText(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleAddItem()}
@@ -390,7 +391,7 @@ export default function TripDetailPage() {
           {/* Footer count */}
           {trip.plannedItems.length > 0 && (
             <div className="px-5 py-3 border-t border-border">
-              <span className="text-xs text-muted-foreground">{completedItems} of {trip.plannedItems.length} completed</span>
+              <span className="text-xs text-muted-foreground">{tf(t.itemsCompleted, { done: completedItems, total: trip.plannedItems.length })}</span>
             </div>
           )}
         </div>

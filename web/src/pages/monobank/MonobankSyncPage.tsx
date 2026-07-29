@@ -8,8 +8,11 @@ import { Badge } from '../../components/ui/badge';
 import { Progress } from '../../components/ui/progress';
 import { Loader2, RefreshCw, CheckCircle2, AlertCircle, Clock, DollarSign, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAppSettings } from '../../hooks/useAppSettings';
+import { tf } from '../../lib/translations';
 
 export default function MonobankSyncPage() {
+  const { t } = useAppSettings();
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncJob, setSyncJob] = useState<SyncJob | null>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -64,20 +67,20 @@ export default function MonobankSyncPage() {
         if (job.status === 'completed') {
           stopPolling();
           setIsSyncing(false);
-          toast.success('Transactions synced successfully!');
+          toast.success(t.syncedSuccess);
           loadTransactions();
         }
 
         if (job.status === 'failed') {
           stopPolling();
           setIsSyncing(false);
-          setError(job.error || 'Sync failed. Please try again.');
-          toast.error('Sync failed');
+          setError(job.error || t.syncFailedRetry);
+          toast.error(t.syncFailed);
         }
       } catch (err: any) {
         stopPolling();
         setIsSyncing(false);
-        setError(err.message || 'Failed to get sync status');
+        setError(err.message || t.getSyncStatusFailed);
       }
     }, 3000);
   };
@@ -93,8 +96,8 @@ export default function MonobankSyncPage() {
 
       startPolling(jobId);
     } catch (err: any) {
-      setError(err.message || 'Failed to start sync');
-      toast.error('Failed to start sync');
+      setError(err.message || t.startSyncFailed);
+      toast.error(t.startSyncFailed);
       setIsSyncing(false);
     }
   };
@@ -129,9 +132,9 @@ export default function MonobankSyncPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Monobank Transactions</h1>
+            <h1 className="text-3xl font-bold">{t.monoTxTitle}</h1>
             <p className="text-muted-foreground">
-              Sync and view your Monobank transactions
+              {t.monoSyncSubtitle}
             </p>
           </div>
           <Button
@@ -143,12 +146,12 @@ export default function MonobankSyncPage() {
             {isSyncing ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin" />
-                Syncing...
+                {t.syncing}
               </>
             ) : (
               <>
                 <RefreshCw className="h-5 w-5" />
-                Sync Transactions
+                {t.syncTransactions}
               </>
             )}
           </Button>
@@ -158,7 +161,7 @@ export default function MonobankSyncPage() {
         <Alert>
           <Clock className="h-4 w-4" />
           <AlertDescription>
-            The sync process fetches your last 3 months of transactions. This may take several minutes due to Monobank API rate limiting (60 seconds between requests).
+            {t.monoSyncInfo}
           </AlertDescription>
         </Alert>
 
@@ -195,10 +198,12 @@ export default function MonobankSyncPage() {
                     }
                   />
                   <p className="text-xs text-muted-foreground">
-                    {syncJob.status === 'completed'
-                      ? `${syncJob.totalAccounts} of ${syncJob.totalAccounts} accounts`
-                      : `${syncJob.currentAccount} of ${syncJob.totalAccounts} accounts`}
-                    {syncJob.transactionsCount > 0 && ` · ${syncJob.transactionsCount} transactions`}
+                    {tf(t.accountsProgress, {
+                      done: syncJob.status === 'completed' ? syncJob.totalAccounts : syncJob.currentAccount,
+                      total: syncJob.totalAccounts,
+                    })}
+                    {syncJob.transactionsCount > 0 &&
+                      ` · ${tf(t.transactionsSuffix, { n: syncJob.transactionsCount })}`}
                   </p>
                 </div>
               )}
@@ -211,12 +216,15 @@ export default function MonobankSyncPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Transactions</CardTitle>
+                <CardTitle>{t.transactionsLabel}</CardTitle>
                 <CardDescription>
-                  {totalTransactions > 0 
-                    ? `Showing ${(currentPage - 1) * itemsPerPage + 1}-${Math.min(currentPage * itemsPerPage, totalTransactions)} of ${totalTransactions} transactions`
-                    : 'Your synced transactions from Monobank'
-                  }
+                  {totalTransactions > 0
+                    ? tf(t.showingRange, {
+                        from: (currentPage - 1) * itemsPerPage + 1,
+                        to: Math.min(currentPage * itemsPerPage, totalTransactions),
+                        total: totalTransactions,
+                      })
+                    : t.syncedTxSubtitle}
                 </CardDescription>
               </div>
             </div>
@@ -230,7 +238,7 @@ export default function MonobankSyncPage() {
               <div className="text-center py-12">
                 <DollarSign className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <p className="text-muted-foreground mb-4">
-                  No transactions yet. Click "Sync Transactions" to fetch your data.
+                  {t.noTransactionsYetSync}
                 </p>
               </div>
             ) : (
@@ -249,7 +257,7 @@ export default function MonobankSyncPage() {
                           </span>
                           {tx.hold && (
                             <Badge variant="outline" className="text-xs">
-                              Hold
+                              {t.txnHold}
                             </Badge>
                           )}
                           {tx.mcc && (
@@ -282,7 +290,7 @@ export default function MonobankSyncPage() {
                 {totalPages > 1 && (
                   <div className="flex items-center justify-between mt-6 pt-6 border-t">
                     <div className="text-sm text-muted-foreground">
-                      Page {currentPage} of {totalPages}
+                      {tf(t.pageOf, { current: currentPage, total: totalPages })}
                     </div>
                     <div className="flex gap-2">
                       <Button
@@ -292,7 +300,7 @@ export default function MonobankSyncPage() {
                         disabled={currentPage === 1}
                       >
                         <ChevronLeft className="h-4 w-4 mr-1" />
-                        Previous
+                        {t.previous}
                       </Button>
                       <Button
                         variant="outline"
@@ -300,7 +308,7 @@ export default function MonobankSyncPage() {
                         onClick={() => setCurrentPage(currentPage + 1)}
                         disabled={currentPage === totalPages}
                       >
-                        Next
+                        {t.next}
                         <ChevronRight className="h-4 w-4 ml-1" />
                       </Button>
                     </div>

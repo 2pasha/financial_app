@@ -1,5 +1,6 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "./ui/utils";
+import { type getTranslation } from "../lib/translations";
 
 /**
  * Four full-bleed rows, one phrase each, that invert on hover.
@@ -17,7 +18,12 @@ import { cn } from "./ui/utils";
  * does not exist, so it is dropped and the rows are plain divs.
  */
 
-const PHRASES = ["Bank Sync", "Safe to Spend", "Monthly Planning", "Trips & Goals"];
+const phrases = (t: ReturnType<typeof getTranslation>) => [
+  t.lpServiceSync,
+  t.lpServiceSafeToSpend,
+  t.lpServicePlanning,
+  t.lpServiceGoals,
+];
 
 /** Shared by both layers. They must match exactly or the register breaks. */
 const LABEL = "text-[clamp(1.5rem,4vw,4rem)] font-light tracking-tight leading-[1.5]";
@@ -34,30 +40,42 @@ const WIPE = "transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1
  * overflow is baseline-aligned by its bottom margin edge, which otherwise nudges
  * every letter off the shared baseline and destroys the register with the layer
  * underneath.
+ *
+ * Spaces are bare text nodes rather than boxed letters of their own. Boxed — and
+ * especially boxed around a non-breaking space, as they were — the phrase becomes one
+ * unbreakable run of inline-blocks, so a phrase too long for the row overflows here
+ * while the plain-text base layer wraps between words, and the two layers fall out of
+ * register. As text nodes they give this layer the same word-boundary break
+ * opportunities the base layer has, which is what keeps the longer translated phrases
+ * safe on narrow viewports.
  */
 function RollingLetters({ text }: { text: string }) {
   return (
     <>
-      {text.split("").map((char, i) => (
-        <span key={`${i}-${char}`} className="inline-block overflow-hidden align-bottom">
-          <span
-            className={cn("inline-block translate-y-full group-hover:translate-y-0", WIPE)}
-            style={{ transitionDelay: `${i * 18}ms` }}
-          >
-            {char === " " ? " " : char}
+      {text.split("").map((char, i) =>
+        char === " " ? (
+          " "
+        ) : (
+          <span key={`${i}-${char}`} className="inline-block overflow-hidden align-bottom">
+            <span
+              className={cn("inline-block translate-y-full group-hover:translate-y-0", WIPE)}
+              style={{ transitionDelay: `${i * 18}ms` }}
+            >
+              {char}
+            </span>
           </span>
-        </span>
-      ))}
+        ),
+      )}
     </>
   );
 }
 
-export function LandingServices() {
+export function LandingServices({ t }: { t: ReturnType<typeof getTranslation> }) {
   const reduceMotion = useReducedMotion();
 
   return (
-    <section id="services" aria-label="What Moneta does" className="w-full pb-24">
-      {PHRASES.map((phrase, i) => (
+    <section id="services" aria-label={t.lpServicesAria} className="w-full pb-24">
+      {phrases(t).map((phrase, i) => (
         <motion.div
           key={phrase}
           className="group relative overflow-hidden border-t border-foreground/10"

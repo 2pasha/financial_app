@@ -3,6 +3,9 @@ import { Link } from "react-router-dom";
 import { HeroSurface } from "./HeroSurface";
 import { HEADER_CLEARANCE } from "./HeaderShell";
 import { cn } from "./ui/utils";
+import { type getTranslation } from "../lib/translations";
+
+type T = ReturnType<typeof getTranslation>;
 
 /**
  * The landing page's first screen: a dark field covering the whole viewport,
@@ -141,19 +144,22 @@ function Rise({
  * from the field by its border and by the panel being darker than `--background`.
  * The visitor can flip the theme from the header and watch it change — which is a
  * more honest demo than a single baked screenshot.
+ *
+ * The copy is translated like the rest of the page, but the merchant names are not:
+ * ATB and Uklon are Ukrainian brands and read the same in either language.
  */
-function AppWindow() {
+function AppWindow({ t }: { t: T }) {
   const categories = [
-    { name: "Groceries", left: "₴4,200 left", pct: 62, color: CATEGORY.green },
-    { name: "Transport", left: "₴1,100 left", pct: 45, color: CATEGORY.purple },
-    { name: "Entertainment", left: "₴600 left", pct: 82, color: CATEGORY.orange },
-    { name: "Rent", left: "Paid", pct: 100, color: CATEGORY.pink },
+    { name: t.lpMockGroceries, left: `₴4,200 ${t.lpMockLeft}`, pct: 62, color: CATEGORY.green },
+    { name: t.lpMockTransport, left: `₴1,100 ${t.lpMockLeft}`, pct: 45, color: CATEGORY.purple },
+    { name: t.lpMockEntertainment, left: `₴600 ${t.lpMockLeft}`, pct: 82, color: CATEGORY.orange },
+    { name: t.lpMockRent, left: t.lpMockPaid, pct: 100, color: CATEGORY.pink },
   ];
 
   const transactions = [
-    { name: "ATB", category: "Groceries", amount: "−₴421.20", income: false },
-    { name: "Salary", category: "Income", amount: "+₴45,000.00", income: true },
-    { name: "Uklon", category: "Transport", amount: "−₴623.10", income: false },
+    { name: "ATB", category: t.lpMockGroceries, amount: "−₴421.20", income: false },
+    { name: t.lpMockSalary, category: t.lpMockIncome, amount: "+₴45,000.00", income: true },
+    { name: "Uklon", category: t.lpMockTransport, amount: "−₴623.10", income: false },
   ];
 
   return (
@@ -164,7 +170,7 @@ function AppWindow() {
         <span className="size-2.5 rounded-full bg-[#febc2e]" />
         <span className="size-2.5 rounded-full bg-[#28c840]" />
         <span className="absolute inset-x-0 text-center text-[11px] font-medium text-muted-foreground">
-          Moneta
+          {t.appTitle}
         </span>
       </div>
 
@@ -172,8 +178,8 @@ function AppWindow() {
         {/* App header row */}
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-semibold text-foreground">Dashboard</p>
-            <p className="text-[11px] text-muted-foreground">July 2026</p>
+            <p className="text-sm font-semibold text-foreground">{t.lpMockDashboard}</p>
+            <p className="text-[11px] text-muted-foreground">{t.lpMockMonth}</p>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
@@ -189,7 +195,7 @@ function AppWindow() {
          * cannot drift from the product's signature surface.
          */}
         <HeroSurface className="p-4 sm:p-5">
-          <p className="text-xs opacity-80">Safe to spend</p>
+          <p className="text-xs opacity-80">{t.safeToSpend}</p>
           <p className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight">₴35,634.65</p>
           <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-primary-foreground/20">
             <div className="h-full rounded-full bg-primary-foreground" style={{ width: "78%" }} />
@@ -223,8 +229,8 @@ function AppWindow() {
         {/* Recent transactions */}
         <div className="rounded-lg border border-border">
           <div className="flex items-center justify-between border-b border-border px-3 py-2">
-            <span className="text-[11px] font-semibold text-foreground">Recent</span>
-            <span className="text-[11px] text-muted-foreground">Synced 2 min ago</span>
+            <span className="text-[11px] font-semibold text-foreground">{t.lpMockRecent}</span>
+            <span className="text-[11px] text-muted-foreground">{t.lpMockSyncedShort}</span>
           </div>
           <div className="divide-y divide-border">
             {transactions.map((tx) => (
@@ -250,7 +256,7 @@ function AppWindow() {
   );
 }
 
-export function LandingHero() {
+export function LandingHero({ t }: { t: T }) {
   const shown = useEntrance();
 
   return (
@@ -283,18 +289,20 @@ export function LandingHero() {
         <Rise shown={shown} delay={0} className="text-center">
           {/*
            * Two lines, the payoff in the heavier weight. `text-balance` is not
-           * used: the break is the design, so it is placed explicitly and the
-           * line box is forced with a block-level span.
+           * used: the break between the two lines is the design, so it is placed
+           * explicitly and each line box is forced with a block-level span. Within
+           * a line the text may still wrap on its own — which it does for the
+           * longer Ukrainian headline on narrow viewports, and is fine.
            */}
           <h1 className="mx-auto max-w-3xl text-4xl sm:text-5xl lg:text-6xl leading-[1.08] tracking-tight text-white">
-            <span className="block font-normal">Know where your money goes</span>
-            <span className="block font-bold italic">before it's gone</span>
+            <span className="block font-normal">{t.lpHeroTitleTop}</span>
+            <span className="block font-bold italic">{t.lpHeroTitleBottom}</span>
           </h1>
         </Rise>
 
         <Rise shown={shown} delay={90} className="text-center">
           <p className="mx-auto mt-5 max-w-md text-base sm:text-lg text-white/60">
-            Automatic budgeting from your Monobank transactions.
+            {t.lpHeroSubtitle}
           </p>
         </Rise>
 
@@ -304,19 +312,19 @@ export function LandingHero() {
               to="/sign-up"
               className="inline-flex h-11 items-center rounded-lg bg-white px-6 text-sm font-medium text-[#08080f] transition-colors hover:bg-white/90 outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#08080f]"
             >
-              Sign up free
+              {t.lpSignUpFree}
             </Link>
             <Link
               to="/sign-in"
               className="inline-flex h-11 items-center rounded-lg border border-white/20 px-6 text-sm font-medium text-white transition-colors hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#08080f]"
             >
-              Sign in
+              {t.lpSignIn}
             </Link>
           </div>
         </Rise>
 
         <Rise shown={shown} delay={280} className="mx-auto mt-14 max-w-4xl sm:mt-16">
-          <AppWindow />
+          <AppWindow t={t} />
         </Rise>
       </div>
 

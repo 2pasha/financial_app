@@ -3,6 +3,9 @@ import { Link } from "react-router-dom";
 import { useReducedMotion } from "framer-motion";
 import { focusRingOnFrame } from "./chrome";
 import { cn } from "./ui/utils";
+import { type getTranslation } from "../lib/translations";
+
+type T = ReturnType<typeof getTranslation>;
 
 /**
  * The footer, revealed as a drawer.
@@ -28,12 +31,12 @@ const MAX_VIEWPORT_SHARE = 0.9;
 
 const EMAIL = "hello@moneta.app";
 
-const NAV: { heading: string; links: { label: string; to: string }[] }[] = [
+const nav = (t: T): { heading: string; links: { label: string; to: string }[] }[] => [
   {
-    heading: "Get started",
+    heading: t.lpFooterGetStarted,
     links: [
-      { label: "Sign up free", to: "/sign-up" },
-      { label: "Sign in", to: "/sign-in" },
+      { label: t.lpSignUpFree, to: "/sign-up" },
+      { label: t.lpSignIn, to: "/sign-in" },
     ],
   },
 ];
@@ -43,7 +46,7 @@ const footerLink = cn(
   focusRingOnFrame,
 );
 
-export function LandingFooter() {
+export function LandingFooter({ t }: { t: T }) {
   const ref = useRef<HTMLElement>(null);
   const reduceMotion = useReducedMotion();
   const [height, setHeight] = useState(0);
@@ -122,7 +125,7 @@ export function LandingFooter() {
                 focusRingOnFrame,
               )}
             >
-              Sign up free
+              {t.lpSignUpFree}
             </Link>
           </div>
 
@@ -130,13 +133,11 @@ export function LandingFooter() {
 
           <div className="mt-10 grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
             <div className="lg:col-span-2">
-              <p className="text-lg font-semibold">Moneta</p>
-              <p className="mt-1 text-sm text-frame-foreground/65">
-                Budgeting, synced from your bank.
-              </p>
+              <p className="text-lg font-semibold">{t.appTitle}</p>
+              <p className="mt-1 text-sm text-frame-foreground/65">{t.lpFooterTagline}</p>
             </div>
 
-            {NAV.map((group) => (
+            {nav(t).map((group) => (
               <nav key={group.heading} aria-label={group.heading}>
                 <p className="text-[11px] font-medium uppercase tracking-wider text-frame-foreground/45">
                   {group.heading}
@@ -166,11 +167,8 @@ export function LandingFooter() {
           </div>
 
           <div className="mt-14 flex flex-col gap-3 border-t border-frame-foreground/15 pt-6 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-frame-foreground/45">© 2026 Moneta</p>
-            <p className="text-xs text-frame-foreground/45">
-              Free during early access. If we ever introduce paid plans, current users will hear
-              about it first.
-            </p>
+            <p className="text-xs text-frame-foreground/45">{t.lpFooterCopyright}</p>
+            <p className="text-xs text-frame-foreground/45">{t.lpFooterEarlyAccess}</p>
           </div>
         </div>
       </footer>

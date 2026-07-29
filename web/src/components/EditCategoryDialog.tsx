@@ -4,6 +4,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { IconPicker } from "./IconPicker";
+import { type getTranslation } from "../lib/translations";
 
 interface EditCategoryDialogProps {
   open: boolean;
@@ -25,21 +26,7 @@ interface EditCategoryDialogProps {
     color: string;
     excludeFromDashboard: boolean;
   } | null;
-  translations: {
-    editCategory: string;
-    categoryName: string;
-    budgetAmount: string;
-    icon: string;
-    color: string;
-    cancel: string;
-    saveChanges: string;
-    placeholderCategoryName: string;
-    placeholderBudget: string;
-    spentAmount: string;
-    placeholderSpent: string;
-    excludeFromDashboard: string;
-    excludeFromDashboardHint: string;
-  };
+  translations: ReturnType<typeof getTranslation>;
 }
 
 const DEFAULT_ICON = "🛒";
@@ -121,7 +108,7 @@ export function EditCategoryDialog({ open, onOpenChange, onSave, category, trans
           </div>
           <div className="space-y-2">
             <Label>{translations.icon}</Label>
-            <IconPicker value={selectedIcon} onChange={setSelectedIcon} />
+            <IconPicker value={selectedIcon} onChange={setSelectedIcon} t={translations} />
           </div>
           <div className="space-y-2">
             <Label>{translations.color}</Label>

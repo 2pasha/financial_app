@@ -7,6 +7,7 @@ import { Loader2, Trash2, X, Plus, Repeat } from "lucide-react";
 import { toast } from "sonner";
 import { budgetPlansApi, categoriesApi } from "../lib/api-client";
 import type { Category, IncomeItem, BudgetPlan } from "../lib/api-client";
+import { type getTranslation } from '../lib/translations';
 
 const COLOR_OPTIONS = [
   "#6366f1", "#8b5cf6", "#ec4899", "#f43f5e", "#f97316",
@@ -51,7 +52,7 @@ interface PlanningPageProps {
   onCategoryUpdated: (cat: Category) => void;
   onPlanSaved: (plan: BudgetPlan) => void;
   onPlanDeleted: () => Promise<void>;
-  translations: Record<string, string>;
+  translations: ReturnType<typeof getTranslation>;
 }
 
 function buildRows(
@@ -548,7 +549,7 @@ export function PlanningPage({
                     className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
                       row.included ? 'border-primary bg-primary' : 'border-border bg-transparent'
                     }`}
-                    aria-label={row.included ? 'Remove from plan' : 'Add to plan'}
+                    aria-label={row.included ? t.removeFromPlan : t.addToPlan}
                   >
                     {row.included && (
                       <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 12 12">
@@ -567,7 +568,7 @@ export function PlanningPage({
 
                 <div className="flex-1 flex items-center gap-2 min-w-0">
                   <span className="text-sm text-foreground truncate">
-                    {(t[row.name] as string) || row.name}
+                    {(t[row.name as keyof typeof t] as string) || row.name}
                   </span>
                   {row.isOneMonth && (
                     <span className="text-xs bg-primary/10 text-primary rounded-full px-1.5 py-0.5 flex-shrink-0">
@@ -620,7 +621,7 @@ export function PlanningPage({
           {showAddForm ? (
             <div className="border-t border-border px-5 py-4 bg-muted/10 space-y-3">
               <div className="flex items-center gap-3">
-                <IconPicker value={newIcon} onChange={setNewIcon} ariaLabel={t.chooseIcon} />
+                <IconPicker value={newIcon} onChange={setNewIcon} ariaLabel={t.chooseIcon} t={t} />
                 <input
                   type="text"
                   value={newName}

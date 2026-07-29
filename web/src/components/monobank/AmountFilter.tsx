@@ -3,7 +3,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Filter } from "lucide-react";
-import { cn } from "../ui/utils";
+import { type getTranslation } from "../../lib/translations";
 
 export type AmountFilterMode = 'greater' | 'less' | 'equal' | null;
 
@@ -15,16 +15,17 @@ export interface AmountFilterValue {
 interface AmountFilterProps {
   filter: AmountFilterValue;
   onChange: (filter: AmountFilterValue) => void;
+  t: ReturnType<typeof getTranslation>;
 }
 
-export function AmountFilter({ filter, onChange }: AmountFilterProps) {
+export function AmountFilter({ filter, onChange, t }: AmountFilterProps) {
   const [open, setOpen] = useState(false);
   const [localValue, setLocalValue] = useState(filter.value?.toString() || '');
 
   const modes = [
-    { id: 'greater' as const, label: 'Greater than', symbol: '>' },
-    { id: 'less' as const, label: 'Less than', symbol: '<' },
-    { id: 'equal' as const, label: 'Equal to', symbol: '=' },
+    { id: 'greater' as const, label: t.greaterThan, symbol: '>' },
+    { id: 'less' as const, label: t.lessThan, symbol: '<' },
+    { id: 'equal' as const, label: t.equalTo, symbol: '=' },
   ];
 
   const handleModeChange = (mode: AmountFilterMode) => {
@@ -63,14 +64,14 @@ export function AmountFilter({ filter, onChange }: AmountFilterProps) {
               {modes.find(m => m.id === filter.mode)?.symbol} {filter.value}
             </span>
           ) : (
-            <span className="text-muted-foreground">Filter amount...</span>
+            <span className="text-muted-foreground">{t.filterAmount}</span>
           )}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[250px]" align="start">
         <div className="space-y-3">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Comparison</label>
+            <label className="text-sm font-medium">{t.comparison}</label>
             <div className="grid grid-cols-3 gap-2">
               {modes.map((mode) => (
                 <Button
@@ -87,10 +88,10 @@ export function AmountFilter({ filter, onChange }: AmountFilterProps) {
           </div>
           
           <div className="space-y-2">
-            <label className="text-sm font-medium">Amount</label>
+            <label className="text-sm font-medium">{t.amountLabel}</label>
             <Input
               type="number"
-              placeholder="Enter amount..."
+              placeholder={t.enterAmount}
               value={localValue}
               onChange={(e) => handleValueChange(e.target.value)}
               className="h-8"
@@ -106,7 +107,7 @@ export function AmountFilter({ filter, onChange }: AmountFilterProps) {
               onClick={handleClear}
               className="flex-1"
             >
-              Clear
+              {t.clear}
             </Button>
           </div>
         </div>

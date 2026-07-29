@@ -6,6 +6,7 @@ import { Label } from "./ui/label";
 import { IconPicker } from "./IconPicker";
 import { Loader2 } from "lucide-react";
 import type { Trip } from "../lib/api-client";
+import { useAppSettings } from "../hooks/useAppSettings";
 
 interface EditTripDialogProps {
   open: boolean;
@@ -29,6 +30,7 @@ function isoToMonthInput(iso: string | null): string {
 }
 
 export function EditTripDialog({ open, onOpenChange, trip, onSaved }: EditTripDialogProps) {
+  const { t } = useAppSettings();
   const [name, setName] = useState("");
   const [goalAmount, setGoalAmount] = useState("");
   const [targetDate, setTargetDate] = useState("");
@@ -67,7 +69,7 @@ export function EditTripDialog({ open, onOpenChange, trip, onSaved }: EditTripDi
       onOpenChange(false);
     } catch {
       const { toast } = await import("sonner");
-      toast.error("Failed to save trip");
+      toast.error(t.saveTripFailed);
     } finally {
       setLoading(false);
     }
@@ -77,32 +79,32 @@ export function EditTripDialog({ open, onOpenChange, trip, onSaved }: EditTripDi
     <Dialog open={open} onOpenChange={(o) => { if (!loading) onOpenChange(o); }}>
       <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
         <DialogHeader>
-          <DialogTitle>Edit Trip</DialogTitle>
+          <DialogTitle>{t.editTrip}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="edit-trip-name">Trip Name</Label>
+            <Label htmlFor="edit-trip-name">{t.tripName}</Label>
             <Input
               id="edit-trip-name"
-              placeholder="e.g. Japan 2026"
+              placeholder={t.tripNamePlaceholderEdit}
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="edit-trip-goal">Planned Amount</Label>
+            <Label htmlFor="edit-trip-goal">{t.plannedAmount}</Label>
             <Input
               id="edit-trip-goal"
               type="number"
               min="1"
-              placeholder="e.g. 3000"
+              placeholder={t.tripAmountPlaceholder}
               value={goalAmount}
               onChange={(e) => setGoalAmount(e.target.value)}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="edit-trip-date">Target Date <span className="text-muted-foreground font-normal">(optional)</span></Label>
+            <Label htmlFor="edit-trip-date">{t.targetDate} <span className="text-muted-foreground font-normal">{t.optional}</span></Label>
             <Input
               id="edit-trip-date"
               type="month"
@@ -119,16 +121,16 @@ export function EditTripDialog({ open, onOpenChange, trip, onSaved }: EditTripDi
               className="h-4 w-4 rounded border-border accent-primary cursor-pointer"
             />
             <div>
-              <Label htmlFor="edit-trip-active" className="cursor-pointer">Active</Label>
-              <p className="text-xs text-muted-foreground mt-0.5">Uncheck to mark this trip as completed</p>
+              <Label htmlFor="edit-trip-active" className="cursor-pointer">{t.activeLabel}</Label>
+              <p className="text-xs text-muted-foreground mt-0.5">{t.uncheckToComplete}</p>
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Icon</Label>
-            <IconPicker value={selectedIcon} onChange={setSelectedIcon} />
+            <Label>{t.icon}</Label>
+            <IconPicker value={selectedIcon} onChange={setSelectedIcon} t={t} />
           </div>
           <div className="space-y-2">
-            <Label>Color</Label>
+            <Label>{t.color}</Label>
             <div className="flex gap-2 flex-wrap">
               {COLOR_OPTIONS.map((color) => (
                 <button
@@ -146,11 +148,11 @@ export function EditTripDialog({ open, onOpenChange, trip, onSaved }: EditTripDi
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
-            Cancel
+            {t.cancel}
           </Button>
           <Button onClick={handleSubmit} disabled={!name || !goalAmount || loading}>
             {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            Save Changes
+            {t.saveChanges}
           </Button>
         </DialogFooter>
       </DialogContent>

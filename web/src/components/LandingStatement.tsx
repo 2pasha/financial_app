@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { motion, useReducedMotion, useScroll, useTransform, type MotionValue } from "framer-motion";
+import { type getTranslation } from "../lib/translations";
 
 /**
  * The statement: one large paragraph that lights up word by word as it scrolls
@@ -10,9 +11,13 @@ import { motion, useReducedMotion, useScroll, useTransform, type MotionValue } f
  * at your own speed while the type keeps up, not an animation that runs at you.
  * That reversibility is the whole character of the effect and is why this is not
  * built on the page's `Reveal`, which fires once on intersection and is done.
+ *
+ * The sentence comes from the translations (`t.lpStatement`) and everything here is
+ * derived from it at render time — the word count sets the step, so a translation of
+ * a different length scrubs correctly without any numbers being retuned. The two
+ * languages do differ in word count, which only changes how far the wave advances
+ * per word, not where it starts or ends.
  */
-const STATEMENT =
-  "Your bank tells you what you spent. That is history. Moneta tells you what is safe to spend — before you spend it, before the month runs out, before the number surprises you.";
 
 /**
  * What an unread word is dimmed to. Low enough that the read/unread boundary is
@@ -70,7 +75,7 @@ function Word({
   );
 }
 
-export function LandingStatement() {
+export function LandingStatement({ t }: { t: ReturnType<typeof getTranslation> }) {
   const ref = useRef<HTMLParagraphElement>(null);
   const reduceMotion = useReducedMotion();
 
@@ -90,17 +95,18 @@ export function LandingStatement() {
     offset: ["start 0.9", "end 0.45"],
   });
 
-  const words = STATEMENT.split(" ");
+  const statement = t.lpStatement;
+  const words = statement.split(" ");
   const step = 1 / words.length;
 
   return (
     <section
-      aria-label="What Moneta tells you"
+      aria-label={t.lpStatementAria}
       className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-28 sm:py-40"
     >
       <p ref={ref} className={TYPE}>
         {reduceMotion
-          ? STATEMENT
+          ? statement
           : words.map((word, i) => {
               const start = i * step * REVEAL_SPAN;
 

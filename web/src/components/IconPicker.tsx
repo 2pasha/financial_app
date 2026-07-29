@@ -2,19 +2,21 @@ import { useState } from "react";
 import EmojiPicker, { EmojiStyle, Theme } from "emoji-picker-react";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { cn } from "./ui/utils";
+import { type getTranslation } from "../lib/translations";
 
 interface IconPickerProps {
   value: string;
   onChange: (emoji: string) => void;
   className?: string;
   ariaLabel?: string;
+  t: ReturnType<typeof getTranslation>;
 }
 
 /**
  * Emoji "board" for picking a category/trip icon. Click the current icon to open a
  * searchable picker in a popover. Uses native emoji rendering (no external image fetches).
  */
-export function IconPicker({ value, onChange, className, ariaLabel }: IconPickerProps) {
+export function IconPicker({ value, onChange, className, ariaLabel, t }: IconPickerProps) {
   const [open, setOpen] = useState(false);
 
   const theme =
@@ -27,7 +29,7 @@ export function IconPicker({ value, onChange, className, ariaLabel }: IconPicker
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label={ariaLabel || "Choose icon"}
+          aria-label={ariaLabel || t.chooseIcon}
           className={cn(
             "w-9 h-9 flex items-center justify-center text-2xl rounded-lg border border-border bg-background hover:border-primary/50 transition-colors",
             className,

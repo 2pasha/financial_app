@@ -39,9 +39,9 @@ export function useShellNav(
   };
 
   return [
-    { key: 'dashboard', label: 'Dashboard', onClick: () => selectView('dashboard') },
+    { key: 'dashboard', label: t.navDashboard, onClick: () => selectView('dashboard') },
     { key: 'plan', label: t.planning, onClick: () => selectView('plan') },
-    { key: 'expenses', label: 'Expenses', onClick: () => selectView('expenses') },
-    { key: 'trips', label: 'Trips', onClick: () => navigate('/trips') },
+    { key: 'expenses', label: t.navExpenses, onClick: () => selectView('expenses') },
+    { key: 'trips', label: t.navTrips, onClick: () => navigate('/trips') },
   ];
 }

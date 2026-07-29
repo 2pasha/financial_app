@@ -1,4 +1,5 @@
 import { motion, useReducedMotion } from "framer-motion";
+import { type getTranslation } from "../lib/translations";
 
 /**
  * The About section: a photograph under an organic mask, then the one paragraph on
@@ -17,13 +18,13 @@ import { motion, useReducedMotion } from "framer-motion";
 
 const MASK = "26% 26% 26% 26% / 45% 45% 45% 45%";
 
-export function LandingAbout() {
+export function LandingAbout({ t }: { t: ReturnType<typeof getTranslation> }) {
   const reduceMotion = useReducedMotion();
 
   return (
     <section
       id="about"
-      aria-label="Why Moneta exists"
+      aria-label={t.lpAboutAria}
       className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28"
     >
       <motion.div
@@ -36,7 +37,7 @@ export function LandingAbout() {
       >
         <img
           src="/kyiv-dusk.jpg"
-          alt="Kyiv at dusk, traffic moving along a boulevard"
+          alt={t.lpAboutPhotoAlt}
           className="w-full h-[clamp(260px,42vw,520px)] object-cover"
           loading="lazy"
           decoding="async"
@@ -45,9 +46,9 @@ export function LandingAbout() {
         />
       </motion.div>
 
-      <div className="mx-auto sm:mt-16 max-w-3xl">
+      <div className="mx-auto sm:mt-16 max-sm:mt-16 max-w-3xl">
         <h2 className="text-3xl sm:text-4xl lg:text-5xl font-medium tracking-tight leading-[1.12] text-foreground text-center">
-          Built because we kept finding out too late.
+          {t.lpAboutTitle}
         </h2>
       </div>
     </section>

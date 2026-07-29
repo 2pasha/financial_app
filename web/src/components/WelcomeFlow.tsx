@@ -13,6 +13,7 @@ import {
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { monobankApi } from "../lib/api-client";
+import { useAppSettings } from "../hooks/useAppSettings";
 
 interface WelcomeFlowProps {
   open: boolean;
@@ -51,6 +52,7 @@ export function WelcomeFlow({
   onAddManually,
   onAddCategory,
 }: WelcomeFlowProps) {
+  const { t } = useAppSettings();
   const [step, setStep] = useState(1);
   const [monobankConnected, setMonobankConnected] = useState(false);
 
@@ -117,7 +119,7 @@ export function WelcomeFlow({
           onClick={onComplete}
           className="absolute top-4 right-4 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
-          Skip
+          {t.skip}
         </button>
 
         {/* Height-animated shell: eases between steps of differing height. */}
@@ -130,57 +132,55 @@ export function WelcomeFlow({
             <div key={step} className="welcome-step-enter">
         {step === 1 && (
           <div className="flex flex-col items-center gap-5 pt-6 text-center">
-            <DialogTitle className="sr-only">Welcome to Moneta</DialogTitle>
+            <DialogTitle className="sr-only">{t.welcomeTitle}</DialogTitle>
             <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-lg">
               <Wallet className="h-9 w-9" />
             </div>
             <div className="space-y-2">
-              <h2 className="text-2xl font-bold text-foreground">Welcome to Moneta</h2>
+              <h2 className="text-2xl font-bold text-foreground">{t.welcomeTitle}</h2>
               <DialogDescription className="text-base text-muted-foreground">
-                Track spending, plan your monthly budget, and save toward goals — synced
-                straight from your bank or entered by hand.
+                {t.welcomeBody}
               </DialogDescription>
             </div>
             <StepDots step={step} />
             <Button size="lg" className="w-full" onClick={() => setStep(2)}>
-              Get started
+              {t.getStarted}
             </Button>
           </div>
         )}
 
         {step === 2 && (
           <div className="flex flex-col items-center gap-5 pt-6 text-center">
-            <DialogTitle className="sr-only">Three tabs, one system</DialogTitle>
+            <DialogTitle className="sr-only">{t.welcomeTabsTitle}</DialogTitle>
             <div className="grid w-full grid-cols-3 gap-3">
               <MentalModelCard
                 icon={<LayoutGrid className="h-6 w-6" />}
                 tint="bg-indigo-500"
-                title="Categories"
-                subtitle="Track where your money goes"
+                title={t.categories}
+                subtitle={t.welcomeCardCategories}
               />
               <MentalModelCard
                 icon={<CalendarCheck className="h-6 w-6" />}
                 tint="bg-green-500"
-                title="Plan"
-                subtitle="Set how much to spend each month"
+                title={t.planning}
+                subtitle={t.welcomeCardPlan}
               />
               <MentalModelCard
                 icon={<Plane className="h-6 w-6" />}
                 tint="bg-orange-500"
-                title="Trips"
-                subtitle="Save toward a goal with its own progress bar"
+                title={t.navTrips}
+                subtitle={t.welcomeCardTrips}
               />
             </div>
             <div className="space-y-2 pt-2">
-              <h2 className="text-2xl font-bold text-foreground">Three tabs, one system</h2>
+              <h2 className="text-2xl font-bold text-foreground">{t.welcomeTabsTitle}</h2>
               <DialogDescription className="text-base text-muted-foreground">
-                They all use the same transactions underneath, so nothing is ever entered
-                twice.
+                {t.welcomeTabsBody}
               </DialogDescription>
             </div>
             <StepDots step={step} />
             <Button size="lg" className="w-full" onClick={() => setStep(3)}>
-              Next
+              {t.next}
             </Button>
           </div>
         )}
@@ -189,22 +189,21 @@ export function WelcomeFlow({
           <div className="flex flex-col gap-5 pt-6">
             <div className="space-y-2 text-center">
               <DialogTitle className="text-2xl font-bold text-foreground">
-                Bring in your transactions
+                {t.welcomeImportTitle}
               </DialogTitle>
               <DialogDescription className="text-base text-muted-foreground">
-                Connect Monobank to sync automatically, or add transactions yourself. You
-                can always do both later.
+                {t.welcomeImportBody}
               </DialogDescription>
             </div>
             <div className="flex flex-col gap-3">
               <ChoiceCard
                 icon={<Landmark className="h-5 w-5" />}
                 tint="bg-blue-600"
-                title="Connect Monobank"
+                title={t.connectMonobank}
                 subtitle={
                   monobankConnected
-                    ? "Already connected"
-                    : "Sync transactions automatically"
+                    ? t.welcomeAlreadyConnected
+                    : t.welcomeSyncAuto
                 }
                 trailing={
                   monobankConnected ? (
@@ -216,8 +215,8 @@ export function WelcomeFlow({
               <ChoiceCard
                 icon={<Pencil className="h-5 w-5" />}
                 tint="bg-muted-foreground"
-                title="Add manually"
-                subtitle="Enter transactions yourself"
+                title={t.welcomeAddManually}
+                subtitle={t.welcomeEnterYourself}
                 onClick={() => runAndComplete(onAddManually)}
               />
             </div>
@@ -227,7 +226,7 @@ export function WelcomeFlow({
               onClick={() => setStep(4)}
               className="text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
-              Decide later
+              {t.welcomeDecideLater}
             </button>
           </div>
         )}
@@ -240,8 +239,8 @@ export function WelcomeFlow({
                 <ShoppingCart className="h-6 w-6" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="font-semibold text-foreground">Groceries</p>
-                <p className="text-sm text-muted-foreground">₴0 of ₴0 budgeted</p>
+                <p className="font-semibold text-foreground">{t.groceries}</p>
+                <p className="text-sm text-muted-foreground">{t.welcomeBudgetedExample}</p>
               </div>
               <div className="flex shrink-0 gap-1.5">
                 {["#6366f1", "#ec4899", "#f97316", "#eab308"].map((c) => (
@@ -255,11 +254,10 @@ export function WelcomeFlow({
             </div>
             <div className="space-y-2 text-center">
               <DialogTitle className="text-2xl font-bold text-foreground">
-                One last thing — add a category
+                {t.welcomeCategoryTitle}
               </DialogTitle>
               <DialogDescription className="text-base text-muted-foreground">
-                Categories group your spending, whether it's synced or typed in. Give
-                yourself one to start — you can add more anytime.
+                {t.welcomeCategoryBody}
               </DialogDescription>
             </div>
             <StepDots step={step} />
@@ -268,14 +266,14 @@ export function WelcomeFlow({
               className="w-full"
               onClick={() => runAndComplete(onAddCategory)}
             >
-              Add your first category
+              {t.welcomeAddFirstCategory}
             </Button>
             <button
               type="button"
               onClick={onComplete}
               className="text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
-              I'll do this later
+              {t.welcomeDoLater}
             </button>
           </div>
         )}

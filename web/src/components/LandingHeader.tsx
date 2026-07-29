@@ -12,15 +12,17 @@ import { type Language, getTranslation } from "../lib/translations";
  * The marketing header: the same pill as the app's SiteHeader, carrying what a
  * visitor can actually act on instead of the app nav.
  *
- *   signed out   logo · [Sign up] · theme
+ *   signed out   logo · [Sign up] · language · theme
  *   signed in    logo · [Back to app] · menu
  *
  * There is no nav and no menu for a signed-out visitor — the app's views are all
- * behind auth, and a menu holding a lone theme switch is not worth a click. Theme
- * gets promoted to the bar to fill that gap; language does not, because the landing
- * copy is English-only, and a toggle that changes nothing on screen is worse than
- * no toggle. A signed-in visitor gets the full ShellMenu back, nav included, since
- * every row in it is live for them.
+ * behind auth, and a menu holding two switches is not worth a click. Both switches
+ * are promoted to the bar instead to fill that gap. Language belongs there now that
+ * the landing copy is translated: a Ukrainian visitor has to be able to reach it
+ * without an account, and there is nowhere else on the page to put it. A signed-in
+ * visitor gets the full ShellMenu back, nav included, since every row in it is live
+ * for them — and the menu already carries both switches, so they are not repeated
+ * on the bar.
  */
 
 /**
@@ -45,15 +47,28 @@ const ctaOnPage = cn(
 );
 
 /**
- * The mobile theme control is a page-surface badge, deliberately matched to the
- * logo badge opposite it rather than to the CTA: it is the quiet control of the
- * pair and should not compete with the one action on the row.
+ * The mobile theme and language controls are page-surface badges, deliberately
+ * matched to the logo badge opposite them rather than to the CTA: they are the quiet
+ * controls of the row and should not compete with the one action on it.
  */
-const themeButtonOnPage = cn(
-  "pointer-events-auto grid size-13 place-items-center rounded-full",
+const badgeOnPage = cn(
+  "pointer-events-auto grid w-13 h-11 place-items-center rounded-full",
   "border border-border bg-background text-foreground",
   "transition-colors hover:bg-accent",
   focusRingOnPage,
+);
+
+/**
+ * The language switch shows a two-letter code rather than an icon. A globe or
+ * `Languages` glyph says only "language exists"; the code says which one you are
+ * currently reading, which is the thing a visitor needs to know before deciding to
+ * press it. Sized to match the icon controls beside it so the row stays even.
+ */
+const langButtonOnFrame = cn(
+  "h-9 shrink-0 px-2.5 rounded-full grid place-items-center transition-colors",
+  "text-xs font-semibold tracking-wide",
+  "text-frame-foreground/80 hover:text-frame-foreground hover:bg-frame-foreground/10",
+  focusRingOnFrame,
 );
 
 interface LandingHeaderProps {
@@ -73,7 +88,10 @@ export function LandingHeader({
 }: LandingHeaderProps) {
   const navItems = useShellNav(t);
   const ThemeIcon = isDarkMode ? Sun : Moon;
-  const themeLabel = isDarkMode ? 'Switch to light theme' : 'Switch to dark theme';
+  const themeLabel = isDarkMode ? t.lpToLightTheme : t.lpToDarkTheme;
+  /* The badge shows what you are reading; the label says where pressing it takes you. */
+  const langCode = language === 'en' ? 'EN' : 'UK';
+  const langLabel = language === 'en' ? t.lpToUkrainian : t.lpToEnglish;
 
   /**
    * Nothing on the marketing page corresponds to an app view, so no nav item is
@@ -81,6 +99,7 @@ export function LandingHeader({
    * which would light up a row the visitor is not on.
    */
   const menuProps = {
+    t,
     language,
     isDarkMode,
     onToggleLanguage,
@@ -94,7 +113,7 @@ export function LandingHeader({
     <HeaderShell spacer={false}>
       {/* Desktop: logo left, action cluster right. No centred nav to balance. */}
       <div className="hidden lg:flex h-full items-center justify-between gap-6">
-        <Link to="/" className="flex items-center gap-2" aria-label="Moneta home">
+        <Link to="/" className="flex items-center gap-2" aria-label={t.lpHomeAria}>
           <img src="/favicon.png" alt="" className="w-8 h-8 coin-logo" />
           <span className="text-lg font-semibold text-frame-foreground">{t.appTitle}</span>
         </Link>
@@ -107,8 +126,16 @@ export function LandingHeader({
         <div className="flex h-full items-center gap-2">
           <SignedOut>
             <Link to="/sign-up" className={ctaOnFrame}>
-              Sign up
+              {t.lpSignUp}
             </Link>
+            <button
+              type="button"
+              onClick={onToggleLanguage}
+              aria-label={langLabel}
+              className={langButtonOnFrame}
+            >
+              {langCode}
+            </button>
             <button
               type="button"
               onClick={onToggleTheme}
@@ -121,7 +148,7 @@ export function LandingHeader({
 
           <SignedIn>
             <Link to="/app" className={ctaOnFrame}>
-              Back to app
+              {t.lpBackToApp}
             </Link>
             <ShellMenu variant="bar" {...menuProps} />
           </SignedIn>
@@ -132,9 +159,9 @@ export function LandingHeader({
       <div className="flex lg:hidden h-full items-center">
         <Link
           to="/"
-          aria-label="Moneta home"
+          aria-label={t.lpHomeAria}
           className={cn(
-            "pointer-events-auto grid size-13 place-items-center rounded-full border border-border bg-background",
+            "pointer-events-auto grid w-13 h-11 place-items-center rounded-full border border-border bg-background",
             focusRingOnPage,
           )}
         >
@@ -142,15 +169,29 @@ export function LandingHeader({
         </Link>
 
         <SignedOut>
-          <div className="ml-auto flex items-center gap-2">
-            <Link to="/sign-up" className={ctaOnPage}>
-              Sign up
+          {/*
+           * Three controls on a phone row is the most this can carry. It fits because
+           * the CTA here is the short `lpSignUp` rather than the hero's `lpSignUpFree`;
+           * `min-w-0` lets the CTA give up width before anything is pushed off-screen
+           * on the narrowest devices.
+           */}
+          <div className="ml-auto flex min-w-0 items-center gap-2">
+            <Link to="/sign-up" className={cn(ctaOnPage, "min-w-0 truncate")}>
+              {t.lpSignUp}
             </Link>
+            <button
+              type="button"
+              onClick={onToggleLanguage}
+              aria-label={langLabel}
+              className={cn(badgeOnPage, "text-xs font-semibold tracking-wide")}
+            >
+              {langCode}
+            </button>
             <button
               type="button"
               onClick={onToggleTheme}
               aria-label={themeLabel}
-              className={themeButtonOnPage}
+              className={badgeOnPage}
             >
               <ThemeIcon className="w-5 h-5" />
             </button>
@@ -166,7 +207,7 @@ export function LandingHeader({
            */}
           <div className="ml-auto" style={{ marginRight: SHELL_MENU_COLLAPSED_W + 12 }}>
             <Link to="/app" className={ctaOnPage}>
-              Back to app
+              {t.lpBackToApp}
             </Link>
           </div>
           <ShellMenu {...menuProps} />

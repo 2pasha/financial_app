@@ -5,6 +5,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { IconPicker } from "./IconPicker";
 import { Loader2 } from "lucide-react";
+import { useAppSettings } from "../hooks/useAppSettings";
 
 interface AddTripDialogProps {
   open: boolean;
@@ -25,6 +26,7 @@ const COLOR_OPTIONS = [
 ];
 
 export function AddTripDialog({ open, onOpenChange, onCreated }: AddTripDialogProps) {
+  const { t } = useAppSettings();
   const [name, setName] = useState("");
   const [goalAmount, setGoalAmount] = useState("");
   const [targetDate, setTargetDate] = useState("");
@@ -63,32 +65,32 @@ export function AddTripDialog({ open, onOpenChange, onCreated }: AddTripDialogPr
     <Dialog open={open} onOpenChange={(o) => { if (!loading) { onOpenChange(o); if (!o) reset(); } }}>
       <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
         <DialogHeader>
-          <DialogTitle>Create New Trip</DialogTitle>
+          <DialogTitle>{t.createNewTrip}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="trip-name">Trip Name</Label>
+            <Label htmlFor="trip-name">{t.tripName}</Label>
             <Input
               id="trip-name"
-              placeholder="e.g. Japan 2026, Home Renovation…"
+              placeholder={t.tripNamePlaceholderAdd}
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="trip-goal">Planned Amount</Label>
+            <Label htmlFor="trip-goal">{t.plannedAmount}</Label>
             <Input
               id="trip-goal"
               type="number"
               min="1"
-              placeholder="e.g. 3000"
+              placeholder={t.tripAmountPlaceholder}
               value={goalAmount}
               onChange={(e) => setGoalAmount(e.target.value)}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="trip-date">Target Date <span className="text-muted-foreground font-normal">(optional)</span></Label>
+            <Label htmlFor="trip-date">{t.targetDate} <span className="text-muted-foreground font-normal">{t.optional}</span></Label>
             <Input
               id="trip-date"
               type="month"
@@ -97,11 +99,11 @@ export function AddTripDialog({ open, onOpenChange, onCreated }: AddTripDialogPr
             />
           </div>
           <div className="space-y-2">
-            <Label>Icon</Label>
-            <IconPicker value={selectedIcon} onChange={setSelectedIcon} />
+            <Label>{t.icon}</Label>
+            <IconPicker value={selectedIcon} onChange={setSelectedIcon} t={t} />
           </div>
           <div className="space-y-2">
-            <Label>Color</Label>
+            <Label>{t.color}</Label>
             <div className="flex gap-2 flex-wrap">
               {COLOR_OPTIONS.map((color) => (
                 <button
@@ -119,11 +121,11 @@ export function AddTripDialog({ open, onOpenChange, onCreated }: AddTripDialogPr
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => { onOpenChange(false); reset(); }} disabled={loading}>
-            Cancel
+            {t.cancel}
           </Button>
           <Button onClick={handleSubmit} disabled={!name || !goalAmount || loading}>
             {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            Create Trip
+            {t.createTrip}
           </Button>
         </DialogFooter>
       </DialogContent>
