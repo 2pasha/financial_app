@@ -21,4 +21,10 @@ export class AppController {
       timestamp: new Date().toISOString(),
     };
   }
+
+  @Get('debug-sentry')
+  debugSentry() {
+    throw new Error('My first backend Sentry error!');
+  }
 }
+

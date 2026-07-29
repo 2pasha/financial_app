@@ -1,7 +1,10 @@
+import { initSentry } from "./lib/sentry";
 import { createRoot } from "react-dom/client";
 import { ClerkProvider } from "@clerk/clerk-react";
 import AppWithAuth from "./AppWithAuth.tsx";
 import "./index.css";
+
+initSentry();
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 

@@ -1,10 +1,17 @@
-import { NestFactory } from '@nestjs/core';
+import './instrument';
+
+import { NestFactory, HttpAdapterHost } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
+import { SentryExceptionFilter } from './common/filters/sentry-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Setup Sentry Exception Filter to catch all controller & framework exceptions
+  const { httpAdapter } = app.get(HttpAdapterHost);
+  app.useGlobalFilters(new SentryExceptionFilter(httpAdapter));
 
   // We sit behind Render's edge proxy — trust one hop so the throttler keys by
   // the real client IP (req.ip) rather than the proxy's address.
