@@ -2,8 +2,8 @@
   "framework": "vite",
   "outputDirectory": "build",
   "rewrites": [
-    { "source": "/mtr/static/:path*", "destination": "https://eu-assets.i.posthog.com/static/:path*" },
-    { "source": "/mtr/:path*", "destination": "https://eu.i.posthog.com/:path*" },
+    { "source": "/mtr/static/(.*)", "destination": "https://eu-assets.i.posthog.com/static/$1" },
+    { "source": "/mtr/(.*)", "destination": "https://eu.i.posthog.com/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
