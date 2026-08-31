@@ -8,6 +8,9 @@ import { toast } from "sonner";
 import { budgetPlansApi, categoriesApi } from "../lib/api-client";
 import type { Category, IncomeItem, BudgetPlan } from "../lib/api-client";
 import { type getTranslation } from '../lib/translations';
+import { cn } from "../components/ui/utils";
+import { MASK } from "../lib/privacy";
+import { track } from "../lib/posthog";
 
 const COLOR_OPTIONS = [
   "#6366f1", "#8b5cf6", "#ec4899", "#f43f5e", "#f97316",
@@ -211,6 +214,11 @@ export function PlanningPage({
 
       const created = await categoriesApi.create(payload);
 
+      track('category_created', {
+        creation_source: 'planning_inline',
+        is_recurring: newRepeat,
+        has_budget: parseFloat(newBudget || '0') > 0,
+      });
       onCategoryCreated(created);
 
       setRows((prev) => [
@@ -354,7 +362,7 @@ export function PlanningPage({
       </div>
 
       {/* Summary bar */}
-      <HeroSurface className="p-4 sm:p-6">
+      <HeroSurface className={cn("p-4 sm:p-6", MASK)}>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div>
             <p className="opacity-75 text-xs sm:text-sm">{t.incomesTotal}</p>
@@ -402,7 +410,7 @@ export function PlanningPage({
             {incomeLoading && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
           </div>
 
-          <div className="divide-y divide-border">
+          <div className={cn("divide-y divide-border", MASK)}>
             {incomeItems.map((item) => (
               <div key={item.id} className="flex items-center gap-3 px-5 py-3">
                 <input
@@ -485,7 +493,7 @@ export function PlanningPage({
           {/* Income total */}
           <div className="flex items-center justify-between px-5 py-3 border-t border-border bg-muted/30">
             <span className="text-sm text-muted-foreground">{t.incomesTotal}</span>
-            <span className="font-semibold text-foreground">{formatAmount(totalIncome)}</span>
+            <span className={cn("font-semibold text-foreground", MASK)}>{formatAmount(totalIncome)}</span>
           </div>
         </div>
 
@@ -524,7 +532,7 @@ export function PlanningPage({
           </div>
 
           {/* Category rows */}
-          <div className="divide-y divide-border">
+          <div className={cn("divide-y divide-border", MASK)}>
             {rows.length === 0 ? (
               <div className="text-center py-12 px-5">
                 <p className="text-muted-foreground text-sm max-w-md mx-auto">{t.planEmptyHint}</p>
@@ -685,7 +693,7 @@ export function PlanningPage({
           {/* Allocated total */}
           <div className="flex items-center justify-between px-5 py-3 border-t border-border bg-muted/30">
             <span className="text-sm text-muted-foreground">{t.allocated}</span>
-            <span className="font-semibold text-foreground">{formatAmount(allocated)}</span>
+            <span className={cn("font-semibold text-foreground", MASK)}>{formatAmount(allocated)}</span>
           </div>
         </div>
       </div>

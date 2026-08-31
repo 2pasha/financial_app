@@ -1,4 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import { cn } from "./ui/utils";
+import { MASK } from "../lib/privacy";
+import { track } from "../lib/posthog";
+import { bucketLength } from "../lib/analytics-events";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
@@ -141,6 +145,14 @@ export function AiAnalysisDialog({
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(promptText);
+      // Shape of the export only — the prompt body is the user's whole month of
+      // finances and never leaves the browser.
+      track('ai_export_generated', {
+        month_count: selectedKeys.size,
+        include_income: includeIncome,
+        prompt_length_bucket: bucketLength(promptText.length),
+        too_long_for_link: tooLongForLink,
+      });
       toast.success(t.aiCopied);
     } catch {
       toast.error(t.aiCopyFailed);
@@ -148,6 +160,11 @@ export function AiAnalysisDialog({
   };
 
   const handleOpen = async (target: (typeof AI_TARGETS)[number]) => {
+    track('ai_export_handoff', {
+      tool: target.name.toLowerCase(),
+      too_long_for_link: tooLongForLink,
+    });
+
     if ('prefill' in target) {
       window.open(target.prefill(encodeURIComponent(promptText)), '_blank', 'noopener');
       return;
@@ -223,7 +240,7 @@ export function AiAnalysisDialog({
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <pre className="max-h-64 overflow-auto rounded-md border border-border bg-muted p-3 text-xs whitespace-pre-wrap font-mono">
+            <pre className={cn("max-h-64 overflow-auto rounded-md border border-border bg-muted p-3 text-xs whitespace-pre-wrap font-mono", MASK)}>
               {promptText}
             </pre>
           )}

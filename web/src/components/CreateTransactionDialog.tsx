@@ -9,6 +9,8 @@ import { toast } from "sonner";
 import { transactionsApi, categoriesApi } from "../lib/api-client";
 import type { Transaction, Category } from "../lib/api-client";
 import { useAppSettings } from "../hooks/useAppSettings";
+import { track } from "../lib/posthog";
+import { bucketDays } from "../lib/analytics-events";
 
 interface CreateTransactionDialogProps {
   open: boolean;
@@ -111,6 +113,13 @@ export function CreateTransactionDialog({
         time: new Date(date).toISOString(),
         categoryId: categoryId === "none" ? undefined : categoryId,
         currency: 980,
+      });
+      const daysBackdated = Math.floor((Date.now() - new Date(date).getTime()) / 86_400_000);
+      track('transaction_created', {
+        transaction_type: type,
+        has_category: categoryId !== 'none',
+        is_backdated: daysBackdated > 0,
+        days_backdated_bucket: bucketDays(daysBackdated),
       });
       onCreate(tx);
       resetForm();

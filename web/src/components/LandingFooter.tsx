@@ -4,6 +4,8 @@ import { useReducedMotion } from "framer-motion";
 import { focusRingOnFrame } from "./chrome";
 import { cn } from "./ui/utils";
 import { type getTranslation } from "../lib/translations";
+import { track } from "../lib/posthog";
+import { resetConsent } from "../lib/consent";
 
 type T = ReturnType<typeof getTranslation>;
 
@@ -118,6 +120,7 @@ export function LandingFooter({ t }: { t: T }) {
           <div className="mt-8">
             <Link
               to="/sign-up"
+              onClick={() => track('landing_cta_clicked', { cta_id: 'footer_signup', placement: 'footer' })}
               className={cn(
                 "inline-flex h-12 items-center rounded-full px-7 text-sm font-medium",
                 /* Inverts against the frame, exactly as the header's CTA does. */
@@ -155,7 +158,16 @@ export function LandingFooter({ t }: { t: T }) {
                           {link.label}
                         </a>
                       ) : (
-                        <Link to={link.to} className={footerLink}>
+                        <Link
+                          to={link.to}
+                          onClick={() =>
+                            track('landing_cta_clicked', {
+                              cta_id: link.to === '/sign-up' ? 'footer_nav_signup' : 'footer_nav_signin',
+                              placement: 'footer',
+                            })
+                          }
+                          className={footerLink}
+                        >
                           {link.label}
                         </Link>
                       )}
@@ -168,7 +180,13 @@ export function LandingFooter({ t }: { t: T }) {
 
           <div className="mt-14 flex flex-col gap-3 border-t border-frame-foreground/15 pt-6 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-frame-foreground/45">{t.lpFooterCopyright}</p>
-            <p className="text-xs text-frame-foreground/45">{t.lpFooterEarlyAccess}</p>
+            <div className="flex items-center gap-4">
+              {/* Consent you cannot withdraw is not consent. Reopens the banner. */}
+              <button type="button" onClick={resetConsent} className={cn(footerLink, "text-xs")}>
+                {t.consentSettings}
+              </button>
+              <p className="text-xs text-frame-foreground/45">{t.lpFooterEarlyAccess}</p>
+            </div>
           </div>
         </div>
       </footer>

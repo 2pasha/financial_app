@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
 import { CategoryCard } from "./components/CategoryCard";
 import { AddCategoryDialog } from "./components/AddCategoryDialog";
@@ -6,6 +7,11 @@ import { WelcomeFlow } from "./components/WelcomeFlow";
 import { EditCategoryDialog } from "./components/EditCategoryDialog";
 import { PlanningPage } from "./pages/PlanningPage";
 import { SiteHeader } from "./components/SiteHeader";
+import { isNavView, type NavView } from "./components/shellNav";
+import { cn } from "./components/ui/utils";
+import { MASK } from "./lib/privacy";
+import { setUserProps, track } from "./lib/posthog";
+import { bucketCount, monthOffset } from "./lib/analytics-events";
 import { HeroSurface } from "./components/HeroSurface";
 import { useAppSettings } from "./hooks/useAppSettings";
 import { Button } from "./components/ui/button";
@@ -92,6 +98,7 @@ function periodEquals(a: Period, b: Period): boolean {
 export default function App() {
   const { language, toggleLanguage, isDarkMode, toggleTheme, t } = useAppSettings();
   const { user, isLoaded } = useUser();
+  const navigate = useNavigate();
 
   // One-time welcome flow. `welcomeDismissed` hides it instantly without waiting on the
   // Clerk metadata round-trip; `welcomeManualOpen` re-triggers it from the header "?".
@@ -161,13 +168,17 @@ export default function App() {
   // Budget plan for the currently viewed month (drives dashboard display)
   const [budgetPlan, setBudgetPlan] = useState<BudgetPlan | null>(null);
 
-  const [view, setView] = useState<'dashboard' | 'expenses' | 'plan'>(() => {
-    if (typeof window !== 'undefined') {
-      return (localStorage.getItem('view') as 'dashboard' | 'expenses' | 'plan') || 'dashboard';
-    }
+  // The view is the URL — `/app/:view`. `/app` alone redirects to whichever view
+  // the user was last on (see AppViewRedirect), which is what the effect below
+  // keeps up to date.
+  const { view: viewParam } = useParams<{ view: string }>();
+  const view: NavView = isNavView(viewParam) ? viewParam : 'dashboard';
 
-    return 'dashboard';
-  });
+  useEffect(() => {
+    if (!isNavView(viewParam)) {
+      navigate('/app/dashboard', { replace: true });
+    }
+  }, [viewParam, navigate]);
 
 
   const mergedCategories = categories.map((cat) => {
@@ -242,6 +253,7 @@ export default function App() {
         calendarMonth: period.month,
       });
       setCategories(data);
+      setUserProps({ category_count: bucketCount(data.length) });
     } catch {
       toast.error(t.loadCategoriesFailed);
     } finally {
@@ -253,6 +265,7 @@ export default function App() {
     try {
       const plan = await budgetPlansApi.getForMonth(period.year, period.month);
       setBudgetPlan(plan);
+      setUserProps({ has_budget_plan: plan !== null });
     } catch {
       setBudgetPlan(null);
     }
@@ -286,6 +299,13 @@ export default function App() {
     localStorage.setItem('period', JSON.stringify(period));
   }, [period]);
 
+  // Reaching the dashboard with nothing on it is a distinct failure mode from
+  // never reaching it at all, so it gets its own event.
+  useEffect(() => {
+    if (categoriesLoading || categories.length > 0 || view !== 'dashboard') return;
+    track('empty_state_viewed', { surface: 'dashboard_no_categories' });
+  }, [categoriesLoading, categories.length, view]);
+
   const formatAmount = (value: number) => {
     try {
       return new Intl.NumberFormat(undefined, { style: 'currency', currency, currencyDisplay: 'narrowSymbol' }).format(value);
@@ -298,6 +318,7 @@ export default function App() {
     try {
       const created = await incomeApi.create(data);
       setIncomeItems((prev) => [...prev, created]);
+      track('income_changed', { action: 'added', item_count_after: incomeItems.length + 1 });
     } catch {
       toast.error(t.addIncomeFailed);
       throw new Error(t.addIncomeFailed);
@@ -308,6 +329,12 @@ export default function App() {
     try {
       const updated = await incomeApi.update(id, data);
       setIncomeItems((prev) => prev.map((it) => (it.id === id ? updated : it)));
+      track('income_changed', {
+        action: 'updated',
+        item_count_after: incomeItems.length,
+        // Which fields moved, not what they moved to.
+        changed_fields: Object.keys(data),
+      });
     } catch {
       toast.error(t.updateIncomeFailed);
       throw new Error(t.updateIncomeFailed);
@@ -318,6 +345,7 @@ export default function App() {
     try {
       await incomeApi.delete(id);
       setIncomeItems((prev) => prev.filter((it) => it.id !== id));
+      track('income_changed', { action: 'removed', item_count_after: incomeItems.length - 1 });
     } catch {
       toast.error(t.deleteIncomeFailed);
       throw new Error(t.deleteIncomeFailed);
@@ -328,6 +356,11 @@ export default function App() {
     try {
       const created = await categoriesApi.create(newCategory);
       setCategories((prev) => [...prev, created]);
+      track('category_created', {
+        creation_source: 'dashboard_dialog',
+        is_recurring: newCategory.year === null && newCategory.month === null,
+        has_budget: newCategory.budget > 0,
+      });
       toast.success(t.categoryAdded);
     } catch {
       toast.error(t.createCategoryFailed);
@@ -336,7 +369,14 @@ export default function App() {
 
   const handleCategoryClick = (id: string) => {
     const category = categories.find((cat) => cat.id === id);
-    if (category) setSelectedCategory(category);
+    if (!category) return;
+
+    track('category_opened', {
+      is_trip: !!category.isTrip,
+      has_budget: category.budget > 0,
+      is_over_budget: category.budget > 0 && Math.abs(category.net) > category.budget,
+    });
+    setSelectedCategory(category);
   };
 
   const handleEditCategory = (id: string) => {
@@ -350,6 +390,13 @@ export default function App() {
   };
 
   const handleSaveCategory = async (updatedCategory: Omit<Category, "spent" | "net">) => {
+    // Diffed against what the dialog opened with, so the event reports what the
+    // user actually changed rather than every field the form submits.
+    const before = categoryToEdit;
+    const changedFields = (['name', 'icon', 'color', 'budget', 'excludeFromDashboard'] as const)
+      .filter((field) => !before || before[field] !== updatedCategory[field]);
+    let syncedToPlan = false;
+
     try {
       const saved = await categoriesApi.update(updatedCategory.id, {
         name: updatedCategory.name,
@@ -375,9 +422,15 @@ export default function App() {
             items: updatedItems,
           });
           setBudgetPlan(updatedPlan);
+          syncedToPlan = true;
         }
       }
 
+      track('category_updated', {
+        // Field names only — never the values behind them.
+        changed_fields: [...changedFields],
+        synced_to_plan: syncedToPlan,
+      });
       toast.success(t.categoryUpdated);
     } catch {
       toast.error(t.updateCategoryFailed);
@@ -397,6 +450,7 @@ export default function App() {
     try {
       await categoriesApi.delete(categoryToDelete);
       setCategories((prev) => prev.filter(cat => cat.id !== categoryToDelete));
+      track('category_deleted');
       toast.success(t.categoryDeleted);
     } catch {
       toast.error(t.deleteCategoryFailed);
@@ -407,16 +461,28 @@ export default function App() {
   };
 
   const handlePeriodChange = (newPeriod: Period) => {
+    track('period_changed', {
+      surface: view === 'plan' ? 'planning' : 'dashboard',
+      month_offset: monthOffset(newPeriod.year, newPeriod.month),
+    });
     setPeriod(newPeriod);
   };
 
   const planYear = period.year;
   const planMonth = period.month;
   const openPlanView = () => {
-    setView('plan');
+    navigate('/app/plan');
   };
 
   const handlePlanSaved = (plan: BudgetPlan) => {
+    track('budget_plan_saved', {
+      is_first_plan: budgetPlan === null,
+      item_count: plan.items.length,
+      income_source_count: incomeItems.length,
+      month_offset: monthOffset(plan.year, plan.month),
+      is_over_allocated: unassignedMoney < 0,
+    });
+    setUserProps({ has_budget_plan: true });
     setBudgetPlan(plan);
     toast.success(t.planSaved);
   };
@@ -428,6 +494,7 @@ export default function App() {
 
     try {
       await budgetPlansApi.delete(budgetPlan.id);
+      track('budget_plan_deleted', { month_offset: monthOffset(budgetPlan.year, budgetPlan.month) });
       setBudgetPlan(null);
       toast.success(t.planDeleted);
     } catch {
@@ -462,7 +529,6 @@ export default function App() {
         onToggleLanguage={toggleLanguage}
         onToggleTheme={toggleTheme}
         activeView={view}
-        onViewChange={(v) => (v === 'plan' ? openPlanView() : setView(v))}
         onShowWelcome={() => setWelcomeManualOpen(true)}
       />
 
@@ -502,7 +568,7 @@ export default function App() {
         ) : (
           <>
             {/* Balance Card */}
-            <HeroSurface className="p-4 sm:p-8 mb-4 sm:mb-6">
+            <HeroSurface className={cn("p-4 sm:p-8 mb-4 sm:mb-6", MASK)}>
               <p className="opacity-90 mb-1 text-sm sm:text-base">{isOverBudget ? t.overBudgetBy : t.safeToSpend}</p>
               <h2 className={`text-3xl sm:text-5xl mb-3 sm:mb-4 font-bold ${isOverBudget ? 'text-red-300' : ''}`}>
                 {formatAmount(isOverBudget ? overageAmount : safeToSpend)}
@@ -664,15 +730,18 @@ export default function App() {
 
       <WelcomeFlow
         open={showWelcome}
+        trigger={welcomeManualOpen ? 'manual' : 'auto'}
         onComplete={completeOnboarding}
         onConnectMonobank={() => {
           // Expenses auto-opens the token modal for a user with no token yet
           // (ExpensesPage.checkStatus), so switching the view is enough.
-          setView('expenses');
+          navigate('/app/expenses');
         }}
         onAddManually={() => {
-          setView('expenses');
+          // Flag first: the param change re-renders App without remounting it, so
+          // the flag is already committed by the time ExpensesPage mounts.
           setAutoOpenCreate(true);
+          navigate('/app/expenses');
         }}
         onAddCategory={() => setDialogOpen(true)}
       />

@@ -4,6 +4,7 @@ import { Moon, Sun } from "lucide-react";
 import { HeaderShell } from "./HeaderShell";
 import { ShellMenu, SHELL_MENU_COLLAPSED_W } from "./ShellMenu";
 import { useShellNav } from "./shellNav";
+import { track } from "../lib/posthog";
 import { focusRingOnFrame, focusRingOnPage, iconButtonOnFrame } from "./chrome";
 import { cn } from "./ui/utils";
 import { type Language, getTranslation } from "../lib/translations";
@@ -125,7 +126,11 @@ export function LandingHeader({
          */}
         <div className="flex h-full items-center gap-2">
           <SignedOut>
-            <Link to="/sign-up" className={ctaOnFrame}>
+            <Link
+              to="/sign-up"
+              onClick={() => track('landing_cta_clicked', { cta_id: 'header_signup', placement: 'header' })}
+              className={ctaOnFrame}
+            >
               {t.lpSignUp}
             </Link>
             <button
@@ -147,7 +152,11 @@ export function LandingHeader({
           </SignedOut>
 
           <SignedIn>
-            <Link to="/app" className={ctaOnFrame}>
+            <Link
+              to="/app"
+              onClick={() => track('landing_cta_clicked', { cta_id: 'back_to_app', placement: 'header' })}
+              className={ctaOnFrame}
+            >
               {t.lpBackToApp}
             </Link>
             <ShellMenu variant="bar" {...menuProps} />
@@ -176,7 +185,11 @@ export function LandingHeader({
            * on the narrowest devices.
            */}
           <div className="ml-auto flex min-w-0 items-center gap-2">
-            <Link to="/sign-up" className={cn(ctaOnPage, "min-w-0 truncate")}>
+            <Link
+              to="/sign-up"
+              onClick={() => track('landing_cta_clicked', { cta_id: 'header_signup', placement: 'header' })}
+              className={cn(ctaOnPage, "min-w-0 truncate")}
+            >
               {t.lpSignUp}
             </Link>
             <button
@@ -206,7 +219,11 @@ export function LandingHeader({
            * the CTA's own right edge.
            */}
           <div className="ml-auto" style={{ marginRight: SHELL_MENU_COLLAPSED_W + 12 }}>
-            <Link to="/app" className={ctaOnPage}>
+            <Link
+              to="/app"
+              onClick={() => track('landing_cta_clicked', { cta_id: 'back_to_app', placement: 'header' })}
+              className={ctaOnPage}
+            >
               {t.lpBackToApp}
             </Link>
           </div>

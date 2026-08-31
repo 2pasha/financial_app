@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { type Language, getTranslation } from "../lib/translations";
+import { setUserProps, track } from "../lib/posthog";
 
 /**
  * Shared language + theme settings, backed by localStorage and applied globally
@@ -63,13 +64,18 @@ function toggleLanguage() {
   const next = snapshot.language === 'en' ? 'uk' : 'en';
 
   localStorage.setItem('language', next);
+  track('settings_toggled', { setting: 'language', to: next });
+  setUserProps({ language: next });
   emit({ ...snapshot, language: next });
 }
 
 function toggleTheme() {
   const next = !snapshot.isDarkMode;
+  const theme = next ? 'dark' : 'light';
 
-  localStorage.setItem('theme', next ? 'dark' : 'light');
+  localStorage.setItem('theme', theme);
+  track('settings_toggled', { setting: 'theme', to: theme });
+  setUserProps({ theme });
   applyTheme(next);
   emit({ ...snapshot, isDarkMode: next });
 }

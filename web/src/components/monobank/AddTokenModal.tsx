@@ -8,6 +8,9 @@ import { Alert, AlertDescription } from '../ui/alert';
 import { Loader2, AlertCircle, ShieldCheck, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAppSettings } from '../../hooks/useAppSettings';
+import { track } from '../../lib/posthog';
+import { failureReason } from '../../lib/analytics-events';
+import type { ApiError } from '../../lib/api-client';
 
 interface AddTokenModalProps {
   open: boolean;
@@ -34,9 +37,14 @@ export function AddTokenModal({ open, onOpenChange, onSuccess }: AddTokenModalPr
 
     try {
       await monobankApi.saveToken(token);
+      // Deliberately no properties: there is nothing about a token worth sending.
+      track('monobank_token_saved');
       toast.success(t.monoTokenSaved);
       onSuccess();
     } catch (err: any) {
+      // Bucket by HTTP status, never by message — the server's text can quote
+      // back what was pasted into the field.
+      track('monobank_token_failed', { failure_reason: failureReason((err as ApiError).status) });
       setError(err.message || t.monoTokenSaveFailed);
     } finally {
       setIsLoading(false);

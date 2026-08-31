@@ -1,4 +1,7 @@
 import { useState, useEffect } from "react";
+import { cn } from "./ui/utils";
+import { MASK } from "../lib/privacy";
+import { track } from "../lib/posthog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "./ui/sheet";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -102,6 +105,20 @@ export function TransactionDrawer({
         time: new Date(date).toISOString(),
         categoryId: categoryId === "none" ? null : categoryId,
       });
+      // Field names only. `isManual` splits "fixing my own entry" from
+      // "correcting what the bank sent", which are different behaviours.
+      const changedFields: string[] = [];
+      if (description !== transaction.description) changedFields.push('description');
+      if (amountMinorUnits !== transaction.amount) changedFields.push('amount');
+      if (new Date(date).toISOString() !== transaction.time) changedFields.push('time');
+      if ((categoryId === 'none' ? null : categoryId) !== (transaction.categoryId ?? null)) {
+        changedFields.push('category');
+      }
+
+      track('transaction_updated', {
+        is_manual: !transaction.monobankId,
+        changed_fields: changedFields,
+      });
       onUpdate(updated);
       setIsDirty(false);
       toast.success(t.transactionUpdated);
@@ -120,6 +137,7 @@ export function TransactionDrawer({
     setIsDeleting(true);
     try {
       await transactionsApi.delete(transaction.id);
+      track('transaction_deleted', { is_manual: !transaction.monobankId });
       onDelete(transaction.id);
       onOpenChange(false);
       toast.success(t.transactionDeleted);
@@ -136,7 +154,7 @@ export function TransactionDrawer({
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+        <SheetContent className={cn("w-full sm:max-w-md overflow-y-auto", MASK)}>
           <SheetHeader className="pb-2">
             <SheetTitle>{t.transactionDetails}</SheetTitle>
             <SheetDescription>

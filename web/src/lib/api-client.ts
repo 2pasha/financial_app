@@ -1,6 +1,36 @@
 import axios from 'axios';
 import type { API } from '@financial-app/common-types';
 import { getTranslation, type Language } from './translations';
+import { track } from './posthog';
+import { endpointTemplate } from './analytics-events';
+
+/**
+ * Errors surfaced to callers carry the HTTP status alongside the message, so a
+ * caller can bucket a failure (see `failureReason`) without parsing prose out of
+ * a translated string.
+ */
+export interface ApiError extends Error {
+  status?: number;
+}
+
+/**
+ * A burst of failures — an expired token, an offline laptop — would otherwise
+ * send one event per in-flight request. One per endpoint+status per 30s is
+ * enough to see the shape of a problem.
+ */
+const recentFailures = new Map<string, number>();
+const FAILURE_DEDUPE_MS = 30_000;
+
+function shouldReportFailure(key: string): boolean {
+  const now = Date.now();
+  const last = recentFailures.get(key);
+
+  if (last !== undefined && now - last < FAILURE_DEDUPE_MS) return false;
+
+  recentFailures.set(key, now);
+
+  return true;
+}
 
 /**
  * Translations for a non-React module.
@@ -43,8 +73,25 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     const message = error.response?.data?.message || error.message || currentT().genericError;
+    const status: number | undefined = error.response?.status;
+    const endpoint = endpointTemplate(error.config?.url || '');
+    const method = (error.config?.method || 'get').toUpperCase();
 
-    return Promise.reject(new Error(message));
+    // Note what failed and how, never why — the server's message can echo back
+    // whatever the user typed.
+    if (shouldReportFailure(`${method} ${endpoint} ${status ?? 'network'}`)) {
+      track('api_request_failed', {
+        endpoint_template: endpoint,
+        method,
+        status: status ?? null,
+        is_network_error: status === undefined,
+      });
+    }
+
+    const apiError: ApiError = new Error(message);
+    apiError.status = status;
+
+    return Promise.reject(apiError);
   }
 );
 
