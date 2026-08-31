@@ -1,6 +1,14 @@
 # Dependencies
 node_modules
 
+#AI
+.claude
+.cursor
+design-reference
+graphify-out
+web/.impeccable
+*.docx
+
 # Build output
 dist
 dist-ssr
