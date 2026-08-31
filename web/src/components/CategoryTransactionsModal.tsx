@@ -1,4 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
+import { cn } from "./ui/utils";
+import { MASK } from "../lib/privacy";
 import { Loader2, BarChart2 } from "lucide-react";
 import {
   Dialog,
@@ -372,7 +374,7 @@ export function CategoryTransactionsModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={`${showChart ? "sm:max-w-5xl" : "sm:max-w-md"} max-h-[80vh] flex flex-col transition-all duration-200`}>
+      <DialogContent className={cn(showChart ? "sm:max-w-5xl" : "sm:max-w-md", "max-h-[80vh] flex flex-col transition-all duration-200", MASK)}>
         {/* Balcony chart toggle — sticks out from the left edge of the modal */}
         {!loading && transactions.length > 0 && (
           <button

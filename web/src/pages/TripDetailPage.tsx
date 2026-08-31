@@ -7,6 +7,8 @@ import { Input } from "../components/ui/input";
 import { SiteHeader } from "../components/SiteHeader";
 import { useAppSettings } from "../hooks/useAppSettings";
 import { tf } from "../lib/translations";
+import { cn } from "../components/ui/utils";
+import { MASK } from "../lib/privacy";
 import { EditTripDialog } from "../components/EditTripDialog";
 import { tripsApi } from "../lib/api-client";
 import type { TripDetail, TripPlannedItem, Trip } from "../lib/api-client";
@@ -159,7 +161,7 @@ export default function TripDetailPage() {
         onSaved={handleTripSaved}
       />
 
-      <main className="max-w-6xl mx-auto px-4 py-6 sm:px-6 lg:px-8 space-y-6">
+      <main className={cn("max-w-6xl mx-auto px-4 py-6 sm:px-6 lg:px-8 space-y-6", MASK)}>
         {/* Back + title row */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">

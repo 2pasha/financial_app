@@ -3,7 +3,7 @@ import { HeaderShell } from "./HeaderShell";
 import { ShellMenu } from "./ShellMenu";
 import { focusRingOnFrame, focusRingOnPage } from "./chrome";
 import { cn } from "./ui/utils";
-import { useShellNav, type ActiveView, type NavView } from "./shellNav";
+import { useShellNav, type ActiveView } from "./shellNav";
 import { type Language, getTranslation } from "../lib/translations";
 
 /**
@@ -32,11 +32,6 @@ interface SiteHeaderProps {
   /** Which nav item is currently active. */
   activeView: ActiveView;
   /**
-   * Provided by the `/` route (App) to switch its in-page view without a full
-   * navigation. When absent (trip pages), selecting a view routes back to `/`.
-   */
-  onViewChange?: (v: NavView) => void;
-  /**
    * Re-triggers the welcome flow. Only the dashboard passes this, so the "?"
    * button renders there and not on trip/monobank pages.
    */
@@ -50,11 +45,10 @@ export function SiteHeader({
   onToggleLanguage,
   onToggleTheme,
   activeView,
-  onViewChange,
   onShowWelcome,
 }: SiteHeaderProps) {
   const navigate = useNavigate();
-  const navItems = useShellNav(t, onViewChange);
+  const navItems = useShellNav(t);
 
   return (
     <HeaderShell>
@@ -79,7 +73,7 @@ export function SiteHeader({
           <h1 className="text-lg font-semibold text-frame-foreground">{t.appTitle}</h1>
         </div>
 
-        <nav className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1">
+        <nav className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1" data-replay-safe>
           {navItems.map((item) => (
             <button
               key={item.key}

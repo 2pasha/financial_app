@@ -1,6 +1,7 @@
 import React from 'react';
 import * as Sentry from '@sentry/react';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
+import { track } from '../lib/posthog';
 
 interface FallbackProps {
   error: Error;
@@ -10,6 +11,16 @@ interface FallbackProps {
 }
 
 function ErrorFallback({ error, resetError }: FallbackProps) {
+  // Sentry already has the stack. PostHog gets only enough to show a crash rate
+  // per route on the friction dashboard — never the message, which can quote
+  // back whatever the user typed.
+  React.useEffect(() => {
+    track('app_error_boundary_hit', {
+      route_pattern: window.location.pathname.replace(/\/[0-9a-f-]{8,}.*$/i, '/:id'),
+      error_name: error?.name ?? 'Error',
+    });
+  }, [error]);
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background text-foreground p-6">
       <div className="max-w-md w-full bg-card border border-border rounded-2xl p-8 shadow-xl text-center">

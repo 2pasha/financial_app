@@ -7,6 +7,8 @@ import {
 } from "./ui/dropdown-menu";
 import { MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { type getTranslation } from "../lib/translations";
+import { cn } from "./ui/utils";
+import { MASK } from "../lib/privacy";
 
 interface CategoryCardProps {
   id: string;
@@ -99,7 +101,7 @@ export function CategoryCard({ id, name, spent, net, budget, icon, color, showNe
             {iconBox}
             <div className="min-w-0">
               <h3 className="text-sm text-card-foreground truncate">{name}</h3>
-              <p className="text-xs">{netEl}</p>
+              <p className={cn("text-xs", MASK)}>{netEl}</p>
             </div>
           </div>
           {menu}
@@ -152,7 +154,7 @@ export function CategoryCard({ id, name, spent, net, budget, icon, color, showNe
               <span className="text-sm font-medium text-muted-foreground">{translations.noBudgetSet}</span>
             ) : (
               <>
-                <span className={`text-sm font-bold whitespace-nowrap ${amountColor}`}>
+                <span className={cn("text-sm font-bold whitespace-nowrap", amountColor, MASK)}>
                   ₴{(isOverBudget ? spent - budget : budget - spent).toLocaleString()}
                   <span className="text-[11px] font-medium ml-0.5">
                     {isOverBudget ? translations.over : translations.left}
@@ -188,7 +190,7 @@ export function CategoryCard({ id, name, spent, net, budget, icon, color, showNe
       </div>
 
       {/* Row 3: spent line */}
-      <div className="text-xs text-muted-foreground">
+      <div className={cn("text-xs text-muted-foreground", MASK)}>
         {hasBudget
           ? `₴${(spent ?? 0).toLocaleString()} / ₴${budget.toLocaleString()}`
           : `₴${(spent ?? 0).toLocaleString()} ${translations.spent}`}

@@ -6,6 +6,10 @@ import { Button } from "../components/ui/button";
 import { SiteHeader } from "../components/SiteHeader";
 import { useAppSettings } from "../hooks/useAppSettings";
 import { pluralize, type getTranslation } from "../lib/translations";
+import { cn } from "../components/ui/utils";
+import { MASK } from "../lib/privacy";
+import { setUserProps, track } from "../lib/posthog";
+import { bucketCount, bucketPercent } from "../lib/analytics-events";
 import { AddTripDialog } from "../components/AddTripDialog";
 import { EditTripDialog } from "../components/EditTripDialog";
 import { tripsApi } from "../lib/api-client";
@@ -39,7 +43,10 @@ export default function TripsPage() {
 
   useEffect(() => {
     tripsApi.getAll()
-      .then(setTrips)
+      .then((all) => {
+        setTrips(all);
+        setUserProps({ trip_count: bucketCount(all.length) });
+      })
       .catch(() => toast.error(t.loadTripsFailed))
       .finally(() => setLoading(false));
   }, []);
@@ -54,6 +61,10 @@ export default function TripsPage() {
     name: string; icon: string; color: string; goalAmount: number; targetDate: string | null;
   }) => {
     const created = await tripsApi.create(dto);
+    track('trip_created', {
+      has_target_date: dto.targetDate !== null,
+      has_goal_amount: dto.goalAmount > 0,
+    });
     setTrips((prev) => [created, ...prev]);
     toast.success(t.tripCreated);
   };
@@ -120,7 +131,21 @@ export default function TripsPage() {
               ))}
             </div>
             {trips.map((trip) => (
-              <TripRow key={trip.id} trip={trip} t={t} onClick={() => navigate(`/trips/${trip.id}`)} onEdit={() => setEditingTrip(trip)} />
+              <TripRow
+                key={trip.id}
+                trip={trip}
+                t={t}
+                onClick={() => {
+                  track('trip_opened', {
+                    is_active: trip.isActive,
+                    progress_pct_bucket: bucketPercent(
+                      trip.goalAmount > 0 ? (trip.collectedAmount / trip.goalAmount) * 100 : 0,
+                    ),
+                  });
+                  navigate(`/trips/${trip.id}`);
+                }}
+                onEdit={() => setEditingTrip(trip)}
+              />
             ))}
           </div>
         )}
@@ -138,7 +163,10 @@ function TripsTip({ t }: { t: ReturnType<typeof getTranslation> }) {
   return (
     <div className="rounded-xl border border-border bg-card mb-4 overflow-hidden">
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          if (!open) track('help_tip_expanded', { tip: 'trips' });
+          setOpen((v) => !v);
+        }}
         className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-muted/40 transition-colors"
       >
         <span className="text-sm font-medium text-foreground flex items-center gap-2">
@@ -190,7 +218,7 @@ function StatCard({ accent, label, value }: { accent: string; label: string; val
     <div className="bg-card border border-border rounded-xl p-3 md:p-4 flex flex-col gap-1.5">
       <div className="h-0.5 w-8 rounded-full" style={{ backgroundColor: accent }} />
       <span className="text-xs font-medium text-muted-foreground leading-tight">{label}</span>
-      <span className="text-lg md:text-xl font-bold text-foreground">{value}</span>
+      <span className={cn("text-lg md:text-xl font-bold text-foreground", MASK)}>{value}</span>
     </div>
   );
 }
@@ -203,7 +231,7 @@ function TripRow({ trip, t, onClick, onEdit }: { trip: Trip; t: ReturnType<typeo
   return (
     <div
       onClick={onClick}
-      className="group grid grid-cols-1 md:grid-cols-[1fr_90px_100px_120px_90px_90px] gap-y-1.5 md:gap-y-0 gap-x-4 px-5 py-3.5 md:py-3 border-b border-border last:border-0 hover:bg-muted/40 cursor-pointer transition-colors"
+      className={cn("group grid grid-cols-1 md:grid-cols-[1fr_90px_100px_120px_90px_90px] gap-y-1.5 md:gap-y-0 gap-x-4 px-5 py-3.5 md:py-3 border-b border-border last:border-0 hover:bg-muted/40 cursor-pointer transition-colors", MASK)}
     >
       {/* Trip name */}
       <div className="flex items-center gap-2 min-w-0">

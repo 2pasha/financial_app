@@ -156,7 +156,9 @@ function MenuRows({
     <>
       {showNav && (
         <>
-          <div className="flex flex-col gap-2">
+          {/* Nav labels stay legible in Sentry replays (which mask all text) so a
+              crash report still shows where the user was — see lib/privacy.ts. */}
+          <div className="flex flex-col gap-2" data-replay-safe>
             <motion.span custom={next()} variants={rowVariants} className={cn(eyebrow, "mb-1")}>
               {t.menuNavigation}
             </motion.span>

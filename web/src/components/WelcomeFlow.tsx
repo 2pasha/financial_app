@@ -14,9 +14,23 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "./ui/dial
 import { Button } from "./ui/button";
 import { monobankApi } from "../lib/api-client";
 import { useAppSettings } from "../hooks/useAppSettings";
+import { track } from "../lib/posthog";
+
+/** Terminal actions, in the order a user is most likely to take them. */
+type ExitAction =
+  | 'connect_monobank'
+  | 'add_manually'
+  | 'add_category'
+  | 'skip'
+  | 'decide_later'
+  | 'dismiss';
+
+const STEP_NAMES = ['welcome', 'mental_model', 'import_choice', 'first_category'] as const;
 
 interface WelcomeFlowProps {
   open: boolean;
+  /** Whether the flow opened by itself for a new user, or from the header "?". */
+  trigger: 'auto' | 'manual';
   /** Marks onboarding complete and closes (Skip, finish, or any terminal action). */
   onComplete: () => void;
   /** Step 3 — routes to the Monobank setup screen. */
@@ -47,6 +61,7 @@ function StepDots({ step }: { step: number }) {
 
 export function WelcomeFlow({
   open,
+  trigger,
   onComplete,
   onConnectMonobank,
   onAddManually,
@@ -78,8 +93,15 @@ export function WelcomeFlow({
   useEffect(() => {
     if (open) {
       setStep(1);
+      track('onboarding_started', { trigger });
     }
   }, [open]);
+
+  // Per-step views are what turn onboarding into a funnel you can read.
+  useEffect(() => {
+    if (!open) return;
+    track('onboarding_step_viewed', { step, step_name: STEP_NAMES[step - 1] });
+  }, [open, step]);
 
   // Reflect whether Monobank is already connected on step 3's "Connect" card.
   // Fetched only while open; harmless for first-run users (returns hasToken: false).
@@ -101,13 +123,18 @@ export function WelcomeFlow({
     };
   }, [open]);
 
-  const runAndComplete = (action: () => void) => {
-    action();
+  const finish = (exitAction: ExitAction) => {
+    track('onboarding_completed', { exit_action: exitAction, last_step: step });
     onComplete();
   };
 
+  const runAndComplete = (exitAction: ExitAction, action: () => void) => {
+    action();
+    finish(exitAction);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onComplete()}>
+    <Dialog open={open} onOpenChange={(o) => !o && finish('dismiss')}>
       <DialogContent
         aria-describedby={undefined}
         showClose={false}
@@ -116,7 +143,7 @@ export function WelcomeFlow({
         {/* Skip — present on every step, top-right corner. */}
         <button
           type="button"
-          onClick={onComplete}
+          onClick={() => finish('skip')}
           className="absolute top-4 right-4 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           {t.skip}
@@ -210,14 +237,14 @@ export function WelcomeFlow({
                     <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" />
                   ) : undefined
                 }
-                onClick={() => runAndComplete(onConnectMonobank)}
+                onClick={() => runAndComplete('connect_monobank', onConnectMonobank)}
               />
               <ChoiceCard
                 icon={<Pencil className="h-5 w-5" />}
                 tint="bg-muted-foreground"
                 title={t.welcomeAddManually}
                 subtitle={t.welcomeEnterYourself}
-                onClick={() => runAndComplete(onAddManually)}
+                onClick={() => runAndComplete('add_manually', onAddManually)}
               />
             </div>
             <StepDots step={step} />
@@ -264,13 +291,13 @@ export function WelcomeFlow({
             <Button
               size="lg"
               className="w-full"
-              onClick={() => runAndComplete(onAddCategory)}
+              onClick={() => runAndComplete('add_category', onAddCategory)}
             >
               {t.welcomeAddFirstCategory}
             </Button>
             <button
               type="button"
-              onClick={onComplete}
+              onClick={() => finish('decide_later')}
               className="text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               {t.welcomeDoLater}

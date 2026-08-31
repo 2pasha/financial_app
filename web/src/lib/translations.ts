@@ -455,6 +455,13 @@ export const translations = {
     chartHint: 'Click a slice or label to see its transactions',
     noTransactionsPeriod: 'No transactions for this period.',
     noChartData: 'No expense data to chart.',
+    // Analytics consent
+    consentTitle: 'Help us improve Moneta',
+    consentBody:
+      'We would like to use analytics to see which features get used and where people get stuck. It never records your balances, transaction amounts or merchant names. Nothing is collected unless you agree.',
+    consentAccept: 'Accept',
+    consentDecline: 'Decline',
+    consentSettings: 'Cookie settings',
   },
   uk: {
     appTitle: 'Монета',
@@ -910,6 +917,13 @@ export const translations = {
     chartHint: 'Натисніть на сегмент або підпис, щоб побачити транзакції',
     noTransactionsPeriod: 'Немає транзакцій за цей період.',
     noChartData: 'Немає даних про витрати для графіка.',
+    // Analytics consent
+    consentTitle: 'Допоможіть нам покращити Moneta',
+    consentBody:
+      'Ми хотіли б використовувати аналітику, щоб бачити, якими функціями користуються і де виникають труднощі. Вона ніколи не записує ваші баланси, суми операцій чи назви продавців. Нічого не збирається без вашої згоди.',
+    consentAccept: 'Прийняти',
+    consentDecline: 'Відхилити',
+    consentSettings: 'Налаштування cookie',
   }
 };
 

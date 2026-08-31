@@ -29,6 +29,10 @@ import { Loader2, RefreshCw, AlertCircle, DollarSign, ChevronLeft, ChevronRight,
 import { toast } from "sonner";
 import { useAppSettings } from "../hooks/useAppSettings";
 import { tf } from "../lib/translations";
+import { cn } from "../components/ui/utils";
+import { MASK } from "../lib/privacy";
+import { markActivated, setUserProps, track } from "../lib/posthog";
+import { bucketCount, bucketMs } from "../lib/analytics-events";
 
 type MonoTxn = Transaction;
 
@@ -140,7 +144,10 @@ function ExpensesTip() {
   return (
     <div className="rounded-xl border border-border bg-card mb-4 overflow-hidden">
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          if (!open) track('help_tip_expanded', { tip: 'expenses' });
+          setOpen((v) => !v);
+        }}
         className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-muted/40 transition-colors"
       >
         <span className="text-sm font-medium text-foreground flex items-center gap-2">
@@ -260,8 +267,10 @@ export default function ExpensesPage({
     try {
       const status = await monobankApi.checkTokenStatus();
       setTokenStatus(status);
+      setUserProps({ has_monobank_connected: status.hasToken });
 
       if (!status.hasToken) {
+        track('monobank_connect_started', { connect_source: 'auto_no_token' });
         setShowTokenModal(true);
       } else if (status.hasTransactions) {
         await loadTransactions();
@@ -279,7 +288,10 @@ export default function ExpensesPage({
         page: 1, 
         limit: 10000 
       });
-      setTxns(data.transactions || []);
+      const transactions = data.transactions || [];
+      setTxns(transactions);
+      setUserProps({ transaction_count_bucket: bucketCount(transactions.length) });
+      markActivated(transactions.length, 'monobank');
     } catch (err: any) {
       setError(err.message);
     }
@@ -289,6 +301,7 @@ export default function ExpensesPage({
   // right after saving a token and when reconnecting to a job after a page reload.
   const pollSyncJob = async (jobId: string) => {
     setIsSyncing(true);
+    const startedAt = Date.now();
 
     try {
       let job: SyncJob;
@@ -299,6 +312,11 @@ export default function ExpensesPage({
       } while (job.status === 'pending' || job.status === 'running');
 
       if (job.status === 'completed') {
+        track('monobank_sync_completed', {
+          sync_type: 'initial',
+          transaction_count_bucket: bucketCount(job.transactionsCount ?? 0),
+          duration_ms_bucket: bucketMs(Date.now() - startedAt),
+        });
         toast.success(tf(t.syncedTransactions, { n: job.transactionsCount }));
         await checkStatus();
       } else {
@@ -332,6 +350,7 @@ export default function ExpensesPage({
       // request per account instead of the full 3-month history (much faster).
       // POST /monobank/sync returns a jobId immediately; the real work runs in a
       // background job we then poll. Persist the jobId so a reload can reconnect.
+      track('monobank_sync_started', { sync_type: 'initial', days: 31 });
       const { jobId } = await monobankApi.syncTransactions(31);
       localStorage.setItem(SYNC_JOB_KEY, jobId);
       await pollSyncJob(jobId);
@@ -402,6 +421,7 @@ export default function ExpensesPage({
     try {
       const result = await monobankApi.getWebhookStatus();
       setWebhookStatus(result.status);
+      setUserProps({ has_webhook: result.status === 'running' });
     } catch {
       // silently ignore — status indicator just won't update
     }
@@ -421,6 +441,7 @@ export default function ExpensesPage({
 
     try {
       const result = await monobankApi.setupWebhook();
+      track('monobank_webhook_connected', { previous_status: webhookStatus ?? 'unknown' });
       toast.success(tf(t.webhookConnected, { url: result.webhookUrl }));
       await fetchWebhookStatus();
     } catch (err: any) {
@@ -433,11 +454,20 @@ export default function ExpensesPage({
   const handleRefetch = async () => {
     setRefetching(true);
     setError(null);
+    const startedAt = Date.now();
 
     try {
       toast.info(t.fetchingNew);
+      track('monobank_sync_started', { sync_type: 'incremental' });
       const result = await monobankApi.syncIncremental();
-      
+
+      track('monobank_sync_completed', {
+        sync_type: 'incremental',
+        transaction_count_bucket: bucketCount(result.transactionsCount),
+        duration_ms_bucket: bucketMs(Date.now() - startedAt),
+        fell_back_to_31_days: !!result.fallbackTo31Days,
+      });
+
       if (result.fallbackTo31Days) {
         // Period exceeded 31 days, fetched last 31 days instead
         toast.success(
@@ -462,8 +492,10 @@ export default function ExpensesPage({
 
   const handleSort = (column: string) => {
     if (sortColumn === column) {
+      track('transactions_sorted', { column, direction: sortDirection === 'asc' ? 'desc' : 'asc' });
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
+      track('transactions_sorted', { column, direction: 'desc' });
       setSortColumn(column);
       setSortDirection('desc');
     }
@@ -630,6 +662,41 @@ export default function ExpensesPage({
     );
   }, [filters]);
 
+  // Which filters are on — never what was typed into them.
+  const activeFilters = useMemo(() => {
+    const active: string[] = [];
+    if (filters.name !== '') active.push('name');
+    if (filters.categories.length > 0) active.push('category');
+    if (filters.amount.mode !== null && filters.amount.value !== null) active.push('amount');
+    if (filters.dateRange.from !== null || filters.dateRange.to !== null) active.push('date');
+    if (filters.cards.length > 0) active.push('card');
+
+    return active;
+  }, [filters]);
+
+  // Landing on Expenses with nothing in it — a connected account that synced
+  // nothing, or a user who never added anything.
+  useEffect(() => {
+    if (loading || txns.length > 0) return;
+    track('empty_state_viewed', { surface: 'expenses_no_transactions' });
+  }, [loading, txns.length]);
+
+  // Debounced: someone typing a merchant name would otherwise emit one event per
+  // keystroke. 1.5s is long enough that the event describes a finished intent.
+  useEffect(() => {
+    if (!activeFilters.length) return;
+
+    const timer = setTimeout(() => {
+      track('transactions_filtered', {
+        active_filters: activeFilters,
+        filter_count: activeFilters.length,
+        result_count_bucket: bucketCount(filteredTransactions.length),
+      });
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [activeFilters, filteredTransactions.length]);
+
   // Clear all filters
   const clearAllFilters = () => {
     setFilters({
@@ -658,6 +725,9 @@ export default function ExpensesPage({
 
   const handleTransactionCreate = (created: MonoTxn) => {
     setTxns((prev) => [created, ...prev]);
+    // A manually created transaction is by definition at least one, so this is
+    // the manual path's activation moment.
+    markActivated(1, 'manual');
   };
 
   const handleInlineTripChange = async (tx: MonoTxn, newTripId: string) => {
@@ -667,6 +737,7 @@ export default function ExpensesPage({
         tripId: newTripId === "none" ? null : newTripId,
       });
       handleTransactionUpdate(updated);
+      track('transaction_trip_assigned', { assigned: newTripId !== 'none' });
       toast.success(t.tripUpdated);
     } catch {
       toast.error(t.updateTripFailed);
@@ -684,6 +755,7 @@ export default function ExpensesPage({
       });
 
       handleTransactionUpdate(updated);
+      track('transaction_categorized', { method: 'inline_table', assigned: newCategoryId !== 'none' });
       toast.success(t.categoryUpdated);
     } catch {
       toast.error(t.updateCategoryFailed);
@@ -821,7 +893,12 @@ export default function ExpensesPage({
                     <DropdownMenuSeparator />
 
                     {!tokenStatus?.hasToken ? (
-                      <DropdownMenuItem onClick={() => setShowTokenModal(true)}>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          track('monobank_connect_started', { connect_source: 'overflow_menu' });
+                          setShowTokenModal(true);
+                        }}
+                      >
                         <Webhook className="h-4 w-4" />
                         {t.connectMonobank}
                       </DropdownMenuItem>
@@ -888,7 +965,7 @@ export default function ExpensesPage({
                 )}
 
                 {/* Statistics Cards */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
+                <div className={cn("grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6", MASK)}>
                   <Card>
                     <CardContent className="pt-4 sm:pt-6 px-3 sm:px-6">
                       <div className="text-xs sm:text-sm text-muted-foreground">{t.totalExpenses}</div>
@@ -978,7 +1055,7 @@ export default function ExpensesPage({
                             placeholder={t.filterNamePlaceholder}
                             value={filters.name}
                             onChange={(e) => setFilters({...filters, name: e.target.value})}
-                            className="h-8"
+                            className={cn("h-8", MASK)}
                           />
                         </TableHead>
                         <TableHead>
@@ -1017,7 +1094,9 @@ export default function ExpensesPage({
                       </TableRow>
                     </TableHeader>
                     
-                    <TableBody>
+                    {/* One class here masks every merchant name, amount, FX line
+                        and card number in the table — see lib/privacy.ts. */}
+                    <TableBody className={MASK}>
                       {paginatedTransactions.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">

@@ -4,6 +4,7 @@ import { HeroSurface } from "./HeroSurface";
 import { HEADER_CLEARANCE } from "./HeaderShell";
 import { cn } from "./ui/utils";
 import { type getTranslation } from "../lib/translations";
+import { track } from "../lib/posthog";
 
 type T = ReturnType<typeof getTranslation>;
 
@@ -310,12 +311,14 @@ export function LandingHero({ t }: { t: T }) {
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link
               to="/sign-up"
+              onClick={() => track('landing_cta_clicked', { cta_id: 'hero_signup', placement: 'hero' })}
               className="inline-flex h-11 items-center rounded-lg bg-white px-6 text-sm font-medium text-[#08080f] transition-colors hover:bg-white/90 outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#08080f]"
             >
               {t.lpSignUpFree}
             </Link>
             <Link
               to="/sign-in"
+              onClick={() => track('landing_cta_clicked', { cta_id: 'hero_signin', placement: 'hero' })}
               className="inline-flex h-11 items-center rounded-lg border border-white/20 px-6 text-sm font-medium text-white transition-colors hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#08080f]"
             >
               {t.lpSignIn}

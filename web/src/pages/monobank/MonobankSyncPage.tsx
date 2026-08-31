@@ -10,6 +10,8 @@ import { Loader2, RefreshCw, CheckCircle2, AlertCircle, Clock, DollarSign, Chevr
 import { toast } from 'sonner';
 import { useAppSettings } from '../../hooks/useAppSettings';
 import { tf } from '../../lib/translations';
+import { cn } from '../../components/ui/utils';
+import { MASK } from '../../lib/privacy';
 
 export default function MonobankSyncPage() {
   const { t } = useAppSettings();
@@ -243,7 +245,8 @@ export default function MonobankSyncPage() {
               </div>
             ) : (
               <>
-                <div className="space-y-3">
+                {/* Merchant names and amounts — masked in session replay. */}
+                <div className={cn("space-y-3", MASK)}>
                   {transactions.map((tx) => (
                     <div
                       key={tx.id}
