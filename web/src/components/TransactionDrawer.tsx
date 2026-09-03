@@ -228,11 +228,7 @@ export function TransactionDrawer({
                       step="0.01"
                       value={amount}
                       onChange={(e) => handleFieldChange(setAmount, e.target.value)}
-                      disabled={!isManual}
                     />
-                    {!isManual && (
-                      <p className="text-muted-foreground text-xs">{t.amountReadOnly}</p>
-                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -242,11 +238,7 @@ export function TransactionDrawer({
                       type="datetime-local"
                       value={date}
                       onChange={(e) => handleFieldChange(setDate, e.target.value)}
-                      disabled={!isManual}
                     />
-                    {!isManual && (
-                      <p className="text-muted-foreground text-xs">{t.dateReadOnly}</p>
-                    )}
                   </div>
 
                   <div className="space-y-2">

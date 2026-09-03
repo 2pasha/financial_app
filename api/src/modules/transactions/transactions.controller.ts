@@ -13,6 +13,7 @@ import {
 import { TransactionsService } from './transactions.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
+import { BulkUpdateTransactionsDto } from './dto/bulk-update-transactions.dto';
 import { ClerkAuthGuard } from '../../common/guards/clerk-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { CurrentUserData } from '../../common/decorators/current-user.decorator';
@@ -28,6 +29,14 @@ export class TransactionsController {
     @Body(ValidationPipe) dto: CreateTransactionDto,
   ) {
     return this.transactionsService.create(user.clerkId, dto);
+  }
+
+  @Patch('bulk')
+  async bulkUpdate(
+    @CurrentUser() user: CurrentUserData,
+    @Body(ValidationPipe) dto: BulkUpdateTransactionsDto,
+  ) {
+    return this.transactionsService.bulkUpdate(user.clerkId, dto);
   }
 
   @Patch(':id')
