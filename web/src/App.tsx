@@ -76,6 +76,17 @@ function getPlanningMonths(future = 3, past = 5): MonthPeriod[] {
   return months;
 }
 
+function isAfterMonth(a: { year: number; month: number }, b: { year: number; month: number }): boolean {
+  return a.year > b.year || (a.year === b.year && a.month > b.month);
+}
+
+// The Dashboard only offers a future month once the user has actually created a
+// plan for that specific month — otherwise there's nothing to show there yet.
+// futurePlanMonths must already be sorted furthest-future first.
+function getDashboardMonths(futurePlanMonths: MonthPeriod[]): MonthPeriod[] {
+  return [...futurePlanMonths, ...getLastNMonths(6)];
+}
+
 function formatMonthLabel(period: MonthPeriod, language: Language): string {
   const date = new Date(period.year, period.month - 1, 1);
   const locale = language === 'uk' ? 'uk-UA' : 'en-US';
@@ -167,6 +178,10 @@ export default function App() {
 
   // Budget plan for the currently viewed month (drives dashboard display)
   const [budgetPlan, setBudgetPlan] = useState<BudgetPlan | null>(null);
+
+  // Future months (relative to "now") that already have a budget plan — these are
+  // the only future months the Dashboard's month selector offers, sorted furthest first.
+  const [futurePlanMonths, setFuturePlanMonths] = useState<MonthPeriod[]>([]);
 
   // The view is the URL — `/app/:view`. `/app` alone redirects to whichever view
   // the user was last on (see AppViewRedirect), which is what the effect below
@@ -278,6 +293,20 @@ export default function App() {
   useEffect(() => {
     fetchBudgetPlan();
   }, [fetchBudgetPlan]);
+
+  // "Now" doesn't change within a session, so this only needs to run once.
+  useEffect(() => {
+    budgetPlansApi.getAllMonths()
+      .then((months) => {
+        const future = months
+          .filter((m) => isAfterMonth(m, currentMonthPeriod))
+          .sort((a, b) => (a.year !== b.year ? b.year - a.year : b.month - a.month))
+          .map((m): MonthPeriod => ({ kind: 'month', year: m.year, month: m.month }));
+        setFuturePlanMonths(future);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     setIncomeLoading(true);
@@ -484,6 +513,17 @@ export default function App() {
     });
     setUserProps({ has_budget_plan: true });
     setBudgetPlan(plan);
+    if (isAfterMonth(plan, currentMonthPeriod)) {
+      setFuturePlanMonths((prev) => {
+        if (prev.some((m) => m.year === plan.year && m.month === plan.month)) {
+          return prev;
+        }
+        const next: MonthPeriod = { kind: 'month', year: plan.year, month: plan.month };
+        return [...prev, next].sort((a, b) =>
+          a.year !== b.year ? b.year - a.year : b.month - a.month,
+        );
+      });
+    }
     toast.success(t.planSaved);
   };
 
@@ -495,6 +535,11 @@ export default function App() {
     try {
       await budgetPlansApi.delete(budgetPlan.id);
       track('budget_plan_deleted', { month_offset: monthOffset(budgetPlan.year, budgetPlan.month) });
+      if (isAfterMonth(budgetPlan, currentMonthPeriod)) {
+        setFuturePlanMonths((prev) =>
+          prev.filter((m) => !(m.year === budgetPlan.year && m.month === budgetPlan.month)),
+        );
+      }
       setBudgetPlan(null);
       toast.success(t.planDeleted);
     } catch {
@@ -629,7 +674,7 @@ export default function App() {
             {/* Period Selector */}
             <div className="mb-4">
               <div className="flex overflow-x-auto gap-1.5 pb-1 no-scrollbar sm:flex-wrap sm:gap-2">
-                {getLastNMonths(6).map((mp) => (
+                {getDashboardMonths(futurePlanMonths).map((mp) => (
                   <Button
                     key={`${mp.year}-${mp.month}`}
                     variant={periodEquals(period, mp) ? 'default' : 'outline'}
