@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
+import { BulkUpdateTransactionsDto } from './dto/bulk-update-transactions.dto';
 
 const MANUAL_ACCOUNT_ID = 'manual';
 const DEFAULT_CURRENCY = 980; // UAH
@@ -72,6 +73,32 @@ export class TransactionsService {
     });
 
     return this.formatTransaction(tx);
+  }
+
+  async bulkUpdate(clerkId: string, dto: BulkUpdateTransactionsDto) {
+    const user = await this.findUser(clerkId);
+
+    const updateData: Record<string, unknown> = {};
+
+    if (Object.prototype.hasOwnProperty.call(dto, 'categoryId')) {
+      updateData.categoryId = dto.categoryId ?? null;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(dto, 'tripId')) {
+      updateData.tripId = dto.tripId ?? null;
+    }
+
+    await this.prisma.transaction.updateMany({
+      where: { id: { in: dto.ids }, userId: user.id },
+      data: updateData,
+    });
+
+    const updated = await this.prisma.transaction.findMany({
+      where: { id: { in: dto.ids }, userId: user.id },
+      include: { account: true, category: true, trip: true },
+    });
+
+    return updated.map((tx) => this.formatTransaction(tx));
   }
 
   async delete(clerkId: string, id: string) {

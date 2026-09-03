@@ -23,6 +23,11 @@ import type { CurrentUserData } from '../../common/decorators/current-user.decor
 export class BudgetPlansController {
   constructor(private readonly budgetPlansService: BudgetPlansService) {}
 
+  @Get('months')
+  async findAllMonths(@CurrentUser() user: CurrentUserData) {
+    return this.budgetPlansService.findAllMonths(user.clerkId);
+  }
+
   @Get()
   async findForMonth(
     @CurrentUser() user: CurrentUserData,

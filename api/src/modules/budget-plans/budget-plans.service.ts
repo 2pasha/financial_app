@@ -26,6 +26,18 @@ export class BudgetPlansService {
     });
   }
 
+  async findAllMonths(clerkId: string) {
+    const user = await this.findUser(clerkId);
+
+    const plans = await this.prisma.budgetPlan.findMany({
+      where: { userId: user.id },
+      select: { year: true, month: true },
+      orderBy: [{ year: 'asc' }, { month: 'asc' }],
+    });
+
+    return plans;
+  }
+
   async upsert(clerkId: string, dto: UpsertBudgetPlanDto) {
     const user = await this.findUser(clerkId);
 

@@ -378,9 +378,30 @@ export const transactionsApi = {
 
     return response.data;
   },
+
+  async bulkUpdate(
+    ids: string[],
+    data: {
+      categoryId?: string | null;
+      tripId?: string | null;
+    }
+  ): Promise<Transaction[]> {
+    const response = await apiClient.patch<Transaction[]>('/transactions/bulk', {
+      ids,
+      ...data,
+    });
+
+    return response.data;
+  },
 };
 
 export const budgetPlansApi = {
+  async getAllMonths(): Promise<{ year: number; month: number }[]> {
+    const response = await apiClient.get<{ year: number; month: number }[]>('/budget-plans/months');
+
+    return response.data;
+  },
+
   async getForMonth(year: number, month: number): Promise<BudgetPlan | null> {
     const response = await apiClient.get<BudgetPlan | null>('/budget-plans', {
       params: { year, month },

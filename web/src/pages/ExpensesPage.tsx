@@ -17,6 +17,7 @@ import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import { Checkbox } from "../components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -387,6 +388,10 @@ export default function ExpensesPage({
   const [activeTrips, setActiveTrips] = useState<Trip[]>([]);
   const [savingTripForTx, setSavingTripForTx] = useState<string | null>(null);
 
+  // Bulk selection/edit state — scoped to the current page only (see effect below)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkSaving, setBulkSaving] = useState<'category' | 'trip' | null>(null);
+
   const monthKey = (isoTime: string) => {
     const d = new Date(isoTime);
 
@@ -600,6 +605,14 @@ export default function ExpensesPage({
     return filteredTransactions.slice(start, end);
   }, [filteredTransactions, currentPage, itemsPerPage]);
 
+  // Header checkbox tri-state, based on how many of the current page's rows are selected
+  const pageSelectionState: boolean | 'indeterminate' = useMemo(() => {
+    if (paginatedTransactions.length === 0) return false;
+    const selectedCount = paginatedTransactions.filter((tx) => selectedIds.has(tx.id)).length;
+    if (selectedCount === 0) return false;
+    return selectedCount === paginatedTransactions.length ? true : 'indeterminate';
+  }, [paginatedTransactions, selectedIds]);
+
   // Extract unique categories and cards for filter dropdowns
   const categoryOptions = useMemo(() => {
     const options = categories.map(cat => ({
@@ -649,6 +662,11 @@ export default function ExpensesPage({
   useEffect(() => {
     setCurrentPage(1);
   }, [filters]);
+
+  // Selection is scoped to the current page — clear it on page or filter changes
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [currentPage, filters]);
 
   // Check if any filters are active
   const hasActiveFilters = useMemo(() => {
@@ -761,6 +779,66 @@ export default function ExpensesPage({
       toast.error(t.updateCategoryFailed);
     } finally {
       setSavingCategoryForTx(null);
+    }
+  };
+
+  const toggleSelectAllOnPage = () => {
+    setSelectedIds((prev) => {
+      const allSelected = paginatedTransactions.length > 0 && paginatedTransactions.every((tx) => prev.has(tx.id));
+      return allSelected ? new Set() : new Set(paginatedTransactions.map((tx) => tx.id));
+    });
+  };
+
+  const toggleSelectRow = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const applyBulkUpdate = (updated: MonoTxn[]) => {
+    const byId = new Map(updated.map((tx) => [tx.id, tx]));
+    setTxns((prev) => prev.map((tx) => byId.get(tx.id) ?? tx));
+  };
+
+  const handleBulkCategoryChange = async (newCategoryId: string) => {
+    const ids = Array.from(selectedIds);
+    setBulkSaving('category');
+    try {
+      const updated = await transactionsApi.bulkUpdate(ids, {
+        categoryId: newCategoryId === "none" ? null : newCategoryId,
+      });
+      applyBulkUpdate(updated);
+      track('transaction_categorized', { method: 'bulk_table', assigned: newCategoryId !== 'none', count: ids.length });
+      toast.success(tf(t.transactionsBulkUpdated, { n: ids.length }));
+      setSelectedIds(new Set());
+    } catch {
+      toast.error(t.bulkUpdateFailed);
+    } finally {
+      setBulkSaving(null);
+    }
+  };
+
+  const handleBulkTripChange = async (newTripId: string) => {
+    const ids = Array.from(selectedIds);
+    setBulkSaving('trip');
+    try {
+      const updated = await transactionsApi.bulkUpdate(ids, {
+        tripId: newTripId === "none" ? null : newTripId,
+      });
+      applyBulkUpdate(updated);
+      track('transaction_trip_assigned', { method: 'bulk_table', assigned: newTripId !== 'none', count: ids.length });
+      toast.success(tf(t.transactionsBulkUpdated, { n: ids.length }));
+      setSelectedIds(new Set());
+    } catch {
+      toast.error(t.bulkUpdateFailed);
+    } finally {
+      setBulkSaving(null);
     }
   };
 
@@ -1005,11 +1083,80 @@ export default function ExpensesPage({
                   </Card>
                 </div>
 
+                {/* Bulk action bar */}
+                {selectedIds.size > 0 && (
+                  <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2">
+                    <span className="text-sm font-medium">
+                      {tf(t.selectedCount, { n: selectedIds.size })}
+                    </span>
+                    <Select
+                      value=""
+                      onValueChange={handleBulkCategoryChange}
+                      disabled={bulkSaving !== null}
+                    >
+                      <SelectTrigger size="sm" className="w-[180px]">
+                        <SelectValue placeholder={t.bulkCategoryPlaceholder} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">
+                          <span className="text-muted-foreground">{t.noCategory}</span>
+                        </SelectItem>
+                        {categories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            <span className="flex items-center gap-2">
+                              <span>{cat.icon}</span>
+                              <span>{cat.name}</span>
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value=""
+                      onValueChange={handleBulkTripChange}
+                      disabled={bulkSaving !== null}
+                    >
+                      <SelectTrigger size="sm" className="w-[180px]">
+                        <SelectValue placeholder={t.bulkTripPlaceholder} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">
+                          <span className="text-muted-foreground">{t.noTrip}</span>
+                        </SelectItem>
+                        {activeTrips.map((trip) => (
+                          <SelectItem key={trip.id} value={trip.id}>
+                            <span className="flex items-center gap-2">
+                              <span>{trip.icon}</span>
+                              <span>{trip.name}</span>
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {bulkSaving && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedIds(new Set())}
+                      disabled={bulkSaving !== null}
+                    >
+                      {t.clearSelection}
+                    </Button>
+                  </div>
+                )}
+
                 {/* Table */}
                 <div className="rounded-md border overflow-x-auto">
                   <Table className="min-w-[780px]">
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-10">
+                          <Checkbox
+                            checked={pageSelectionState}
+                            onCheckedChange={toggleSelectAllOnPage}
+                            aria-label={t.selectedCount}
+                          />
+                        </TableHead>
                         <SortableTableHead
                           column="name"
                           label="Name"
@@ -1050,6 +1197,7 @@ export default function ExpensesPage({
                       
                       {/* Filter Row */}
                       <TableRow>
+                        <TableHead />
                         <TableHead>
                           <Input
                             placeholder={t.filterNamePlaceholder}
@@ -1099,7 +1247,7 @@ export default function ExpensesPage({
                     <TableBody className={MASK}>
                       {paginatedTransactions.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                          <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                             {t.noTransactionsMatch}
                           </TableCell>
                         </TableRow>
@@ -1110,6 +1258,13 @@ export default function ExpensesPage({
                             className="cursor-pointer hover:bg-muted/50"
                             onClick={() => handleRowClick(tx)}
                           >
+                            <TableCell onClick={(e) => e.stopPropagation()}>
+                              <Checkbox
+                                checked={selectedIds.has(tx.id)}
+                                onCheckedChange={() => toggleSelectRow(tx.id)}
+                                aria-label={tx.description}
+                              />
+                            </TableCell>
                             <TableCell className="font-medium">
                               {tx.description}
                             </TableCell>
