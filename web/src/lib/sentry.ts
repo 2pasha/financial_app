@@ -15,6 +15,13 @@ export function initSentry() {
     return;
   }
 
+  // A local build stays silent unless you deliberately opt in, so errors and
+  // replays from day-to-day development never reach the production project.
+  if (!import.meta.env.PROD && import.meta.env.VITE_SENTRY_DEBUG !== 'true') {
+    console.info('[Sentry] Disabled outside production. Set VITE_SENTRY_DEBUG=true to override.');
+    return;
+  }
+
   Sentry.init({
     dsn,
     integrations: [
